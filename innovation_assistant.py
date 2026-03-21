@@ -13,12 +13,15 @@ import io
 from datetime import datetime
 
 # Load API key — Streamlit secrets take priority, fallback to hardcoded for local dev
-ANTHROPIC_KEY = "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"
-if hasattr(st, "secrets") and "ANTHROPIC_API_KEY" in st.secrets:
-    ANTHROPIC_KEY = str(st.secrets["ANTHROPIC_API_KEY"]).strip()
-TAVILY_KEY    = ""  # optional
+TAVILY_KEY = ""  # optional
 
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="⚙️", layout="centered")
+
+# ── API key — secrets for deployment, hardcoded fallback for local ────────────
+try:
+    ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
+except Exception:
+    ANTHROPIC_KEY = "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"
 
 # ── Scroll to top on every page load ─────────────────────────
 # ── Styling ───────────────────────────────────────────────────
