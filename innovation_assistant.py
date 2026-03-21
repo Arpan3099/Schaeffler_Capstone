@@ -21,7 +21,7 @@ st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="⚙�
 try:
     ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
 except Exception:
-    ANTHROPIC_KEY = "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"
+    ANTHROPIC_KEY = "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"
 
 # ── Scroll to top on every page load ─────────────────────────
 # ── Styling ───────────────────────────────────────────────────
@@ -1170,7 +1170,7 @@ Return ONLY valid JSON:
         st.markdown("---")
         if proceed:
             st.success("✓ This idea qualifies for the full Innovation pipeline.")
-            if st.button("Continue to Stage 02: Market Intelligence →", type="primary"):
+            if st.button("Continue to Stage 02: Market Intelligence →", type="primary", key="s1_continue"):
                 st.session_state.active_stage = 2
                 st.rerun()
 
@@ -1201,7 +1201,7 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
                     st.markdown(reply)
                     st.session_state.s1_chat.append({"role":"assistant","content":reply})
 
-        if st.button("← Start over"):
+        if st.button("← Start over", key="s1_startover"):
             for k in ["s1_step","s1_idea","s1_questions","s1_answers","s1_classification","s1_chat"]:
                 st.session_state[k] = defaults[k]
             st.rerun()
@@ -1406,11 +1406,11 @@ Return ONLY valid JSON:
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
         st.success(f"✓ Market Intelligence complete. Final score: **{final}/10**")
-        if st.button("Continue to Stage 03: Patent Intelligence →", type="primary"):
+        if st.button("Continue to Stage 03: Patent Intelligence →", type="primary", key="s2_continue"):
             st.session_state.active_stage = 3
             st.rerun()
 
-        if st.button("← Re-run analysis"):
+        if st.button("← Re-run analysis", key="s2_rerun"):
             st.session_state.s2_step = "intro"
             st.session_state.s2_data = {}
             st.session_state.s2_report_buf = None
@@ -1811,7 +1811,7 @@ Be specific and concise — 2-4 sentences."""
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
         st.success(f"✓ Patent Intelligence complete. Score: **{final}/10**")
-        if st.button("Continue to Stage 04: Technical Feasibility →", type="primary"):
+        if st.button("Continue to Stage 04: Technical Feasibility →", type="primary", key="s3_continue"):
             st.session_state.active_stage = 4
             st.rerun()
 
@@ -2219,7 +2219,7 @@ Be specific, reference evidence where relevant, keep to 3-4 sentences."""
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
         st.success(f"✓ Technical Feasibility complete. Score: **{final}/10**")
-        if st.button("Continue to Stage 05: Scoring & Synthesis →", type="primary"):
+        if st.button("Continue to Stage 05: Scoring & Synthesis →", type="primary", key="s4_continue"):
             st.session_state.active_stage = 5
             st.rerun()
 
@@ -2261,7 +2261,7 @@ elif st.session_state.active_stage == 5:
         if not s4_done: missing.append("Stage 04: Technical Feasibility")
         for m in missing:
             st.markdown(f"- ⬜ {m}")
-        if st.button("← Back"):
+        if st.button("← Back", key="s5_back2"):
             st.session_state.active_stage = 4
             st.rerun()
         st.stop()
@@ -2585,7 +2585,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text:
             st.session_state.s5_mockup_image = None
 
         if st.session_state.s5_mockup_image is None:
-            if st.button("🖼️ Generate Solution Image", type="secondary"):
+            if st.button("🖼️ Generate Solution Image", type="secondary", key="s5_image"):
                 with st.spinner("Generating image — this takes 10–20 seconds..."):
                     try:
                         # Step 1: Claude writes a precise image prompt
@@ -2624,7 +2624,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text:
         else:
             st.image(st.session_state.s5_mockup_image, use_container_width=True)
             st.caption(f"Prompt used: {st.session_state.get('s5_mockup_prompt_used','')}")
-            if st.button("🔄 Generate different image"):
+            if st.button("🔄 Generate different image", key="s5_image_redo"):
                 st.session_state.s5_mockup_image = None
                 st.session_state.s5_mockup_prompt_used = None
                 st.rerun()
@@ -2688,7 +2688,7 @@ Be direct and specific. Reference Schaeffler's context where relevant. 3-4 sente
 
         # ── Re-run with different weights ─────────────────────
         st.markdown("---")
-        if st.button("← Adjust weights and re-run"):
+        if st.button("← Adjust weights and re-run", key="s5_rerun"):
             st.session_state.s5_step = "intro"
             st.session_state.s5_data = {}
             st.session_state.s5_chat = []
