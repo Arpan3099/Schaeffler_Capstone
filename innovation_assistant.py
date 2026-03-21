@@ -12,11 +12,10 @@ from docx.oxml import OxmlElement
 import io
 from datetime import datetime
 
-# Load API key from Streamlit secrets (deployment) or fallback to hardcoded (local)
-try:
-    ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
-except Exception:
-    ANTHROPIC_KEY = "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"
+# Load API key — Streamlit secrets take priority, fallback to hardcoded for local dev
+ANTHROPIC_KEY = "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"
+if hasattr(st, "secrets") and "ANTHROPIC_API_KEY" in st.secrets:
+    ANTHROPIC_KEY = str(st.secrets["ANTHROPIC_API_KEY"]).strip()
 TAVILY_KEY    = ""  # optional
 
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="⚙️", layout="centered")
@@ -54,8 +53,12 @@ def call_claude(system, user, max_tokens=2000):
             )
             return msg.content[0].text
         except Exception as e:
-            if "overloaded" in str(e).lower() and attempt < 2:
+            err = str(e)
+            if "overloaded" in err.lower() and attempt < 2:
                 time.sleep(3)
+            elif "auth" in err.lower() or "api_key" in err.lower() or "401" in err:
+                st.error(f"API key error: {err}. Check your Streamlit secrets.")
+                st.stop()
             else:
                 raise e
 
