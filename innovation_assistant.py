@@ -12,7 +12,11 @@ from docx.oxml import OxmlElement
 import io
 from datetime import datetime
 
-ANTHROPIC_KEY = "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"
+# Load API key from Streamlit secrets (deployment) or fallback to hardcoded (local)
+try:
+    ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
+except Exception:
+    ANTHROPIC_KEY = "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"
 TAVILY_KEY    = ""  # optional
 
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="⚙️", layout="centered")
