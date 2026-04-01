@@ -1241,50 +1241,7 @@ Return ONLY valid JSON:
         else:
             emoji = "🔬" if quadrant == "RADICAL" else "🚀"
             st.success(f"{emoji} **{quadrant}** — {c.get('reasoning','')}")
-            st.caption(f"Tech axis: {c.get('tech_axis_level','')}  ·  Market axis: {c.get('market_axis_level','')}")
-
-        # ── Enriched classification details ──────────────────
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if c.get("trend_alignment"):
-                trends = " · ".join(c["trend_alignment"])
-                st.markdown(f"**Trend alignment:** {trends}")
-            if c.get("innovation_cluster"):
-                st.markdown(f"**Innovation cluster:** {c.get('innovation_cluster','')}")
-        with col_b:
-            if c.get("product_family"):
-                st.markdown(f"**Product family:** {c.get('product_family','')}")
-            if c.get("pipeline_route"):
-                route_col = "#22c55e" if "Innovation" in c.get("pipeline_route","") else "#60a5fa"
-                st.markdown(f'**Pipeline route:** <span style="color:{route_col};font-weight:600;">{c.get("pipeline_route","")}</span>', unsafe_allow_html=True)
-
-            # Product family, trends, pathway
-            col_pf, col_tr, col_pw = st.columns(3)
-            with col_pf:
-                pf = c.get("product_family","")
-                if pf:
-                    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:10px 12px;">
-<div style="color:#4a6fa5;font-size:10px;letter-spacing:1px;">PRODUCT FAMILY</div>
-<div style="color:#e2e8f0;font-size:13px;font-weight:600;margin-top:4px;">{pf}</div>
-</div>""", unsafe_allow_html=True)
-            with col_tr:
-                trends = c.get("trend_alignment",[])
-                if trends:
-                    trend_badges = " ".join([f'<span style="background:#1F3864;color:#60a5fa;font-size:10px;padding:2px 7px;border-radius:8px;margin:2px;display:inline-block;">{t}</span>' for t in trends])
-                    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:10px 12px;">
-<div style="color:#4a6fa5;font-size:10px;letter-spacing:1px;">TREND ALIGNMENT</div>
-<div style="margin-top:4px;">{trend_badges}</div>
-</div>""", unsafe_allow_html=True)
-            with col_pw:
-                pw = c.get("innovation_pathway","")
-                pw_r = c.get("pathway_rationale","")
-                if pw:
-                    pw_col = "#22c55e" if pw == "Start-Up Mode" else "#60a5fa" if pw == "Innovation Factory" else "#f59e0b"
-                    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:10px 12px;">
-<div style="color:#4a6fa5;font-size:10px;letter-spacing:1px;">PATHWAY</div>
-<div style="color:{pw_col};font-size:13px;font-weight:600;margin-top:4px;">{pw}</div>
-</div>""", unsafe_allow_html=True)
-                    st.caption(pw_r)
+            st.caption(f"Confidence: {c.get('confidence','')}")
 
         tech_score, market_score = get_dot_position(quadrant, c.get("confidence","Medium"))
         st.plotly_chart(ansoff_chart(quadrant, tech_score, market_score), use_container_width=True)
