@@ -154,7 +154,7 @@ with st.sidebar:
 
 # ── Ansoff chart helper ───────────────────────────────────────
 def ansoff_chart(quadrant, tech_score, market_score):
-    q_cols = {"EXPLOIT":"#1a2d45","EXTEND":"#1e3a5f","RADICAL":"#1F3864","DISRUPT":"#0d2137"}
+    q_cols = {"EXPLOIT":"#1a2d45","EXTEND":"#1e3a5f","RADICAL":"#1F3864","DISRUPT":"#0d2137","DISRUPTIVE":"#0d2137"}
     text_col = "#e2e8f0"; dim_col = "#4a6fa5"; grid_col = "#2a4a70"
 
     fig = go.Figure()
