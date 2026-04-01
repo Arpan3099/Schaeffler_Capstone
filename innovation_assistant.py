@@ -158,11 +158,23 @@ def ansoff_chart(quadrant, tech_score, market_score):
     text_col = "#e2e8f0"; dim_col = "#4a6fa5"; grid_col = "#2a4a70"
 
     fig = go.Figure()
+    # Schaeffler convention: X=Technology (left=Established, right=New)
+    #                        Y=Market (bottom=Established, top=New)
+    # EXPLOIT=bottom-left, EXTEND=top-left, DISRUPTIVE=bottom-right, RADICAL=top-right
+    # Schaeffler convention (from paper):
+    # X axis = Market (left=Established → right=New to the World)
+    # Y axis = Technology (bottom=Established → top=New to the World)
+    # EXPLOIT = bottom-left (existing tech, existing market)
+    # EXTEND  = top-left   (new tech, existing market) — Schaeffler calls this differently
+    # RADICAL = top-right  (new tech, new market) — appears top-right
+    # DISRUPTIVE = bottom-right (existing market novelty, new tech) 
+    # Per Lau 2023: EXPLOIT(low/low) EXTEND(low/high) RADICAL(high/high) DISRUPTIVE(high/low)
+    # X=Technology, Y=Market in paper. Radical+Disruptive on right side of X.
     for q in [
-        dict(x=[0,5,5,0],   y=[0,0,5,5],   name="EXPLOIT", lx=2.5, ly=2.5),
-        dict(x=[5,10,10,5], y=[0,0,5,5],   name="EXTEND",  lx=7.5, ly=2.5),
-        dict(x=[0,5,5,0],   y=[5,5,10,10], name="RADICAL", lx=2.5, ly=7.5),
-        dict(x=[5,10,10,5], y=[5,5,10,10], name="DISRUPT", lx=7.5, ly=7.5),
+        dict(x=[0,5,5,0],   y=[0,0,5,5],   name="EXPLOIT",    lx=2.5, ly=2.5),
+        dict(x=[0,5,5,0],   y=[5,5,10,10], name="EXTEND",     lx=2.5, ly=7.5),
+        dict(x=[5,10,10,5], y=[5,5,10,10], name="RADICAL",    lx=7.5, ly=7.5),
+        dict(x=[5,10,10,5], y=[0,0,5,5],   name="DISRUPTIVE", lx=7.5, ly=2.5),
     ]:
         fig.add_trace(go.Scatter(
             x=q["x"]+[q["x"][0]], y=q["y"]+[q["y"][0]],
@@ -177,7 +189,7 @@ def ansoff_chart(quadrant, tech_score, market_score):
     fig.add_shape(type="line",x0=5,x1=5,y0=0,y1=10,line=dict(color=grid_col,width=1.5,dash="dot"))
     fig.add_shape(type="line",x0=0,x1=10,y0=5,y1=5,line=dict(color=grid_col,width=1.5,dash="dot"))
 
-    # 4-level axis tick labels
+    # 4-level axis tick labels (X=Technology, Y=Market — Schaeffler convention)
     for x_pos, x_label in [(1.25,"Established"),(3.75,"Adjacent"),(6.25,"New to Schaeffler"),(8.75,"New to the World")]:
         fig.add_annotation(x=x_pos, y=-1.0, text=x_label, showarrow=False,
             font=dict(size=9, color=dim_col), textangle=0)
@@ -185,9 +197,9 @@ def ansoff_chart(quadrant, tech_score, market_score):
         fig.add_annotation(x=-1.3, y=y_pos, text=y_label, showarrow=False,
             font=dict(size=9, color=dim_col), textangle=-90)
     # Axis spine labels
-    fig.add_annotation(x=5, y=-1.8, text="← Market Dimension →", showarrow=False,
+    fig.add_annotation(x=5, y=-1.8, text="← Technology Dimension (Newness) →", showarrow=False,
         font=dict(size=10, color=text_col))
-    fig.add_annotation(x=-2.1, y=5, text="← Technology Dimension →", showarrow=False,
+    fig.add_annotation(x=-2.4, y=5, text="← Market Dimension (Newness) →", showarrow=False,
         font=dict(size=10, color=text_col), textangle=-90)
     # Dividing lines at each level boundary (2.5, 5, 7.5)
     for v in [2.5, 5.0, 7.5]:
@@ -197,7 +209,7 @@ def ansoff_chart(quadrant, tech_score, market_score):
             line=dict(color=grid_col, width=0.8, dash="dot"))
 
     fig.add_trace(go.Scatter(
-        x=[market_score], y=[tech_score], mode="markers+text",
+        x=[tech_score], y=[market_score], mode="markers+text",
         marker=dict(size=20, color=BLUE, line=dict(color="white",width=2)),
         text=["  Your idea"], textposition="middle right",
         textfont=dict(size=12,color="white",family="Arial Bold"),
@@ -207,23 +219,31 @@ def ansoff_chart(quadrant, tech_score, market_score):
     fig.update_layout(
         title=dict(text="Schaeffler Innovation Framework — Modified Ansoff Matrix",
                    font=dict(size=13,color=text_col),x=0.5),
-        xaxis=dict(range=[-1.4,11],showticklabels=False,showgrid=False,zeroline=False,
-                   title="← Market Dimension →",title_font=dict(size=11,color=dim_col)),
-        yaxis=dict(range=[-1.4,11],showticklabels=False,showgrid=False,zeroline=False,
-                   title="← Technology Dimension →",title_font=dict(size=11,color=dim_col)),
+        xaxis=dict(range=[-1.6,11],showticklabels=False,showgrid=False,zeroline=False,
+                   title="Technology Dimension →",title_font=dict(size=11,color=dim_col)),
+        yaxis=dict(range=[-1.6,11],showticklabels=False,showgrid=False,zeroline=False,
+                   title="Market Dimension →",title_font=dict(size=11,color=dim_col)),
         plot_bgcolor=BG, paper_bgcolor=BG, height=420,
         margin=dict(l=90,r=30,t=50,b=70), font=dict(color=text_col)
     )
     return fig
 
 def get_dot_position(quadrant, confidence):
-    base = {"EXPLOIT":(2.5,2.5),"EXTEND":(2.5,7.5),"RADICAL":(7.5,2.5),"DISRUPT":(7.5,7.5)}
+    # X=Technology, Y=Market (Schaeffler convention)
+    # base = (tech_x, market_y)
+    base = {
+        "EXPLOIT":    (2.5, 2.5),   # low tech, low market  — bottom-left
+        "EXTEND":     (2.5, 7.5),   # low tech, high market — top-left
+        "RADICAL":    (7.5, 7.5),   # high tech, high market — top-right
+        "DISRUPTIVE": (7.5, 2.5),   # high tech, low market — bottom-right
+        "DISRUPT":    (7.5, 2.5),   # alias
+    }
     nudge = {"High":1.5,"Medium":1.0,"Low":0.5}.get(confidence,1.0)
     t, m = base.get(quadrant,(5,5))
-    if quadrant=="EXPLOIT":   t-=nudge; m-=nudge
-    elif quadrant=="EXTEND":  t-=nudge; m+=nudge
-    elif quadrant=="RADICAL": t+=nudge; m-=nudge
-    elif quadrant=="DISRUPT": t+=nudge; m+=nudge
+    if quadrant in ("EXPLOIT",):      t-=nudge; m-=nudge
+    elif quadrant in ("EXTEND",):     t-=nudge; m+=nudge
+    elif quadrant in ("RADICAL",):    t+=nudge; m+=nudge
+    elif quadrant in ("DISRUPTIVE","DISRUPT"): t+=nudge; m-=nudge
     return round(max(0.5,min(9.5,t)),1), round(max(0.5,min(9.5,m)),1)
 
 # ════════════════════════════════════════════════════════════
@@ -1033,20 +1053,24 @@ def generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, 
 
     # ── Risks & recommendations ───────────────────────────────
     h1(doc,"Risks & Mitigations")
-    risks_list = synthesis.get("risks", ext.get("risks", []))
-    for risk in risks_list: bul(doc, risk)
+    risks_list = synthesis.get("risks", [])
     if not risks_list:
-        bul(doc, f"IP risk level: {ansoff_d.get('ip_risk','Medium')} — conduct freedom-to-operate analysis before committing R&D budget")
-        bul(doc, f"Technical readiness at TRL {trl.get('trl_level',3)} — further development required before production readiness")
-        bul(doc, "Market timing — validate demand with target customers before scaling investment")
+        risks_list = [
+            f"IP risk level: {ansoff_d.get('ip_risk','Medium')} — conduct freedom-to-operate analysis before committing R&D budget",
+            f"Technical readiness at TRL {trl.get('trl_level',3)} — further development required before production readiness",
+            "Market timing risk — validate demand with target customers before scaling investment"
+        ]
+    for risk in risks_list: bul(doc, risk)
     h1(doc,"Recommendations")
-    recs_list = synthesis.get("next_steps", ext.get("recommendations", []))
-    for rec in recs_list: bul(doc, rec)
+    recs_list = synthesis.get("next_steps", [])
     if not recs_list:
-        bul(doc, "Commission internal engineering feasibility review within 30 days")
-        bul(doc, "Conduct freedom-to-operate IP analysis with Schaeffler patent team")
-        bul(doc, f"Identify pilot customer in {', '.join(sectors.get('primary_sectors', ['target sector'])[:1])} for co-development")
-        bul(doc, "Present to Innovation steering committee with this report as supporting material")
+        recs_list = [
+            "Commission internal engineering feasibility review within 30 days",
+            "Conduct freedom-to-operate IP analysis with Schaeffler patent team",
+            f"Identify pilot customer in {', '.join(sectors.get('primary_sectors', ['target sector'])[:1])} for co-development",
+            "Present to Innovation steering committee with this report as supporting material"
+        ]
+    for rec in recs_list: bul(doc, rec)
 
     # ── Footer ────────────────────────────────────────────────
     doc.add_paragraph()
@@ -1371,7 +1395,7 @@ RULES: Every data point MUST include [Source: Org, Year]. Use only credible sour
 Return ONLY valid JSON:
 {"market_name":"string","market_size_2024":"value [Source: X, Y]","market_size_2030":"value [Source: X, Y]",
 "cagr":"% [Source: X, Y]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
-"geographic_focus":"string","market_score":0-10,"market_score_rationale":"2 sentences"}"""
+"geographic_focus":"string","market_score":integer 1-10 (9-10=large fast-growing >$10bn/>15%CAGR; 7-8=strong $2-10bn/8-15%; 5-6=moderate; 3-4=niche; 1-2=tiny or declining),"market_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}")
             market = json.loads(raw.strip().replace("```json","").replace("```","").strip())
@@ -1385,7 +1409,7 @@ Return ONLY valid JSON:
 Every company must have a source. Return ONLY valid JSON:
 {"competitors":[{"name":"string","type":"Incumbent/Startup/Research","relevance":"one sentence","source":"Source: X, Y"}],
 "competitive_intensity":"Low/Medium/High/Very High","white_space":"one sentence","schaeffler_advantage":"one sentence",
-"competition_score":0-10,"competition_score_rationale":"2 sentences"}"""
+"competition_score":integer 1-10 openness (9-10=very open/few players; 7-8=some room; 5-6=moderate; 3-4=crowded; 1-2=saturated),"competition_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}{web_ctx}")
             comp = json.loads(raw.strip().replace("```json","").replace("```","").strip())
@@ -1400,7 +1424,8 @@ Clusters: Passenger Cars, Commercial Vehicles, Industrial Machinery, Rail, Aeros
 0-2=No relevance, 3-4=Low, 5-6=Moderate, 7-8=High, 9-10=Primary target.
 Return ONLY valid JSON:
 {"sector_scores":{"Passenger Cars":{"score":0-10,"rationale":"one sentence"},"Commercial Vehicles":{"score":0-10,"rationale":"one sentence"},"Industrial Machinery":{"score":0-10,"rationale":"one sentence"},"Rail":{"score":0-10,"rationale":"one sentence"},"Aerospace":{"score":0-10,"rationale":"one sentence"},"Two-Wheelers":{"score":0-10,"rationale":"one sentence"},"Construction & Agriculture":{"score":0-10,"rationale":"one sentence"},"Medical Equipment":{"score":0-10,"rationale":"one sentence"},"Conventional Energy":{"score":0-10,"rationale":"one sentence"},"Renewable Energy":{"score":0-10,"rationale":"one sentence"}},
-"primary_sectors":["top 2-3"],"sector_fit_score":0-10,"sector_fit_rationale":"2 sentences"}"""
+"primary_sectors":["top 2-3 sector names"],"sector_fit_score":0-10,"sector_fit_rationale":"2 sentences"}
+Sector fit score rubric: Average the top 3 sector scores. If primary sector scores 9-10 = sector_fit 9-10; if 7-8 = 7-8; etc."""
         try:
             raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}")
             sectors = json.loads(raw.strip().replace("```json","").replace("```","").strip())
@@ -1621,6 +1646,7 @@ Return ONLY valid JSON:
   "activity_level": "Low / Moderate / High / Very High",
   "filing_trend": "Increasing / Stable / Decreasing",
   "filing_trend_rationale": "one sentence",
+  "patent_landscape_score": integer 1-10 (9-10=very open; 7-8=some activity/clear gaps; 5-6=moderate density; 3-4=dense; 1-2=saturated),
   "key_filers": [
     {
       "company": "company name",
@@ -1632,7 +1658,7 @@ Return ONLY valid JSON:
     }
   ],
   "white_spaces": ["white space opportunity 1", "white space opportunity 2", "white space opportunity 3"],
-  "patent_landscape_score": 0-10
+  "patent_landscape_score": integer 1-10 for landscape openness. Use: 9-10=very few filings, open territory; 7-8=some activity but clear gaps; 5-6=moderate filing density; 3-4=dense filing landscape; 1-2=saturated with patents by large incumbents
 }"""
 
         try:
@@ -1848,10 +1874,10 @@ Return ONLY valid JSON:
 
         # Axis labels
         for ann in [
-            dict(x=2.5,y=-0.9,text="Existing Market",angle=0),
-            dict(x=7.5,y=-0.9,text="New Market",angle=0),
-            dict(x=-1.1,y=2.5,text="Existing Tech",angle=-90),
-            dict(x=-1.1,y=7.5,text="New Tech",angle=-90),
+            dict(x=2.5,y=-0.9,text="Established Tech",angle=0),
+            dict(x=7.5,y=-0.9,text="New Tech",angle=0),
+            dict(x=-1.1,y=2.5,text="Established Market",angle=-90),
+            dict(x=-1.1,y=7.5,text="New Market",angle=-90),
         ]:
             fig.add_annotation(x=ann["x"],y=ann["y"],text=ann["text"],
                 showarrow=False,font=dict(size=10,color="#e2e8f0"),textangle=ann["angle"])
@@ -1859,9 +1885,9 @@ Return ONLY valid JSON:
         fig.update_layout(
             plot_bgcolor=BG, paper_bgcolor=BG, height=460,
             xaxis=dict(range=[-1.5,12],showticklabels=False,showgrid=False,zeroline=False,
-                      title="← Market Dimension →",title_font=dict(size=11,color=DIM)),
+                      title="Technology Dimension →",title_font=dict(size=11,color=DIM)),
             yaxis=dict(range=[-1.5,11],showticklabels=False,showgrid=False,zeroline=False,
-                      title="← Technology Dimension →",title_font=dict(size=11,color=DIM)),
+                      title="Market Dimension →",title_font=dict(size=11,color=DIM)),
             margin=dict(l=70,r=20,t=20,b=55), font=dict(color=WHITE)
         )
         st.plotly_chart(fig, use_container_width=True)
@@ -2096,7 +2122,7 @@ Return ONLY valid JSON:
     {"risk": "technical risk description", "severity": "High/Medium/Low", "mitigation": "one sentence"}
   ],
   "analogous_schaeffler_technologies": "one sentence on which of Schaeffler's 8 Motion Product Families (Guide Motion/Transmit Motion/Control Motion/Generate Motion/Power Motion/Drive Motion/Energize Motion/Sustain Motion) this technology is closest to",
-  "trl_score": 0-10
+  "trl_score": integer 1-10 mapped directly from TRL level. TRL1=1, TRL2=2, TRL3=3.5, TRL4=5, TRL5=6, TRL6=7, TRL7=8, TRL8=9, TRL9=10
 }"""
 
         try:
@@ -2619,10 +2645,10 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
     # ── Results ───────────────────────────────────────────────
     elif st.session_state.s5_step == "done":
         d         = st.session_state.s5_data
-        ipi       = d["ipi"]
-        weights   = d["weights"]
-        synthesis = d["synthesis"]
-        scores    = d["scores"]
+        ipi       = d.get("ipi", 0)
+        weights   = d.get("weights", {"market":40,"patent":30,"feasibility":30})
+        synthesis = d.get("synthesis", {})
+        scores    = d.get("scores", {"market":5,"patent":5,"feasibility":5})
 
         rec = synthesis.get("recommendation","PROCEED WITH CONDITIONS")
         rec_colours = {
