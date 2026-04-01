@@ -177,14 +177,24 @@ def ansoff_chart(quadrant, tech_score, market_score):
     fig.add_shape(type="line",x0=5,x1=5,y0=0,y1=10,line=dict(color=grid_col,width=1.5,dash="dot"))
     fig.add_shape(type="line",x0=0,x1=10,y0=5,y1=5,line=dict(color=grid_col,width=1.5,dash="dot"))
 
-    for ann in [
-        dict(x=2.5,y=-0.8,text="Existing Market",angle=0),
-        dict(x=7.5,y=-0.8,text="New Market",angle=0),
-        dict(x=-1.0,y=2.5,text="Existing<br>Technology",angle=-90),
-        dict(x=-1.0,y=7.5,text="New<br>Technology",angle=-90),
-    ]:
-        fig.add_annotation(x=ann["x"],y=ann["y"],text=ann["text"],
-            showarrow=False,font=dict(size=11,color=text_col),textangle=ann["angle"])
+    # 4-level axis tick labels
+    for x_pos, x_label in [(1.25,"Established"),(3.75,"Adjacent"),(6.25,"New to Schaeffler"),(8.75,"New to the World")]:
+        fig.add_annotation(x=x_pos, y=-1.0, text=x_label, showarrow=False,
+            font=dict(size=9, color=dim_col), textangle=0)
+    for y_pos, y_label in [(1.25,"Established"),(3.75,"Adjacent"),(6.25,"New to Schaeffler"),(8.75,"New to the World")]:
+        fig.add_annotation(x=-1.3, y=y_pos, text=y_label, showarrow=False,
+            font=dict(size=9, color=dim_col), textangle=-90)
+    # Axis spine labels
+    fig.add_annotation(x=5, y=-1.8, text="← Market Dimension →", showarrow=False,
+        font=dict(size=10, color=text_col))
+    fig.add_annotation(x=-2.1, y=5, text="← Technology Dimension →", showarrow=False,
+        font=dict(size=10, color=text_col), textangle=-90)
+    # Dividing lines at each level boundary (2.5, 5, 7.5)
+    for v in [2.5, 5.0, 7.5]:
+        fig.add_shape(type="line", x0=v, x1=v, y0=0, y1=10,
+            line=dict(color=grid_col, width=0.8, dash="dot"))
+        fig.add_shape(type="line", x0=0, x1=10, y0=v, y1=v,
+            line=dict(color=grid_col, width=0.8, dash="dot"))
 
     fig.add_trace(go.Scatter(
         x=[market_score], y=[tech_score], mode="markers+text",
@@ -202,7 +212,7 @@ def ansoff_chart(quadrant, tech_score, market_score):
         yaxis=dict(range=[-1.4,11],showticklabels=False,showgrid=False,zeroline=False,
                    title="← Technology Dimension →",title_font=dict(size=11,color=dim_col)),
         plot_bgcolor=BG, paper_bgcolor=BG, height=420,
-        margin=dict(l=70,r=30,t=50,b=55), font=dict(color=text_col)
+        margin=dict(l=90,r=30,t=50,b=70), font=dict(color=text_col)
     )
     return fig
 
@@ -1023,9 +1033,20 @@ def generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, 
 
     # ── Risks & recommendations ───────────────────────────────
     h1(doc,"Risks & Mitigations")
-    for risk in ext.get("risks",[]): bul(doc,risk)
+    risks_list = synthesis.get("risks", ext.get("risks", []))
+    for risk in risks_list: bul(doc, risk)
+    if not risks_list:
+        bul(doc, f"IP risk level: {ansoff_d.get('ip_risk','Medium')} — conduct freedom-to-operate analysis before committing R&D budget")
+        bul(doc, f"Technical readiness at TRL {trl.get('trl_level',3)} — further development required before production readiness")
+        bul(doc, "Market timing — validate demand with target customers before scaling investment")
     h1(doc,"Recommendations")
-    for rec in ext.get("recommendations",[]): bul(doc,rec)
+    recs_list = synthesis.get("next_steps", ext.get("recommendations", []))
+    for rec in recs_list: bul(doc, rec)
+    if not recs_list:
+        bul(doc, "Commission internal engineering feasibility review within 30 days")
+        bul(doc, "Conduct freedom-to-operate IP analysis with Schaeffler patent team")
+        bul(doc, f"Identify pilot customer in {', '.join(sectors.get('primary_sectors', ['target sector'])[:1])} for co-development")
+        bul(doc, "Present to Innovation steering committee with this report as supporting material")
 
     # ── Footer ────────────────────────────────────────────────
     doc.add_paragraph()
@@ -1042,7 +1063,11 @@ def generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, 
 
 if st.session_state.active_stage == 1:
     st.markdown("## Stage 01 · Quadrant Classifier")
-    st.markdown("Classifying your idea against Schaeffler's innovation framework.")
+    st.markdown("""<div style="background:#1a2d45;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Maps your idea onto Schaeffler's modified Ansoff matrix — Exploit, Extend, Radical, or Disrupt. Ideas in Radical and Disrupt proceed through the full pipeline. Others are redirected to the right Schaeffler product division.</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Quadrant classification · Schaeffler Motion product family fit · Strategic trend alignment · Innovation pathway (Start-Up Mode vs Innovation Factory)</div>
+</div>""", unsafe_allow_html=True)
     st.markdown("---")
 
     # Step 1 — Input
@@ -1118,19 +1143,55 @@ if st.session_state.active_stage == 1:
             q = st.session_state.s1_questions
             a = st.session_state.s1_answers
             system = """You are a senior innovation strategist at Schaeffler Group.
-Classify using Schaeffler's modified Ansoff matrix:
-EXPLOIT — Existing technology, existing market → Product Development
-EXTEND  — Existing technology, new market → Product Development
-RADICAL — New technology, existing market → Innovation pipeline
-DISRUPT — New technology, new market → Innovation pipeline
+Classify using Schaeffler's Modified Innovation Matrix (Lau et al., ISPIM 2023).
 
-For EXPLOIT/EXTEND, name the relevant Schaeffler division:
+The matrix uses 4 levels on BOTH axes (NOT a simple 2x2):
+- Technology axis: Established → Adjacent → New to Schaeffler → New to the World
+- Market axis: Established → Adjacent → New to Schaeffler → New to the World
+
+Four quadrants (each spanning 2 levels in each direction):
+EXPLOIT    — Established/Adjacent tech + Established/Adjacent market → Product Development
+EXTEND     — Established/Adjacent tech + New to Schaeffler/World market → Product Development
+RADICAL    — New to Schaeffler/World tech + Established/Adjacent market → Innovation pipeline
+DISRUPTIVE — New to Schaeffler/World tech + New to Schaeffler/World market → Innovation pipeline
+
+For EXPLOIT/EXTEND: name the relevant Schaeffler product division:
 E-Mobility / Powertrain & Chassis / Vehicle Lifetime Solutions / Bearings & Industrial Solutions
 
+For RADICAL/DISRUPTIVE: also assign:
+- innovation_cluster: most relevant of Schaeffler's 8 clusters from Lau et al. 2023:
+  Energy Solutions, Material Solutions, Mobility Solutions, E-Drive Solutions,
+  Robotics Solutions, Digital Solutions, Advanced Manufacturing, New Production Concepts
+- trend_alignment: 1-2 of Schaeffler's 5 strategic trends (Lau 2023):
+  Sustainability & Climate Change, New Mobility & Electrification,
+  Autonomous Production, Data Economy & Digitalization, Demographic Change
+- product_family: most relevant of Schaeffler's 8 Motion Product Families (Enders 2026):
+  Guide Motion, Transmit Motion, Control Motion, Generate Motion,
+  Power Motion, Drive Motion, Energize Motion, Sustain Motion
+- project_type: FIP (Research & Innovation Project — high uncertainty, long horizon)
+  or VEP (Advanced Development Project — technology partially validated)
+- innovation_model: Integrated (SHARE network — internal) or Accelerator (open innovation — external partners)
+- technology_level: exact level on the axis (Established/Adjacent/New to Schaeffler/New to the World)
+- market_level: exact level on the axis (Established/Adjacent/New to Schaeffler/New to the World)
+
 Return ONLY valid JSON:
-{"quadrant":"RADICAL/DISRUPT/EXPLOIT/EXTEND","confidence":"High/Medium/Low",
-"reasoning":"2-3 sentences","technology_novelty":"one sentence","market_position":"one sentence",
-"proceed":true/false,"schaeffler_division":"division or empty","redirect_message":"one sentence if redirected else empty"}"""
+{
+  "quadrant":"RADICAL/DISRUPTIVE/EXPLOIT/EXTEND",
+  "confidence":"High/Medium/Low",
+  "technology_level":"one of the 4 axis levels",
+  "market_level":"one of the 4 axis levels",
+  "technology_novelty":"one sentence",
+  "market_position":"one sentence",
+  "reasoning":"2-3 sentences",
+  "proceed":true/false,
+  "schaeffler_division":"division name or empty string",
+  "redirect_message":"one sentence if EXPLOIT/EXTEND else empty string",
+  "innovation_cluster":"cluster name or empty string",
+  "trend_alignment":["trend 1","trend 2"],
+  "product_family":"Motion family name or empty string",
+  "project_type":"FIP or VEP or empty string",
+  "innovation_model":"Integrated or Accelerator or empty string"
+}"""
             try:
                 raw = call_claude(system, f"Idea: {st.session_state.s1_idea}\nQ: {q[0]} A: {a[0]}\nQ: {q[1]} A: {a[1]}\nQ: {q[2]} A: {a[2]}")
                 st.session_state.s1_classification = json.loads(raw.strip().replace("```json","").replace("```","").strip())
@@ -1156,10 +1217,67 @@ Return ONLY valid JSON:
         else:
             emoji = "🔬" if quadrant == "RADICAL" else "🚀"
             st.success(f"{emoji} **{quadrant}** — {c.get('reasoning','')}")
-            st.caption(f"Tech: {c.get('technology_novelty','')}  ·  Market: {c.get('market_position','')}")
+            st.caption(f"Tech axis: {c.get('tech_axis_level','')}  ·  Market axis: {c.get('market_axis_level','')}")
+
+        # ── Enriched classification details ──────────────────
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if c.get("trend_alignment"):
+                trends = " · ".join(c["trend_alignment"])
+                st.markdown(f"**Trend alignment:** {trends}")
+            if c.get("innovation_cluster"):
+                st.markdown(f"**Innovation cluster:** {c.get('innovation_cluster','')}")
+        with col_b:
+            if c.get("product_family"):
+                st.markdown(f"**Product family:** {c.get('product_family','')}")
+            if c.get("pipeline_route"):
+                route_col = "#22c55e" if "Innovation" in c.get("pipeline_route","") else "#60a5fa"
+                st.markdown(f'**Pipeline route:** <span style="color:{route_col};font-weight:600;">{c.get("pipeline_route","")}</span>', unsafe_allow_html=True)
+
+            # Product family, trends, pathway
+            col_pf, col_tr, col_pw = st.columns(3)
+            with col_pf:
+                pf = c.get("product_family","")
+                if pf:
+                    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:10px 12px;">
+<div style="color:#4a6fa5;font-size:10px;letter-spacing:1px;">PRODUCT FAMILY</div>
+<div style="color:#e2e8f0;font-size:13px;font-weight:600;margin-top:4px;">{pf}</div>
+</div>""", unsafe_allow_html=True)
+            with col_tr:
+                trends = c.get("trend_alignment",[])
+                if trends:
+                    trend_badges = " ".join([f'<span style="background:#1F3864;color:#60a5fa;font-size:10px;padding:2px 7px;border-radius:8px;margin:2px;display:inline-block;">{t}</span>' for t in trends])
+                    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:10px 12px;">
+<div style="color:#4a6fa5;font-size:10px;letter-spacing:1px;">TREND ALIGNMENT</div>
+<div style="margin-top:4px;">{trend_badges}</div>
+</div>""", unsafe_allow_html=True)
+            with col_pw:
+                pw = c.get("innovation_pathway","")
+                pw_r = c.get("pathway_rationale","")
+                if pw:
+                    pw_col = "#22c55e" if pw == "Start-Up Mode" else "#60a5fa" if pw == "Innovation Factory" else "#f59e0b"
+                    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:10px 12px;">
+<div style="color:#4a6fa5;font-size:10px;letter-spacing:1px;">PATHWAY</div>
+<div style="color:{pw_col};font-size:13px;font-weight:600;margin-top:4px;">{pw}</div>
+</div>""", unsafe_allow_html=True)
+                    st.caption(pw_r)
 
         tech_score, market_score = get_dot_position(quadrant, c.get("confidence","Medium"))
         st.plotly_chart(ansoff_chart(quadrant, tech_score, market_score), use_container_width=True)
+
+        # ── 4-level axis labels ───────────────────────────────
+        if proceed:
+            col_t, col_m = st.columns(2)
+            col_t.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#94a3b8;font-size:11px;letter-spacing:1px;">TECHNOLOGY LEVEL</div><div style="color:#60a5fa;font-size:14px;font-weight:600;">{c.get("technology_level","")}</div></div>', unsafe_allow_html=True)
+            col_m.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#94a3b8;font-size:11px;letter-spacing:1px;">MARKET LEVEL</div><div style="color:#60a5fa;font-size:14px;font-weight:600;">{c.get("market_level","")}</div></div>', unsafe_allow_html=True)
+            col_a, col_b, col_c = st.columns(3)
+            col_a.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">INNOVATION CLUSTER</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("innovation_cluster","")}</div></div>', unsafe_allow_html=True)
+            col_b.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">PRODUCT FAMILY</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("product_family","")}</div></div>', unsafe_allow_html=True)
+            col_c.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">TREND ALIGNMENT</div><div style="color:#e2e8f0;font-size:12px;margin-top:2px;">{", ".join(c.get("trend_alignment",[]))}</div></div>', unsafe_allow_html=True)
+            pipeline = c.get("pipeline_route","")
+            if pipeline:
+                route_col = "#22c55e" if "Integrated" in pipeline else "#60a5fa"
+                st.markdown(f'<div style="background:#0f1e35;border:1px solid {route_col}44;border-radius:6px;padding:8px 14px;margin:8px 0;"><span style="color:{route_col};font-size:12px;font-weight:600;">🔀 Pipeline route: {pipeline}</span></div>', unsafe_allow_html=True)
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Technology novelty", f"{tech_score} / 10")
@@ -1211,7 +1329,11 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 2:
     st.markdown("## Stage 02 · Market Intelligence")
-    st.markdown("Analysing market size, growth, competitive landscape, and Schaeffler sector cluster fit.")
+    st.markdown("""<div style="background:#1a2d45;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Analyses the commercial opportunity behind your idea — how big the market is, how fast it is growing, who the competitors are, and how well the idea fits across Schaeffler's 10 customer sector clusters.</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Market size & CAGR with sources · Sector cluster fit chart · Competitor landscape · Market Intelligence Score (0–10)</div>
+</div>""", unsafe_allow_html=True)
     st.markdown("---")
 
     idea     = st.session_state.s1_idea
@@ -1274,10 +1396,10 @@ Every company must have a source. Return ONLY valid JSON:
         status.markdown("🎯 Scoring Schaeffler sector clusters...")
         progress.progress(75)
         system_sectors = """You are a Schaeffler strategist. Score fit against Schaeffler's 10 sector clusters (0-10 each).
-Clusters: Automotive OEM, Industrial Automation, Wind Energy, Railway, Aerospace, Two-Wheeler, Agricultural Machinery, Power Generation, Medical, Marine.
+Clusters: Passenger Cars, Commercial Vehicles, Industrial Machinery, Rail, Aerospace, Two-Wheelers, Construction & Agriculture, Medical Equipment, Conventional Energy, Renewable Energy.
 0-2=No relevance, 3-4=Low, 5-6=Moderate, 7-8=High, 9-10=Primary target.
 Return ONLY valid JSON:
-{"sector_scores":{"Automotive OEM":{"score":0-10,"rationale":"one sentence"},...same for all 10...},
+{"sector_scores":{"Passenger Cars":{"score":0-10,"rationale":"one sentence"},"Commercial Vehicles":{"score":0-10,"rationale":"one sentence"},"Industrial Machinery":{"score":0-10,"rationale":"one sentence"},"Rail":{"score":0-10,"rationale":"one sentence"},"Aerospace":{"score":0-10,"rationale":"one sentence"},"Two-Wheelers":{"score":0-10,"rationale":"one sentence"},"Construction & Agriculture":{"score":0-10,"rationale":"one sentence"},"Medical Equipment":{"score":0-10,"rationale":"one sentence"},"Conventional Energy":{"score":0-10,"rationale":"one sentence"},"Renewable Energy":{"score":0-10,"rationale":"one sentence"}},
 "primary_sectors":["top 2-3"],"sector_fit_score":0-10,"sector_fit_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}")
@@ -1403,6 +1525,31 @@ Return ONLY valid JSON:
                 type="primary"
             )
 
+        # ── Chat ──────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("💬 Questions about the market analysis?")
+        for msg in st.session_state.s2_chat:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        user_q = st.chat_input("Ask about the market, sectors, competitors...")
+        if user_q:
+            st.session_state.s2_chat.append({"role":"user","content":user_q})
+            with st.chat_message("user"):
+                st.markdown(user_q)
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    ctx = f"""You are a senior market analyst discussing market intelligence results for a Schaeffler innovation idea.
+Idea: {idea} | Quadrant: {quadrant}
+Market: {market.get('market_name','')} | Size 2024: {market.get('market_size_2024','')} | CAGR: {market.get('cagr','')}
+Competitive intensity: {comp.get('competitive_intensity','')} | White space: {comp.get('white_space','')}
+Primary sectors (Schaeffler's 10 clusters): {', '.join(primary)} | Final score: {final}/10
+Be specific, cite sources where possible, 3-4 sentences max."""
+                    history = [{"role":m["role"],"content":m["content"]} for m in st.session_state.s2_chat]
+                    reply = call_claude_chat(ctx, history)
+                    st.markdown(reply)
+                    st.session_state.s2_chat.append({"role":"assistant","content":reply})
+
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
         st.success(f"✓ Market Intelligence complete. Final score: **{final}/10**")
@@ -1413,6 +1560,7 @@ Return ONLY valid JSON:
         if st.button("← Re-run analysis", key="s2_rerun"):
             st.session_state.s2_step = "intro"
             st.session_state.s2_data = {}
+            st.session_state.s2_chat = []
             st.session_state.s2_report_buf = None
             st.rerun()
 
@@ -1425,7 +1573,11 @@ Return ONLY valid JSON:
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 3:
     st.markdown("## Stage 03 · Patent Intelligence")
-    st.markdown("Mapping the external patent landscape, identifying key filers, and cross-checking against Schaeffler's IP position.")
+    st.markdown("""<div style="background:#1a2d45;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Maps the patent landscape for your idea's core technology — who is filing, whether they are competitors or potential customers, where the IP white spaces are, and how Schaeffler's existing patent portfolio relates to the idea.</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Patent Ansoff map with all key filers plotted · IP white spaces · Schaeffler IP gap analysis · Patent Intelligence Score (0–10)</div>
+</div>""", unsafe_allow_html=True)
     st.markdown("---")
 
     idea     = st.session_state.s1_idea
@@ -1829,7 +1981,11 @@ Be specific and concise — 2-4 sentences."""
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 4:
     st.markdown("## Stage 04 · Technical Feasibility")
-    st.markdown("Assessing whether this technology has been demonstrated anywhere — and how mature it is using a Schaeffler-adapted TRL framework.")
+    st.markdown("""<div style="background:#1a2d45;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Checks whether the core technology has actually been demonstrated anywhere — in labs, startups, pilots, or adjacent industries. Rates maturity using a Schaeffler-adapted version of NASA's TRL scale (1–9) and identifies the key technical risks to address.</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> TRL rating with rationale · Evidence from research & industry · Technology keyword map · Risk register · Feasibility Score (0–10)</div>
+</div>""", unsafe_allow_html=True)
     st.markdown("---")
 
     idea     = st.session_state.s1_idea
@@ -1939,7 +2095,7 @@ Return ONLY valid JSON:
     {"risk": "technical risk description", "severity": "High/Medium/Low", "mitigation": "one sentence"},
     {"risk": "technical risk description", "severity": "High/Medium/Low", "mitigation": "one sentence"}
   ],
-  "analogous_schaeffler_technologies": "one sentence on similar technologies Schaeffler has experience with",
+  "analogous_schaeffler_technologies": "one sentence on which of Schaeffler's 8 Motion Product Families (Guide Motion/Transmit Motion/Control Motion/Generate Motion/Power Motion/Drive Motion/Energize Motion/Sustain Motion) this technology is closest to",
   "trl_score": 0-10
 }"""
 
@@ -2237,7 +2393,11 @@ Be specific, reference evidence where relevant, keep to 3-4 sentences."""
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 5:
     st.markdown("## Stage 05 · Scoring & Synthesis")
-    st.markdown("Synthesising all four stages into a weighted Innovation Potential Index.")
+    st.markdown("""<div style="background:#1a2d45;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Combines scores from Stages 02, 03, and 04 into a single Innovation Potential Index (IPI). You set the weights. The assistant generates a final recommendation, strategic synthesis, and a downloadable master report covering the full pipeline analysis.</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Weighted IPI score · Radar chart · PROCEED / DEFER / REJECT recommendation · Strongest signals & concerns · Next steps · Full Innovation Assessment Report</div>
+</div>""", unsafe_allow_html=True)
     st.markdown("---")
 
     idea     = st.session_state.s1_idea
@@ -2351,6 +2511,11 @@ Idea: {idea}
 Quadrant: {quadrant}
 Innovation Potential Index: {ipi}/10
 
+Innovation Cluster: {st.session_state.s1_classification.get('innovation_cluster','')}
+Product Family: {st.session_state.s1_classification.get('product_family','')}
+Pipeline Route: {st.session_state.s1_classification.get('pipeline_route','')}
+Trend Alignment: {', '.join(st.session_state.s1_classification.get('trend_alignment',[]))}
+
 Stage 02 — Market Intelligence ({weights['market']}% weight): {market_score}/10
 - Market: {s2d.get('market',{}).get('market_name','')}
 - Size: {s2d.get('market',{}).get('market_size_2024','')}
@@ -2376,16 +2541,17 @@ Stage 04 — Technical Feasibility ({weights['feasibility']}% weight): {feasibil
 
         # ── Call 1: structured fields ─────────────────────────
         system_structured = """You are a senior Schaeffler innovation strategist.
-Return ONLY valid JSON with exactly these fields — no markdown, no extra text:
+Return ONLY valid JSON with exactly these fields — no markdown, no extra text, no trailing commas:
 {
-  "headline": "one punchy sentence summarising the overall verdict",
+  "headline": "one direct sentence summarising the overall verdict on this idea",
   "recommendation": "PROCEED or PROCEED WITH CONDITIONS or DEFER or REJECT",
-  "recommendation_rationale": "2-3 sentences explaining the recommendation",
-  "strongest_signals": ["specific positive signal 1", "specific positive signal 2", "specific positive signal 3"],
-  "key_concerns": ["specific concern 1", "specific concern 2", "specific concern 3"],
-  "conditions": ["specific condition 1 if applicable, else skip", "condition 2 if applicable"],
-  "strategic_fit": "2-3 sentences on fit with Schaeffler strategy — electrification, Vitesco merger, E-Mobility growth",
-  "next_steps": ["concrete action step 1", "concrete action step 2", "concrete action step 3", "concrete action step 4"]
+  "recommendation_rationale": "2-3 sentences explaining why this recommendation",
+  "strongest_signals": ["specific positive signal from the data 1", "specific positive signal 2", "specific positive signal 3"],
+  "key_concerns": ["specific concern from the data 1", "specific concern 2", "specific concern 3"],
+  "conditions": ["specific condition to meet before proceeding 1", "condition 2"],
+  "strategic_fit": "2-3 sentences on how this fits Schaeffler strategy — reference electrification transition, Vitesco merger, E-Mobility growth, and the specific product family and innovation cluster",
+  "risks": ["specific risk 1 with mitigation approach", "specific risk 2 with mitigation approach", "specific risk 3 with mitigation approach"],
+  "next_steps": ["concrete Schaeffler-specific action step 1", "concrete action step 2", "concrete action step 3", "concrete action step 4"]
 }"""
         raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
         raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
@@ -2413,6 +2579,11 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text:
                     "Validate technical feasibility with internal engineering team"
                 ],
                 "strategic_fit": f"This idea aligns with Schaeffler's {quadrant} innovation quadrant and targets {', '.join(s2d.get('sectors',{}).get('primary_sectors',[])[:2])} — sectors central to Schaeffler's post-Vitesco portfolio. The electrification transition creates urgency for exactly this type of innovation investment.",
+                "risks": [
+                    f"IP risk: {s3d.get('ansoff_data',{}).get('ip_risk','Medium')} — conduct freedom-to-operate analysis before R&D commitment",
+                    f"Technical maturity: TRL {s4d.get('trl',{}).get('trl_level',3)} — further development required before production readiness",
+                    "Market timing risk — validate demand with target customers before scaling investment"
+                ],
                 "next_steps": [
                     "Commission internal engineering feasibility review within 30 days",
                     "Conduct freedom-to-operate IP analysis with Schaeffler patent team",
