@@ -193,7 +193,7 @@ def ansoff_chart(quadrant, tech_score, market_score):
     for x_pos, x_label in [(1.25,"Established"),(3.75,"Adjacent"),(6.25,"New to Schaeffler"),(8.75,"New to the World")]:
         fig.add_annotation(x=x_pos, y=-1.0, text=x_label, showarrow=False,
             font=dict(size=9, color=dim_col), textangle=0)
-    for y_pos, y_label in [(1.25,"Established"),(3.75,"Adjacent"),(6.25,"New to Schaeffler"),(8.75,"New to the World")]:
+    for y_pos, y_label in [(1.25,"Established"),(3.75,"Adjacent"),(6.25,"New to\nSchaeffler"),(8.75,"New to\nthe World")]:
         fig.add_annotation(x=-1.3, y=y_pos, text=y_label, showarrow=False,
             font=dict(size=9, color=dim_col), textangle=-90)
     # Axis spine labels
@@ -224,7 +224,7 @@ def ansoff_chart(quadrant, tech_score, market_score):
         yaxis=dict(range=[-1.6,11],showticklabels=False,showgrid=False,zeroline=False,
                    title="Market Dimension →",title_font=dict(size=11,color=dim_col)),
         plot_bgcolor=BG, paper_bgcolor=BG, height=420,
-        margin=dict(l=90,r=30,t=50,b=70), font=dict(color=text_col)
+        margin=dict(l=110,r=30,t=50,b=70), font=dict(color=text_col)
     )
     return fig
 
@@ -1122,44 +1122,49 @@ if st.session_state.active_stage == 1:
                     st.session_state.s1_step = 2
                     st.rerun()
 
-    # Step 2 — Generate questions
-    if st.session_state.s1_step == 2 and not st.session_state.s1_questions:
-        with st.spinner("Preparing follow-up questions..."):
-            try:
-                raw = call_claude(
-                    "You are an innovation manager at Schaeffler. Ask exactly 3 sharp follow-up questions to classify an idea as EXPLOIT, EXTEND, RADICAL, or DISRUPT. Cover: technology novelty, target customer, core problem. Return ONLY a JSON array of 3 strings.",
-                    st.session_state.s1_idea
-                )
-                st.session_state.s1_questions = json.loads(raw.strip().replace("```json","").replace("```","").strip())
-            except:
-                st.session_state.s1_questions = [
-                    "Does this technology already exist anywhere, or is it genuinely new?",
-                    "Who is the primary customer — existing Schaeffler clients or a new market?",
-                    "What specific problem does it solve and for whom?"
-                ]
-        st.rerun()
-
-    # Step 2 — Show questions
-    if st.session_state.s1_step == 2 and st.session_state.s1_questions:
+    # Step 2 — Forced-choice enrichment (no Claude call needed — questions are fixed)
+    if st.session_state.s1_step == 2:
         st.markdown("---")
-        st.subheader("Step 2 — A few follow-up questions")
+        st.subheader("Step 2 — Three quick questions")
         st.info(f"**Your idea:** {st.session_state.s1_idea}")
+        st.caption("Select the best answer for each, then add any detail that helps.")
 
-        q = st.session_state.s1_questions
-        st.markdown(f"**1. {q[0]}**")
-        a1 = st.text_area("", key="a1", height=80)
-        st.markdown(f"**2. {q[1]}**")
-        a2 = st.text_area("", key="a2", height=80)
-        st.markdown(f"**3. {q[2]}**")
-        a3 = st.text_area("", key="a3", height=80)
+        # Q1 — Technology novelty
+        st.markdown("**1. Does this core technology exist anywhere today — in a lab, a startup, or a competitor product?**")
+        q1_choice = st.radio("", ["Yes, it exists somewhere", "No, it is genuinely new / theoretical"],
+                             key="q1_radio", label_visibility="collapsed")
+        q1_detail = st.text_input("Optional — where does it exist, or why is it new?", key="q1_detail",
+                                   placeholder="e.g. Siemens have a prototype, or 'no commercial demonstration found'")
+
+        st.markdown("---")
+        # Q2 — Market familiarity
+        st.markdown("**2. Is the target customer a market Schaeffler already sells into?**")
+        q2_choice = st.radio("", ["Yes, existing Schaeffler customer segment", "No, this is a new type of customer"],
+                             key="q2_radio", label_visibility="collapsed")
+        q2_detail = st.text_input("Optional — which segment, or what kind of new customer?", key="q2_detail",
+                                   placeholder="e.g. Passenger car OEMs, or 'consumer wearables — entirely new for Schaeffler'")
+
+        st.markdown("---")
+        # Q3 — Problem clarity
+        st.markdown("**3. Is the problem this idea solves already well understood by the industry?**")
+        q3_choice = st.radio("", ["Yes, it is a known problem with existing solutions", "No, the problem itself is new or not yet widely recognised"],
+                             key="q3_radio", label_visibility="collapsed")
+        q3_detail = st.text_input("Optional — describe the problem in one sentence", key="q3_detail",
+                                   placeholder="e.g. Bearing failure in EV drivetrains due to high-frequency current leakage")
 
         if st.button("Classify my idea →", type="primary"):
-            if not a1.strip() or not a2.strip() or not a3.strip():
-                st.warning("Please answer all three questions.")
-            else:
-                st.session_state.s1_answers = [a1, a2, a3]
-                st.session_state.s1_step = 3
-                st.rerun()
+            # Build structured answers from choices + optional detail
+            a1 = q1_choice + (f" — {q1_detail}" if q1_detail.strip() else "")
+            a2 = q2_choice + (f" — {q2_detail}" if q2_detail.strip() else "")
+            a3 = q3_choice + (f" — {q3_detail}" if q3_detail.strip() else "")
+            st.session_state.s1_questions = [
+                "Does this core technology exist anywhere today?",
+                "Is the target customer a market Schaeffler already sells into?",
+                "Is the problem this idea solves already well understood by the industry?"
+            ]
+            st.session_state.s1_answers = [a1, a2, a3]
+            st.session_state.s1_step = 3
+            st.rerun()
 
     # Step 3 — Classify
     if st.session_state.s1_step == 3 and not st.session_state.s1_classification:
@@ -1425,17 +1430,64 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
 
         # ── Market size ───────────────────────────────────────
         st.markdown("#### 📊 Market")
-        c1,c2,c3 = st.columns(3)
-        c1.metric("Size (2024)", market.get("market_size_2024","N/A").split("[")[0].strip())
-        c2.metric("Size (2030)", market.get("market_size_2030","N/A").split("[")[0].strip())
-        c3.metric("CAGR", market.get("cagr","N/A").split("[")[0].strip())
-        srcs = []
-        for field in ["market_size_2024","market_size_2030","cagr"]:
-            val = market.get(field,"")
-            if "[Source:" in val:
-                srcs.append(val[val.find("[Source:")+8:val.find("]",val.find("[Source:"))])
-        if srcs:
-            st.caption("Sources: " + "  ·  ".join(dict.fromkeys(srcs)))
+
+        def extract_value_and_sources(field_str):
+            """Return (display_value, [(source_name, url_or_none), ...])"""
+            if not field_str or field_str == "N/A":
+                return field_str, []
+            # Strip source annotation for display
+            val = field_str.split("[Source:")[0].strip().rstrip(",").strip()
+            sources = []
+            # Find all [Source: ...] blocks
+            import re
+            for m in re.finditer(r'\[Source:\s*([^\]]+)\]', field_str):
+                raw_src = m.group(1).strip()
+                sources.append(raw_src)
+            return val, sources
+
+        def render_source_links(sources):
+            """Render sources as markdown links where URLs are embedded, else plain text."""
+            if not sources:
+                return ""
+            parts = []
+            for s in sources:
+                # If source contains a URL pattern, linkify it
+                import re
+                url_match = re.search(r'https?://\S+', s)
+                if url_match:
+                    url = url_match.group(0).rstrip(')')
+                    label = s[:s.find('http')].strip().rstrip(',').strip() or url
+                    parts.append(f"[{label}]({url})")
+                else:
+                    parts.append(s)
+            return "  ·  ".join(parts)
+
+        size_2024_raw = market.get("market_size_2024", "N/A")
+        size_2030_raw = market.get("market_size_2030", "N/A")
+        cagr_raw      = market.get("cagr", "N/A")
+
+        val_2024, src_2024 = extract_value_and_sources(size_2024_raw)
+        val_2030, src_2030 = extract_value_and_sources(size_2030_raw)
+        val_cagr,  src_cagr  = extract_value_and_sources(cagr_raw)
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Size (2024)", val_2024)
+        c2.metric("Size (2030)", val_2030)
+        c3.metric("CAGR", val_cagr)
+
+        # Render source links per field
+        link_lines = []
+        if src_2024:
+            link_lines.append(f"**2024 size** — {render_source_links(src_2024)}")
+        if src_2030:
+            link_lines.append(f"**2030 projection** — {render_source_links(src_2030)}")
+        if src_cagr:
+            link_lines.append(f"**CAGR** — {render_source_links(src_cagr)}")
+        if link_lines:
+            with st.expander("Sources for market figures"):
+                for line in link_lines:
+                    st.markdown(f"- {line}")
+                st.caption("Figures shown as ranges where multiple sources differ. Verify independently before investment decisions.")
         col_l,col_r = st.columns(2)
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
         col_r.markdown(f"**Geography** · {market.get('geographic_focus','')}")
@@ -1751,11 +1803,66 @@ Return ONLY valid JSON:
 
         # ── Ansoff matrix with all filers plotted ─────────────
         st.markdown("#### 🗺️ Patent Position Map — Schaeffler Ansoff Matrix")
-        st.caption("Each point = a company's patent filing position. Your idea shown in green. Schaeffler's existing IP shown in orange.")
 
+        # ── Pattern commentary — generated from the filer data ──
         filer_positions = ansoff_data.get("filer_positions", [])
         schaeffler_pos  = ansoff_data.get("schaeffler_position", {})
         idea_pos        = ansoff_data.get("idea_position", {"x_score":7,"y_score":7})
+
+        # Compute pattern stats for commentary
+        if filer_positions:
+            idea_x = idea_pos.get("x_score", 7)
+            idea_y = idea_pos.get("y_score", 7)
+            # Quadrant distribution
+            q_counts = {"EXPLOIT":0,"EXTEND":0,"RADICAL":0,"DISRUPT":0}
+            close_filers = []
+            for fp in filer_positions:
+                q_counts[fp.get("matrix_position","EXPLOIT")] = q_counts.get(fp.get("matrix_position","EXPLOIT"),0) + 1
+                # Close = within 2 units on both axes
+                dx = abs(fp.get("x_score",5) - idea_x)
+                dy = abs(fp.get("y_score",5) - idea_y)
+                if dx <= 2.5 and dy <= 2.5:
+                    close_filers.append(fp.get("company",""))
+
+            dominant_q  = max(q_counts, key=q_counts.get)
+            dominant_n  = q_counts[dominant_q]
+            total_filers = len(filer_positions)
+            competitors_count = sum(1 for fp in filer_positions if fp.get("type")=="Competitor")
+            research_count    = sum(1 for fp in filer_positions if fp.get("type")=="Research Institution")
+
+            # Build pointer bullets
+            pointers = []
+            if close_filers:
+                pointers.append(f"**{len(close_filers)} filer{'s' if len(close_filers)>1 else ''} sitting close to your idea** — {', '.join(close_filers[:3])}{'...' if len(close_filers)>3 else ''}. Check IP risk before external disclosure.")
+            else:
+                pointers.append(f"**No filers plotted close to your idea's position** — the immediate IP zone appears uncontested.")
+            if dominant_n > total_filers * 0.5 and dominant_q != quadrant:
+                pointers.append(f"**Most activity is in the {dominant_q} quadrant** ({dominant_n} of {total_filers} filers) — your idea targets a less contested zone.")
+            if competitors_count >= 3:
+                pointers.append(f"**{competitors_count} direct competitors** identified — conduct freedom-to-operate analysis before committing R&D budget.")
+            elif competitors_count == 0:
+                pointers.append("**No direct competitors mapped** — validate this through a formal patent search before relying on it.")
+            if research_count >= 2:
+                pointers.append(f"**{research_count} research institutions** active in this space — potential co-development or licensing partners.")
+            sch_x = schaeffler_pos.get("x_score", 2)
+            sch_y = schaeffler_pos.get("y_score", 2)
+            gap_x = abs(idea_x - sch_x)
+            gap_y = abs(idea_y - sch_y)
+            if gap_x > 3 or gap_y > 3:
+                pointers.append(f"**Schaeffler's existing IP sits far from this idea** — significant new IP investment likely required to protect the concept.")
+            else:
+                pointers.append(f"**Schaeffler's existing IP is adjacent to this idea** — existing patents may provide partial protection or a foundation to build from.")
+
+            # Render commentary box
+            bullets_html = "".join(f'<div style="margin:5px 0;color:#e2e8f0;font-size:13px;">› {p}</div>' for p in pointers)
+            st.markdown(f"""
+<div style="background:#0f2137;border-left:3px solid #60a5fa;border-radius:6px;padding:12px 16px;margin-bottom:14px;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;margin-bottom:8px;">PATTERN NOTES</div>
+{bullets_html}
+</div>
+""", unsafe_allow_html=True)
+
+        st.caption("Each point = a company's patent filing position. Your idea shown in green. Schaeffler's existing IP shown in orange.")
 
         fig = go.Figure()
 
