@@ -1137,9 +1137,12 @@ Return ONLY valid JSON:
 {"market_name":"string","market_size_2024":"value [Source: X, Y]","market_size_2030":"value [Source: X, Y]",
 "cagr":"% [Source: X, Y]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":1-10,"market_score_rationale":"2 sentences"}"""
-    raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1000)
+    raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1200)
     try:
-        market = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+        rc = raw.strip().replace("```json","").replace("```","").strip()
+        fb = rc.find("{"); lb = rc.rfind("}") + 1
+        if fb >= 0: rc = rc[fb:lb]
+        market = json.loads(rc)
     except:
         market = {"market_name":"N/A","market_size_2024":"N/A","market_size_2030":"N/A","cagr":"N/A","growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
 
@@ -1148,9 +1151,12 @@ Every company must have a source. Return ONLY valid JSON:
 {"competitors":[{"name":"string","type":"Incumbent/Startup/Research","relevance":"one sentence","source":"Source: X, Y"}],
 "competitive_intensity":"Low/Medium/High/Very High","white_space":"one sentence","schaeffler_advantage":"one sentence",
 "competition_score":1-10,"competition_score_rationale":"2 sentences"}"""
-    raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}", max_tokens=800)
+    raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}", max_tokens=1000)
     try:
-        comp = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+        rc = raw.strip().replace("```json","").replace("```","").strip()
+        fb = rc.find("{"); lb = rc.rfind("}") + 1
+        if fb >= 0: rc = rc[fb:lb]
+        comp = json.loads(rc)
     except:
         comp = {"competitors":[],"competitive_intensity":"N/A","white_space":"N/A","schaeffler_advantage":"N/A","competition_score":5,"competition_score_rationale":""}
 
@@ -1159,9 +1165,12 @@ Clusters: Passenger Cars, Commercial Vehicles, Industrial Machinery, Rail, Aeros
 Return ONLY valid JSON:
 {"sector_scores":{"Passenger Cars":{"score":0-10,"rationale":"one sentence"},"Commercial Vehicles":{"score":0-10,"rationale":"one sentence"},"Industrial Machinery":{"score":0-10,"rationale":"one sentence"},"Rail":{"score":0-10,"rationale":"one sentence"},"Aerospace":{"score":0-10,"rationale":"one sentence"},"Two-Wheelers":{"score":0-10,"rationale":"one sentence"},"Construction & Agriculture":{"score":0-10,"rationale":"one sentence"},"Medical Equipment":{"score":0-10,"rationale":"one sentence"},"Conventional Energy":{"score":0-10,"rationale":"one sentence"},"Renewable Energy":{"score":0-10,"rationale":"one sentence"}},
 "primary_sectors":["top 2-3 sector names"],"sector_fit_score":0-10,"sector_fit_rationale":"2 sentences"}"""
-    raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}", max_tokens=800)
+    raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}", max_tokens=1000)
     try:
-        sectors = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+        rc = raw.strip().replace("```json","").replace("```","").strip()
+        fb = rc.find("{"); lb = rc.rfind("}") + 1
+        if fb >= 0: rc = rc[fb:lb]
+        sectors = json.loads(rc)
     except:
         sectors = {"sector_scores":{},"primary_sectors":[],"sector_fit_score":5,"sector_fit_rationale":""}
 
@@ -1185,9 +1194,12 @@ Return ONLY valid JSON:
 {"technology_keywords":["3-5 terms"],"landscape_summary":"2-3 sentences","activity_level":"Low/Moderate/High/Very High","filing_trend":"Increasing/Stable/Decreasing","filing_trend_rationale":"one sentence","patent_landscape_score":1-10,
 "key_filers":[{"company":"name","type":"Competitor/Customer/Research Institution/Adjacent Player","focus":"one sentence","threat_level":"Low/Medium/High","schaeffler_relationship":"string","source":"Source: X, Year"}],
 "white_spaces":["white space 1","white space 2","white space 3"]}"""
-    raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1000)
+    raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1500)
     try:
-        landscape = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+        raw_c = raw.strip().replace("```json","").replace("```","").strip()
+        fb = raw_c.find("{"); lb = raw_c.rfind("}") + 1
+        if fb >= 0: raw_c = raw_c[fb:lb]
+        landscape = json.loads(raw_c)
     except:
         landscape = {"technology_keywords":[],"landscape_summary":"N/A","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","patent_landscape_score":5,"key_filers":[],"white_spaces":[]}
 
@@ -1197,9 +1209,12 @@ Return ONLY valid JSON:
 {"filer_positions":[{"company":"name","matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"rationale":"one sentence"}],
 "schaeffler_position":{"matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"existing_ip":"one sentence","gap":"one sentence"},
 "idea_position":{"x_score":0-10,"y_score":0-10},"novelty_signal":"Strong/Moderate/Weak","novelty_rationale":"one sentence","ip_risk":"Low/Medium/High","ip_risk_rationale":"one sentence"}"""
-    raw2 = call_claude(system_ansoff, f"Idea: {idea}\nQuadrant: {quadrant}\nKey filers: {filers_context}", max_tokens=800)
+    raw2 = call_claude(system_ansoff, f"Idea: {idea}\nQuadrant: {quadrant}\nKey filers: {filers_context}", max_tokens=1000)
     try:
-        ansoff_data = json.loads(raw2.strip().replace("```json","").replace("```","").strip())
+        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
+        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
+        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
+        ansoff_data = json.loads(raw2_c)
     except:
         ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
 
@@ -1221,28 +1236,34 @@ def run_stage4(idea, quadrant, s1c):
     system_existence = """You are a technology analyst. Assess whether this technology exists.
 Return ONLY valid JSON:
 {"technology_core":"one sentence","existence_verdict":"Demonstrated/Partially Demonstrated/Research Stage/Theoretical",
-"existence_summary":"2-3 sentences","evidence":[{"type":"Academic Paper/Startup/Pilot/Industry Report/Patent","title":"string","description":"one sentence","relevance":"High/Medium/Low","confidence":0.0-1.0,"source":"org or URL"}],
-"technology_gaps":["gap 1","gap 2","gap 3"],"time_to_readiness":"estimate"}"""
-    raw = call_claude(system_existence, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1200)
+"existence_summary":"2-3 sentences","evidence":[{"type":"Academic Paper/Startup/Pilot/Industry Report/Patent","title":"string","description":"one sentence","relevance":"Direct/Adjacent/Analogous","confidence":"High/Medium/Low","source":"org or URL"}],
+"technology_gaps":["gap 1","gap 2","gap 3"],"time_to_readiness":"e.g. 3-5 years","keywords":["6-10 key technical terms from this domain"]}"""
+    raw = call_claude(system_existence, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
     try:
-        existence = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+        if fb >= 0: raw_clean = raw_clean[fb:lb]
+        existence = json.loads(raw_clean)
     except:
-        existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"N/A","evidence":[],"technology_gaps":[],"time_to_readiness":"N/A"}
+        existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"N/A","evidence":[],"technology_gaps":[],"time_to_readiness":"Not yet estimated","keywords":[]}
 
     system_trl = """You are a Schaeffler TRL expert. Rate using Schaeffler-adapted TRL 1-9.
 TRL 1-2=Theoretical, TRL 3-5=Innovation territory, TRL 6-7=Borderline, TRL 8-9=Product Development.
 Return ONLY valid JSON:
 {"trl_level":1-9,"trl_label":"TRL X — label","trl_rationale":"2-3 sentences","schaeffler_entry_readiness":"Too Early/Ready for Innovation/Ready for Product Development",
 "key_technical_risks":[{"risk":"string","severity":"High/Medium/Low","mitigation":"one sentence"}],
-"domain_keywords":["keyword 1","keyword 2","keyword 3","keyword 4","keyword 5"],
-"analogous_schaeffler_tech":"one sentence"}"""
-    raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps','')}", max_tokens=800)
+"analogous_schaeffler_technologies":"one sentence on which Schaeffler Motion Product Family this is closest to",
+"trl_score":1-10}"""
+    raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps','')}", max_tokens=1200)
     try:
-        trl = json.loads(raw2.strip().replace("```json","").replace("```","").strip())
+        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
+        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
+        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
+        trl = json.loads(raw2_c)
     except:
-        trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"domain_keywords":[],"analogous_schaeffler_tech":""}
+        trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":3}
 
-    trl_score  = round((trl.get("trl_level",3) / 9) * 10, 1)
+    trl_score  = float(trl.get("trl_score", round((trl.get("trl_level",3) / 9) * 10, 1)))
     ev_map = {"Demonstrated":9,"Partially Demonstrated":6,"Research Stage":3,"Theoretical":1}
     existence_score = ev_map.get(existence.get("existence_verdict","Research Stage"),3)
     risks = trl.get("key_technical_risks",[])
@@ -1284,9 +1305,12 @@ Return ONLY valid JSON:
 "build_or_partner":{{"recommendation":"string","rationale":"2-3 sentences","time_to_trl6_internal":"string","time_to_trl6_partner":"string"}},
 "org_readiness_score":0-10}}"""
 
-    raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=1500)
+    raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=2500)
     try:
-        org_data = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+        if fb >= 0: raw_clean = raw_clean[fb:lb]
+        org_data = json.loads(raw_clean)
     except:
         org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"org_readiness_score":5}
 
@@ -1739,20 +1763,23 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
             return val, sources
 
         def render_source_links(sources):
-            """Render sources as markdown links where URLs are embedded, else plain text."""
+            """Render sources as markdown links — URLs linked directly, others linked via Google search."""
             if not sources:
                 return ""
+            import re, urllib.parse
             parts = []
             for s in sources:
-                # If source contains a URL pattern, linkify it
-                import re
                 url_match = re.search(r'https?://\S+', s)
                 if url_match:
                     url = url_match.group(0).rstrip(')')
                     label = s[:s.find('http')].strip().rstrip(',').strip() or url
                     parts.append(f"[{label}]({url})")
                 else:
-                    parts.append(s)
+                    # Build a Google Scholar / web search link from the source text
+                    search_query = s.strip().rstrip(',')
+                    encoded = urllib.parse.quote(search_query)
+                    search_url = f"https://www.google.com/search?q={encoded}"
+                    parts.append(f"[{search_query}]({search_url})")
             return "  ·  ".join(parts)
 
         size_2024_raw = market.get("market_size_2024", "N/A")
@@ -1965,8 +1992,11 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_landscape,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}")
-            landscape = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2000)
+            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+            if fb >= 0: raw_clean = raw_clean[fb:lb]
+            landscape = json.loads(raw_clean)
         except Exception as e:
             landscape = {"technology_keywords":[],"landscape_summary":"Analysis unavailable.",
                         "activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"",
@@ -2026,8 +2056,11 @@ Return ONLY valid JSON:
         filers_context = json.dumps([f.get("company","") for f in landscape.get("key_filers",[])])
         try:
             raw2 = call_claude(system_ansoff,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nKey filers: {filers_context}\nTech keywords: {landscape.get('technology_keywords','')}")
-            ansoff_data = json.loads(raw2.strip().replace("```json","").replace("```","").strip())
+                f"Idea: {idea}\nQuadrant: {quadrant}\nKey filers: {filers_context}\nTech keywords: {landscape.get('technology_keywords','')}", max_tokens=1200)
+            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
+            fb2 = raw2_clean.find("{"); lb2 = raw2_clean.rfind("}") + 1
+            if fb2 >= 0: raw2_clean = raw2_clean[fb2:lb2]
+            ansoff_data = json.loads(raw2_clean)
         except Exception as e:
             ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},
                           "idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
@@ -2146,8 +2179,11 @@ Return ONLY valid JSON:
             else:
                 pointers.append(f"**Schaeffler's existing IP is adjacent to this idea** — existing patents may provide partial protection or a foundation to build from.")
 
-            # Render commentary box
-            bullets_html = "".join(f'<div style="margin:5px 0;color:#e2e8f0;font-size:13px;">› {p}</div>' for p in pointers)
+            # Render commentary box — convert **markdown bold** to <b> for HTML context
+            import re as _re
+            def md_bold_to_html(text):
+                return _re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+            bullets_html = "".join(f'<div style="margin:5px 0;color:#e2e8f0;font-size:13px;">› {md_bold_to_html(p)}</div>' for p in pointers)
             st.markdown(f"""
 <div style="background:#0f2137;border-left:3px solid #60a5fa;border-radius:6px;padding:12px 16px;margin-bottom:14px;">
 <div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;margin-bottom:8px;">PATTERN NOTES</div>
@@ -2442,7 +2478,7 @@ Return ONLY valid JSON:
         except Exception as e:
             st.warning(f"Evidence parsing issue: {e} — using fallback")
             existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"",
-                        "evidence":[],"technology_gaps":[],"time_to_readiness":"Unknown","keywords":[]}
+                        "evidence":[],"technology_gaps":[],"time_to_readiness":"Estimated 5–8 years (fallback — re-run for accurate estimate)","keywords":[]}
 
         progress.progress(50)
 
@@ -2588,8 +2624,8 @@ Return ONLY valid JSON:
 
         st.caption(trl.get("trl_rationale",""))
         st.caption(f"Entry rationale: {trl.get('entry_rationale','')}")
-        if trl.get("analogous_schaeffler_technologies"):
-            st.caption(f"Schaeffler analogous experience: {trl.get('analogous_schaeffler_technologies','')}")
+        if trl.get("analogous_schaeffler_technologies") or trl.get("analogous_schaeffler_tech"):
+            st.caption(f"Schaeffler analogous experience: {trl.get('analogous_schaeffler_technologies') or trl.get('analogous_schaeffler_tech','')}")
         st.markdown("---")
 
         # ── TRL scale reference ───────────────────────────────
@@ -2893,8 +2929,11 @@ Return ONLY valid JSON:
         try:
             raw = call_claude(system_readiness,
                 f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL level: {trl_level}",
-                max_tokens=2000)
-            org_data = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+                max_tokens=2500)
+            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+            if fb >= 0: raw_clean = raw_clean[fb:lb]
+            org_data = json.loads(raw_clean)
         except Exception as e:
             org_data = {
                 "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
@@ -3116,7 +3155,7 @@ elif st.session_state.active_stage == 6:
     market_score      = st.session_state.s2_data.get("final_score", 5.0)
     patent_score      = st.session_state.s3_data.get("final_score", 5.0)
     feasibility_score = st.session_state.s4_data.get("final_score", 5.0)
-    org_score         = st.session_state.s6_data.get("final_score", 5.0)
+    org_score         = st.session_state.s5_data.get("final_score", 5.0)
 
     # ── Intro: show weights + let user adjust ─────────────────
     if st.session_state.s6_step == "intro":
@@ -3356,8 +3395,8 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         # ── Radar chart ───────────────────────────────────────
         st.markdown("#### 📡 Innovation Potential Radar")
 
-        categories   = ["Market Intelligence", "Patent Intelligence", "Technical Feasibility"]
-        values       = [scores["market"], scores["patent"], scores["feasibility"]]
+        categories   = ["Market Intelligence", "Patent Intelligence", "Technical Feasibility", "Org Readiness"]
+        values       = [scores["market"], scores["patent"], scores["feasibility"], scores.get("org", 5)]
         values_close = values + [values[0]]
         cats_close   = categories + [categories[0]]
 
@@ -3372,7 +3411,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         ))
         # Add benchmark line at 7
         fig_radar.add_trace(go.Scatterpolar(
-            r=[7,7,7,7], theta=cats_close,
+            r=[7,7,7,7,7], theta=cats_close,
             line=dict(color="#4a6fa5", width=1, dash="dot"),
             marker=dict(size=0),
             fill=None,
