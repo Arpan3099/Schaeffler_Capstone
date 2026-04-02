@@ -125,7 +125,8 @@ with st.sidebar:
         (2, "02 · Market Intelligence"),
         (3, "03 · Patent Intelligence"),
         (4, "04 · Technical Feasibility"),
-        (5, "05 · Scoring & Synthesis"),
+        (5, "05 · Organisational Readiness"),
+        (6, "06 · Scoring & Synthesis"),
     ]
     # Determine which stages have been completed
     completed = set()
@@ -134,6 +135,7 @@ with st.sidebar:
     if st.session_state.get("s3_data"):           completed.add(3)
     if st.session_state.get("s4_data"):           completed.add(4)
     if st.session_state.get("s5_data"):           completed.add(5)
+    if st.session_state.get("s6_data"):           completed.add(6)
 
     for num, label in stages:
         active = st.session_state.active_stage
@@ -252,12 +254,12 @@ def get_dot_position(quadrant, confidence):
 
 
 
-def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d):
-    """Generate the full master Innovation Assessment Word report covering all 4 stages."""
-    ipi       = s5d["ipi"]
-    weights   = s5d["weights"]
-    synthesis = s5d["synthesis"]
-    scores    = s5d["scores"]
+def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
+    """Generate the full master Innovation Assessment Word report covering all 5 stages."""
+    ipi       = s6d["ipi"]
+    weights   = s6d["weights"]
+    synthesis = s6d["synthesis"]
+    scores    = s6d["scores"]
     market    = s2d.get("market",{})
     comp      = s2d.get("comp",{})
     sectors   = s2d.get("sectors",{})
@@ -308,7 +310,7 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d):
     p=c.paragraphs[0]; p.paragraph_format.space_before=Pt(12); p.paragraph_format.space_after=Pt(2)
     r=p.add_run("INNOVATION ASSESSMENT REPORT"); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=WHITE
     p2=c.add_paragraph(); p2.paragraph_format.space_before=Pt(0); p2.paragraph_format.space_after=Pt(12)
-    r2=p2.add_run("Schaeffler AI Innovation Research Assistant  ·  Full Pipeline Assessment  ·  Stages 01–05")
+    r2=p2.add_run("Schaeffler AI Innovation Research Assistant  ·  Full Pipeline Assessment  ·  Stages 01–06")
     r2.font.size=Pt(9); r2.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
     doc.add_paragraph()
 
@@ -338,9 +340,10 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d):
         c=ipi_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     stage_rows=[
-        ("02 · Market Intelligence",   f"{scores['market']:.1f}/10",     f"{weights['market']}%",     f"{scores['market']*weights['market']/100:.1f}"),
-        ("03 · Patent Intelligence",   f"{scores['patent']:.1f}/10",     f"{weights['patent']}%",     f"{scores['patent']*weights['patent']/100:.1f}"),
-        ("04 · Technical Feasibility", f"{scores['feasibility']:.1f}/10",f"{weights['feasibility']}%",f"{scores['feasibility']*weights['feasibility']/100:.1f}"),
+        ("02 · Market Intelligence",      f"{scores['market']:.1f}/10",           f"{weights['market']}%",          f"{scores['market']*weights['market']/100:.1f}"),
+        ("03 · Patent Intelligence",      f"{scores['patent']:.1f}/10",           f"{weights['patent']}%",          f"{scores['patent']*weights['patent']/100:.1f}"),
+        ("04 · Technical Feasibility",    f"{scores['feasibility']:.1f}/10",      f"{weights['feasibility']}%",     f"{scores['feasibility']*weights['feasibility']/100:.1f}"),
+        ("05 · Organisational Readiness", f"{scores.get('org',5):.1f}/10",        f"{weights.get('org',15)}%",      f"{scores.get('org',5)*weights.get('org',15)/100:.1f}"),
     ]
     for i,(stage,score,wt,weighted) in enumerate(stage_rows):
         row=ipi_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
@@ -476,6 +479,46 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d):
             row=rt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([risk.get("risk",""),risk.get("severity",""),risk.get("mitigation","")]):
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+
+    # ── Stage 05 Org Readiness summary ──────────────────────
+    org_d2   = s5d_org.get("org_data", {})
+    h1(doc,"Stage 05 · Organisational Readiness Summary")
+    kv(doc,"Score",f"{scores.get('org',5)}/10")
+    kv(doc,"P³ Portfolio",f"{s5d_org.get('p_portfolio',5)}/10")
+    kv(doc,"P³ People",f"{s5d_org.get('p_people',5)}/10")
+    kv(doc,"P³ Process",f"{s5d_org.get('p_process',5)}/10")
+    kv(doc,"Build strategy",org_d2.get("build_or_partner",{}).get("recommendation",""))
+    kv(doc,"Time to TRL6 with partner",org_d2.get("build_or_partner",{}).get("time_to_trl6_partner",""))
+    kv(doc,"Critical competency gap",org_d2.get("p3_people",{}).get("competency_gap",""))
+    kv(doc,"Competency gap closure",org_d2.get("p3_people",{}).get("sourcing_route",""))
+    if org_d2.get("p3_process",{}).get("applicable_assets"):
+        doc.add_paragraph()
+        h2(doc,"Applicable Schaeffler assets")
+        for a in org_d2["p3_process"]["applicable_assets"]: bul(doc,a)
+    if org_d2.get("org_gaps"):
+        doc.add_paragraph()
+        h2(doc,"Organisational gaps")
+        gt=doc.add_table(rows=1,cols=3); gt.style="Table Grid"
+        for i,h in enumerate(["Gap","Severity","Closure route"]):
+            c=gt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
+            r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
+        for idx,g in enumerate(org_d2["org_gaps"]):
+            row=gt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            for c in row.cells: set_bg(c,fill)
+            for j,val in enumerate([g.get("gap",""),g.get("severity",""),g.get("closure_route","")]):
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+    if org_d2.get("partnership_candidates"):
+        doc.add_paragraph()
+        h2(doc,"Partnership candidates")
+        pt=doc.add_table(rows=1,cols=3); pt.style="Table Grid"
+        for i,h in enumerate(["Organisation","Type","Route"]):
+            c=pt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
+            r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
+        for idx,p in enumerate(org_d2["partnership_candidates"]):
+            row=pt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            for c in row.cells: set_bg(c,fill)
+            for j,val in enumerate([p.get("name",""),p.get("type",""),p.get("route","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
 
     # ── Footer ────────────────────────────────────────────────
@@ -1053,23 +1096,19 @@ def generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, 
 
     # ── Risks & recommendations ───────────────────────────────
     h1(doc,"Risks & Mitigations")
-    risks_list = synthesis.get("risks", [])
-    if not risks_list:
-        risks_list = [
-            f"IP risk level: {ansoff_d.get('ip_risk','Medium')} — conduct freedom-to-operate analysis before committing R&D budget",
-            f"Technical readiness at TRL {trl.get('trl_level',3)} — further development required before production readiness",
-            "Market timing risk — validate demand with target customers before scaling investment"
-        ]
+    risks_list = [
+        f"Competitive intensity is {comp.get('competitive_intensity','unknown')} — monitor key players and conduct freedom-to-operate analysis before committing R&D budget",
+        "Market timing risk — validate demand with target customers before scaling investment",
+        "Sector fit assumptions should be validated with Schaeffler divisional teams before resource allocation"
+    ]
     for risk in risks_list: bul(doc, risk)
     h1(doc,"Recommendations")
-    recs_list = synthesis.get("next_steps", [])
-    if not recs_list:
-        recs_list = [
-            "Commission internal engineering feasibility review within 30 days",
-            "Conduct freedom-to-operate IP analysis with Schaeffler patent team",
-            f"Identify pilot customer in {', '.join(sectors.get('primary_sectors', ['target sector'])[:1])} for co-development",
-            "Present to Innovation steering committee with this report as supporting material"
-        ]
+    recs_list = [
+        "Commission internal engineering feasibility review within 30 days",
+        "Conduct freedom-to-operate IP analysis with Schaeffler patent team",
+        f"Identify pilot customer in {', '.join(sectors.get('primary_sectors', ['target sector'])[:1])} for co-development",
+        "Present to Innovation steering committee with this report as supporting material"
+    ]
     for rec in recs_list: bul(doc, rec)
 
     # ── Footer ────────────────────────────────────────────────
@@ -1083,6 +1122,241 @@ def generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, 
 
     buf=io.BytesIO(); doc.save(buf); buf.seek(0)
     return buf
+
+
+
+# ════════════════════════════════════════════════════════════
+# RUN FULL ANALYSIS — sequential pipeline helper
+# ════════════════════════════════════════════════════════════
+def run_stage2(idea, quadrant, s1c):
+    """Run Stage 02 Market Intelligence and store results in session state."""
+    web_ctx = ""
+    system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
+RULES: Every data point MUST include [Source: Org, Year]. Use only credible sources (McKinsey, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, industry associations). If uncertain, give a range.
+Return ONLY valid JSON:
+{"market_name":"string","market_size_2024":"value [Source: X, Y]","market_size_2030":"value [Source: X, Y]",
+"cagr":"% [Source: X, Y]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
+"geographic_focus":"string","market_score":1-10,"market_score_rationale":"2 sentences"}"""
+    raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1000)
+    try:
+        market = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+    except:
+        market = {"market_name":"N/A","market_size_2024":"N/A","market_size_2030":"N/A","cagr":"N/A","growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
+
+    system_comp = """You are a competitive intelligence analyst. Identify key competitors for this idea.
+Every company must have a source. Return ONLY valid JSON:
+{"competitors":[{"name":"string","type":"Incumbent/Startup/Research","relevance":"one sentence","source":"Source: X, Y"}],
+"competitive_intensity":"Low/Medium/High/Very High","white_space":"one sentence","schaeffler_advantage":"one sentence",
+"competition_score":1-10,"competition_score_rationale":"2 sentences"}"""
+    raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}", max_tokens=800)
+    try:
+        comp = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+    except:
+        comp = {"competitors":[],"competitive_intensity":"N/A","white_space":"N/A","schaeffler_advantage":"N/A","competition_score":5,"competition_score_rationale":""}
+
+    system_sectors = """You are a Schaeffler strategist. Score fit against Schaeffler's 10 sector clusters (0-10 each).
+Clusters: Passenger Cars, Commercial Vehicles, Industrial Machinery, Rail, Aerospace, Two-Wheelers, Construction & Agriculture, Medical Equipment, Conventional Energy, Renewable Energy.
+Return ONLY valid JSON:
+{"sector_scores":{"Passenger Cars":{"score":0-10,"rationale":"one sentence"},"Commercial Vehicles":{"score":0-10,"rationale":"one sentence"},"Industrial Machinery":{"score":0-10,"rationale":"one sentence"},"Rail":{"score":0-10,"rationale":"one sentence"},"Aerospace":{"score":0-10,"rationale":"one sentence"},"Two-Wheelers":{"score":0-10,"rationale":"one sentence"},"Construction & Agriculture":{"score":0-10,"rationale":"one sentence"},"Medical Equipment":{"score":0-10,"rationale":"one sentence"},"Conventional Energy":{"score":0-10,"rationale":"one sentence"},"Renewable Energy":{"score":0-10,"rationale":"one sentence"}},
+"primary_sectors":["top 2-3 sector names"],"sector_fit_score":0-10,"sector_fit_rationale":"2 sentences"}"""
+    raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}", max_tokens=800)
+    try:
+        sectors = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+    except:
+        sectors = {"sector_scores":{},"primary_sectors":[],"sector_fit_score":5,"sector_fit_rationale":""}
+
+    ms = float(market.get("market_score",5))
+    ss = float(sectors.get("sector_fit_score",5))
+    cs = float(comp.get("competition_score",5))
+    final = round(ms*0.40 + ss*0.35 + cs*0.25, 1)
+
+    st.session_state.s2_data = {
+        "market": market, "comp": comp, "sectors": sectors,
+        "weights": {"Market Attractiveness":(ms,0.40),"Sector Fit":(ss,0.35),"Competition Opportunity":(cs,0.25)},
+        "final_score": final, "web_results": []
+    }
+    st.session_state.s2_step = "done"
+
+
+def run_stage3(idea, quadrant, s1c):
+    """Run Stage 03 Patent Intelligence and store results in session state."""
+    system_landscape = """You are a patent intelligence analyst. Analyse the external patent landscape.
+Return ONLY valid JSON:
+{"technology_keywords":["3-5 terms"],"landscape_summary":"2-3 sentences","activity_level":"Low/Moderate/High/Very High","filing_trend":"Increasing/Stable/Decreasing","filing_trend_rationale":"one sentence","patent_landscape_score":1-10,
+"key_filers":[{"company":"name","type":"Competitor/Customer/Research Institution/Adjacent Player","focus":"one sentence","threat_level":"Low/Medium/High","schaeffler_relationship":"string","source":"Source: X, Year"}],
+"white_spaces":["white space 1","white space 2","white space 3"]}"""
+    raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1000)
+    try:
+        landscape = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+    except:
+        landscape = {"technology_keywords":[],"landscape_summary":"N/A","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","patent_landscape_score":5,"key_filers":[],"white_spaces":[]}
+
+    filers_context = json.dumps([f.get("company","") for f in landscape.get("key_filers",[])])
+    system_ansoff = """You are a Schaeffler patent strategist. Map filers onto Schaeffler's Ansoff matrix.
+Return ONLY valid JSON:
+{"filer_positions":[{"company":"name","matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"rationale":"one sentence"}],
+"schaeffler_position":{"matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"existing_ip":"one sentence","gap":"one sentence"},
+"idea_position":{"x_score":0-10,"y_score":0-10},"novelty_signal":"Strong/Moderate/Weak","novelty_rationale":"one sentence","ip_risk":"Low/Medium/High","ip_risk_rationale":"one sentence"}"""
+    raw2 = call_claude(system_ansoff, f"Idea: {idea}\nQuadrant: {quadrant}\nKey filers: {filers_context}", max_tokens=800)
+    try:
+        ansoff_data = json.loads(raw2.strip().replace("```json","").replace("```","").strip())
+    except:
+        ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
+
+    landscape_score = float(landscape.get("patent_landscape_score",5))
+    novelty_score = {"Strong":9,"Moderate":6,"Weak":3}.get(ansoff_data.get("novelty_signal","Moderate"),6)
+    ip_score      = {"Low":8,"Medium":5,"High":2}.get(ansoff_data.get("ip_risk","Medium"),5)
+    final_patent  = round(landscape_score*0.40 + novelty_score*0.35 + ip_score*0.25, 1)
+
+    st.session_state.s3_data = {
+        "landscape": landscape, "ansoff_data": ansoff_data,
+        "novelty_score": novelty_score, "ip_score": ip_score,
+        "landscape_score": landscape_score, "final_score": final_patent
+    }
+    st.session_state.s3_step = "done"
+
+
+def run_stage4(idea, quadrant, s1c):
+    """Run Stage 04 Technical Feasibility and store results in session state."""
+    system_existence = """You are a technology analyst. Assess whether this technology exists.
+Return ONLY valid JSON:
+{"technology_core":"one sentence","existence_verdict":"Demonstrated/Partially Demonstrated/Research Stage/Theoretical",
+"existence_summary":"2-3 sentences","evidence":[{"type":"Academic Paper/Startup/Pilot/Industry Report/Patent","title":"string","description":"one sentence","relevance":"High/Medium/Low","confidence":0.0-1.0,"source":"org or URL"}],
+"technology_gaps":["gap 1","gap 2","gap 3"],"time_to_readiness":"estimate"}"""
+    raw = call_claude(system_existence, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1200)
+    try:
+        existence = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+    except:
+        existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"N/A","evidence":[],"technology_gaps":[],"time_to_readiness":"N/A"}
+
+    system_trl = """You are a Schaeffler TRL expert. Rate using Schaeffler-adapted TRL 1-9.
+TRL 1-2=Theoretical, TRL 3-5=Innovation territory, TRL 6-7=Borderline, TRL 8-9=Product Development.
+Return ONLY valid JSON:
+{"trl_level":1-9,"trl_label":"TRL X — label","trl_rationale":"2-3 sentences","schaeffler_entry_readiness":"Too Early/Ready for Innovation/Ready for Product Development",
+"key_technical_risks":[{"risk":"string","severity":"High/Medium/Low","mitigation":"one sentence"}],
+"domain_keywords":["keyword 1","keyword 2","keyword 3","keyword 4","keyword 5"],
+"analogous_schaeffler_tech":"one sentence"}"""
+    raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps','')}", max_tokens=800)
+    try:
+        trl = json.loads(raw2.strip().replace("```json","").replace("```","").strip())
+    except:
+        trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"domain_keywords":[],"analogous_schaeffler_tech":""}
+
+    trl_score  = round((trl.get("trl_level",3) / 9) * 10, 1)
+    ev_map = {"Demonstrated":9,"Partially Demonstrated":6,"Research Stage":3,"Theoretical":1}
+    existence_score = ev_map.get(existence.get("existence_verdict","Research Stage"),3)
+    risks = trl.get("key_technical_risks",[])
+    sev_map = {"High":8,"Medium":5,"Low":2}
+    risk_score = round(10 - (sum(sev_map.get(r.get("severity","Medium"),5) for r in risks[:3]) / max(len(risks[:3]),1)), 1) if risks else 7.0
+    final_feasibility = round(trl_score*0.50 + existence_score*0.30 + risk_score*0.20, 1)
+
+    st.session_state.s4_data = {
+        "existence": existence, "trl": trl,
+        "trl_score": trl_score, "existence_score": existence_score, "risk_score": risk_score,
+        "final_score": final_feasibility
+    }
+    st.session_state.s4_step = "done"
+
+
+def run_stage5(idea, quadrant, s1c):
+    """Run Stage 05 Organisational Readiness and store results in session state."""
+    s3_landscape = st.session_state.get("s3_data",{}).get("landscape",{})
+    s4_existence = st.session_state.get("s4_data",{}).get("existence",{})
+    s4_trl       = st.session_state.get("s4_data",{}).get("trl",{})
+    prior_filers = [f.get("company","") for f in s3_landscape.get("key_filers",[])]
+    prior_evidence_sources = [e.get("source","") for e in s4_existence.get("evidence",[])]
+    trl_level = s4_trl.get("trl_level",3)
+    innovation_cluster = s1c.get("innovation_cluster","")
+    product_family     = s1c.get("product_family","")
+    trend_alignment    = s1c.get("trend_alignment",[])
+
+    system_readiness = f"""You are a senior Schaeffler innovation strategist assessing internal organisational readiness.
+Schaeffler P³: Performance = Portfolio × People × Process.
+Innovation cluster: {innovation_cluster}, Product family: {product_family}, Trends: {', '.join(trend_alignment)}, TRL: {trl_level}
+Known filers: {', '.join(prior_filers[:6])}, Evidence sources: {', '.join(prior_evidence_sources[:5])}
+Schaeffler competencies: Precision bearings, mechatronics, power electronics (Vitesco), tribology, EV drivetrains, embedded sensors, ASPICE/ISO 26262, OEM Tier 1.
+Return ONLY valid JSON:
+{{"p3_portfolio":{{"score":0-10,"rationale":"2 sentences","cluster_fit":"one sentence","strengths":["s1","s2"],"gaps":["g1"]}},
+"p3_people":{{"score":0-10,"rationale":"2 sentences","matched_competencies":["c1","c2","c3"],"competency_gap":"string","sourcing_route":"string"}},
+"p3_process":{{"score":0-10,"rationale":"2 sentences","applicable_assets":["a1","a2"],"investment_required":"string","time_to_close":"string"}},
+"partnership_candidates":[{{"name":"string","type":"Startup/University/Customer/Supplier","rationale":"string","route":"Co-develop/Acquire/License/JDA"}}],
+"org_gaps":[{{"gap":"string","severity":"High/Medium/Low","closure_route":"string","timeline":"string"}}],
+"build_or_partner":{{"recommendation":"string","rationale":"2-3 sentences","time_to_trl6_internal":"string","time_to_trl6_partner":"string"}},
+"org_readiness_score":0-10}}"""
+
+    raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=1500)
+    try:
+        org_data = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+    except:
+        org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"org_readiness_score":5}
+
+    p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
+    p_people    = float(org_data.get("p3_people",{}).get("score",5))
+    p_process   = float(org_data.get("p3_process",{}).get("score",5))
+    final_org   = round(p_portfolio*0.35 + p_people*0.40 + p_process*0.25, 1)
+
+    st.session_state.s5_data = {
+        "org_data": org_data,
+        "p_portfolio": p_portfolio,
+        "p_people": p_people,
+        "p_process": p_process,
+        "final_score": final_org
+    }
+    st.session_state.s5_step = "done"
+
+
+def run_stage6_synthesis(idea, quadrant, s1c):
+    """Run Stage 06 synthesis with default weights and store results."""
+    market_score      = st.session_state.s2_data.get("final_score", 5.0)
+    patent_score      = st.session_state.s3_data.get("final_score", 5.0)
+    feasibility_score = st.session_state.s4_data.get("final_score", 5.0)
+    org_score         = st.session_state.s5_data.get("final_score", 5.0)
+
+    weights = {"market":35,"patent":25,"feasibility":25,"org":15}
+    wm = weights["market"]/100; wp = weights["patent"]/100
+    wf = weights["feasibility"]/100; wo = weights["org"]/100
+    ipi = round(market_score*wm + patent_score*wp + feasibility_score*wf + org_score*wo, 1)
+
+    s2d = st.session_state.s2_data
+    s3d = st.session_state.s3_data
+    s4d = st.session_state.s4_data
+    s5d = st.session_state.s5_data
+    org_d = s5d.get("org_data",{})
+
+    synthesis_context = f"""Idea: {idea}\nQuadrant: {quadrant}\nIPI: {ipi}/10
+Market ({weights['market']}%): {market_score}/10 — {s2d.get('market',{}).get('market_name','')}
+Patent ({weights['patent']}%): {patent_score}/10 — Novelty: {s3d.get('ansoff_data',{}).get('novelty_signal','')} IP risk: {s3d.get('ansoff_data',{}).get('ip_risk','')}
+Feasibility ({weights['feasibility']}%): {feasibility_score}/10 — TRL {s4d.get('trl',{}).get('trl_level','')} {s4d.get('trl',{}).get('schaeffler_entry_readiness','')}
+Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partner',{}).get('recommendation','')}"""
+
+    system_structured = """You are a senior Schaeffler innovation strategist. Return ONLY valid JSON:
+{"headline":"one direct sentence","recommendation":"PROCEED or PROCEED WITH CONDITIONS or DEFER or REJECT",
+"recommendation_rationale":"2-3 sentences","strongest_signals":["signal 1","signal 2","signal 3"],
+"key_concerns":["concern 1","concern 2","concern 3"],"conditions":["condition 1","condition 2"],
+"strategic_fit":"2-3 sentences referencing Schaeffler P³, electrification, Vitesco merger",
+"risks":["risk 1 with mitigation","risk 2","risk 3"],
+"next_steps":["action 1","action 2","action 3","action 4"]}"""
+
+    raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
+    raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
+    fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
+    if fb >= 0: raw1_clean = raw1_clean[fb:lb]
+    try:
+        synthesis_structured = json.loads(raw1_clean)
+    except:
+        synthesis_structured = {"headline":f"IPI {ipi}/10","recommendation":"PROCEED WITH CONDITIONS" if ipi>=5 else "DEFER","recommendation_rationale":"Based on pipeline analysis.","strongest_signals":[],"key_concerns":[],"conditions":[],"strategic_fit":"","risks":[],"next_steps":[]}
+
+    system_narrative = "Write a 4-paragraph narrative synthesis for this Schaeffler innovation assessment. Flowing prose, no bullets. Cover: market opportunity, IP landscape, technical maturity, organisational readiness, and recommendation. Reference Schaeffler P³ formula and electrification context."
+    raw2 = call_claude(system_narrative, synthesis_context + f"\nRecommendation: {synthesis_structured.get('recommendation','')}\nIPI: {ipi}/10", max_tokens=600)
+    narrative_text = raw2.strip().replace("```","").strip()
+
+    synthesis = {**synthesis_structured, "narrative": narrative_text}
+
+    st.session_state.s6_data = {
+        "ipi": ipi, "weights": weights, "synthesis": synthesis,
+        "scores": {"market":market_score,"patent":patent_score,"feasibility":feasibility_score,"org":org_score}
+    }
+    st.session_state.s6_step = "done"
 
 
 if st.session_state.active_stage == 1:
@@ -1274,9 +1548,28 @@ Return ONLY valid JSON:
         st.markdown("---")
         if proceed:
             st.success("✓ This idea qualifies for the full Innovation pipeline.")
-            if st.button("Continue to Stage 02: Market Intelligence →", type="primary", key="s1_continue"):
-                st.session_state.active_stage = 2
-                st.rerun()
+            btn_col1, btn_col2 = st.columns(2)
+            with btn_col1:
+                if st.button("Continue to Stage 02: Market Intelligence →", type="primary", key="s1_continue"):
+                    st.session_state.active_stage = 2
+                    st.rerun()
+            with btn_col2:
+                if st.button("⚡ Run Full Analysis — all 5 stages", type="secondary", key="s1_full_run"):
+                    idea_fa  = st.session_state.s1_idea
+                    s1c_fa   = st.session_state.s1_classification
+                    quad_fa  = s1c_fa.get("quadrant","RADICAL")
+                    with st.spinner("Running full pipeline — Stage 02: Market Intelligence..."):
+                        run_stage2(idea_fa, quad_fa, s1c_fa)
+                    with st.spinner("Stage 03: Patent Intelligence..."):
+                        run_stage3(idea_fa, quad_fa, s1c_fa)
+                    with st.spinner("Stage 04: Technical Feasibility..."):
+                        run_stage4(idea_fa, quad_fa, s1c_fa)
+                    with st.spinner("Stage 05: Organisational Readiness..."):
+                        run_stage5(idea_fa, quad_fa, s1c_fa)
+                    with st.spinner("Stage 06: Scoring & Synthesis..."):
+                        run_stage6_synthesis(idea_fa, quad_fa, s1c_fa)
+                    st.session_state.active_stage = 6
+                    st.rerun()
 
         # Post-result chat
         st.markdown("---")
@@ -2465,7 +2758,7 @@ Be specific, reference evidence where relevant, keep to 3-4 sentences."""
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
         st.success(f"✓ Technical Feasibility complete. Score: **{final}/10**")
-        if st.button("Continue to Stage 05: Scoring & Synthesis →", type="primary", key="s4_continue"):
+        if st.button("Continue to Stage 05: Organisational Readiness →", type="primary", key="s4_continue"):
             st.session_state.active_stage = 5
             st.rerun()
 
@@ -2479,13 +2772,314 @@ Be specific, reference evidence where relevant, keep to 3-4 sentences."""
 
 
 # ════════════════════════════════════════════════════════════
-# STAGE 05 — SCORING & SYNTHESIS
+# STAGE 05 — ORGANISATIONAL READINESS
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 5:
-    st.markdown("## Stage 05 · Scoring & Synthesis")
+    st.markdown("## Stage 05 · Organisational Readiness")
     st.markdown("""<div style="background:#1a2d45;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
 <div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Combines scores from Stages 02, 03, and 04 into a single Innovation Potential Index (IPI). You set the weights. The assistant generates a final recommendation, strategic synthesis, and a downloadable master report covering the full pipeline analysis.</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Assesses whether Schaeffler is organisationally ready to pursue this idea — grounded in Schaeffler's own P³ formula: <b style="color:#60a5fa;">Performance = Portfolio × People × Process</b>. The market may be real and the technology proven, but if the internal capabilities, assets, and partnerships are not in place, the idea will stall before it reaches the Innovation pipeline.</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Competency fit · Asset leverage · Partnership readiness · Org gap register · Build-or-partner recommendation · Organisational Readiness Score (0–10)</div>
+</div>""", unsafe_allow_html=True)
+    st.markdown("---")
+
+    idea     = st.session_state.s1_idea
+    s1c      = st.session_state.s1_classification
+    quadrant = s1c.get("quadrant", "RADICAL")
+
+    for k, v in {"s5_step":"intro","s5_data":{},"s5_chat":[]}.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+    # ── Intro ─────────────────────────────────────────────────
+    if st.session_state.s5_step == "intro":
+        st.info(f"**Idea:** {idea}")
+        st.markdown(f"**Quadrant:** {quadrant}")
+        # Pull context from previous stages for enriched prompt
+        s3_landscape = st.session_state.get("s3_data",{}).get("landscape",{})
+        s4_existence = st.session_state.get("s4_data",{}).get("existence",{})
+        if st.button("Run Organisational Readiness →", type="primary"):
+            st.session_state.s5_step = "running"
+            st.rerun()
+
+    # ── Running ───────────────────────────────────────────────
+    elif st.session_state.s5_step == "running":
+        progress = st.progress(0)
+        status   = st.empty()
+
+        # Pull cross-stage context
+        s3_landscape = st.session_state.get("s3_data",{}).get("landscape",{})
+        s3_ansoff    = st.session_state.get("s3_data",{}).get("ansoff_data",{})
+        s4_existence = st.session_state.get("s4_data",{}).get("existence",{})
+        s4_trl       = st.session_state.get("s4_data",{}).get("trl",{})
+        prior_filers = [f.get("company","") for f in s3_landscape.get("key_filers",[])]
+        prior_evidence_sources = [e.get("source","") for e in s4_existence.get("evidence",[])]
+        trl_level    = s4_trl.get("trl_level", 3)
+        innovation_cluster = s1c.get("innovation_cluster","")
+        product_family     = s1c.get("product_family","")
+        trend_alignment    = s1c.get("trend_alignment",[])
+
+        status.markdown("🏭 Assessing Schaeffler competency and asset fit...")
+        progress.progress(25)
+
+        system_readiness = f"""You are a senior Schaeffler Group innovation strategist assessing internal organisational readiness.
+
+Schaeffler's P³ formula: Performance = Portfolio × People × Process
+- Portfolio: Does this idea fit Schaeffler's strategic portfolio and innovation clusters?
+- People: Does Schaeffler have the human skills, competencies, and teams to develop this?
+- Process: Does Schaeffler have the processes, infrastructure, and assets to execute?
+
+Schaeffler context:
+- Innovation cluster for this idea: {innovation_cluster}
+- Product family: {product_family}
+- Strategic trend alignment: {', '.join(trend_alignment)}
+- Current TRL of the idea's technology: {trl_level}
+- Known patent filers in this space (from Stage 03): {', '.join(prior_filers[:6])}
+- Evidence sources found (from Stage 04): {', '.join(prior_evidence_sources[:5])}
+
+Schaeffler's known competency domains (use these to assess fit):
+Precision motion systems, rolling and plain bearings, mechatronics, power electronics (via Vitesco merger), 
+tribology and lubrication, automotive drivetrains (ICE and EV), industrial automation, embedded sensors,
+ASPICE/ISO 26262 automotive software processes, OEM Tier 1 supply chain, 41 R&D centres globally.
+
+Return ONLY valid JSON:
+{{
+  "p3_portfolio": {{
+    "score": 0-10,
+    "rationale": "2 sentences on strategic portfolio fit using Schaeffler's innovation clusters and trends",
+    "cluster_fit": "one sentence on fit to the assigned innovation cluster",
+    "strengths": ["strength 1", "strength 2"],
+    "gaps": ["gap 1"]
+  }},
+  "p3_people": {{
+    "score": 0-10,
+    "rationale": "2 sentences on human capital and competency readiness",
+    "matched_competencies": ["competency 1", "competency 2", "competency 3"],
+    "competency_gap": "the single most critical missing competency",
+    "sourcing_route": "Hire / Acquire / Partner / Upskill — one sentence on how to close the gap"
+  }},
+  "p3_process": {{
+    "score": 0-10,
+    "rationale": "2 sentences on process, infrastructure, and asset readiness",
+    "applicable_assets": ["asset or process 1", "asset or process 2"],
+    "investment_required": "one sentence on what needs to be built or acquired",
+    "time_to_close": "estimated months or years"
+  }},
+  "partnership_candidates": [
+    {{
+      "name": "organisation name",
+      "type": "Startup / University / Customer / Supplier / Research Institute",
+      "rationale": "one sentence — why them and how they fill a specific gap",
+      "route": "Co-develop / Acquire / License / JDA"
+    }}
+  ],
+  "org_gaps": [
+    {{
+      "gap": "gap name",
+      "severity": "High / Medium / Low",
+      "closure_route": "one sentence on fastest route to close",
+      "timeline": "estimated months"
+    }}
+  ],
+  "build_or_partner": {{
+    "recommendation": "Build internally / Co-develop / Acquire / License",
+    "rationale": "2-3 sentences justifying the recommendation",
+    "time_to_trl6_internal": "estimated timeline if built internally",
+    "time_to_trl6_partner": "estimated timeline with external partnership"
+  }},
+  "org_readiness_score": 0-10
+}}"""
+
+        try:
+            raw = call_claude(system_readiness,
+                f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL level: {trl_level}",
+                max_tokens=2000)
+            org_data = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+        except Exception as e:
+            org_data = {
+                "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
+                "p3_people":{"score":5,"rationale":"Assessment unavailable.","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},
+                "p3_process":{"score":5,"rationale":"Assessment unavailable.","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},
+                "partnership_candidates":[],
+                "org_gaps":[],
+                "build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},
+                "org_readiness_score":5
+            }
+
+        progress.progress(75)
+        status.markdown("🔍 Identifying partnership candidates...")
+
+        # Weighted score: Portfolio 35%, People 40%, Process 25%
+        p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
+        p_people    = float(org_data.get("p3_people",{}).get("score",5))
+        p_process   = float(org_data.get("p3_process",{}).get("score",5))
+        final_org   = round(p_portfolio*0.35 + p_people*0.40 + p_process*0.25, 1)
+
+        st.session_state.s5_data = {
+            "org_data": org_data,
+            "p_portfolio": p_portfolio,
+            "p_people": p_people,
+            "p_process": p_process,
+            "final_score": final_org
+        }
+        progress.progress(100)
+        status.markdown("✓ Complete.")
+        time.sleep(0.5)
+        st.session_state.s5_step = "done"
+        st.rerun()
+
+    # ── Results ───────────────────────────────────────────────
+    elif st.session_state.s5_step == "done":
+        d        = st.session_state.s5_data
+        org_data = d["org_data"]
+        final    = d["final_score"]
+
+        # ── Score banner ──────────────────────────────────────
+        score_col = "#22c55e" if final>=7 else "#f59e0b" if final>=4 else "#ef4444"
+        bop_rec = org_data.get("build_or_partner",{}).get("recommendation","Co-develop")
+        st.markdown(f"""
+<div style="background:{BG};border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid {DIM};">
+  <div style="color:{WHITE};font-size:11px;letter-spacing:1px;opacity:0.5;margin-bottom:4px;">ORGANISATIONAL READINESS SCORE</div>
+  <div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:{DIM};"> / 10</span></div>
+  <div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">Build strategy: <b>{bop_rec}</b></div>
+</div>
+""", unsafe_allow_html=True)
+
+        # ── P³ score cards ────────────────────────────────────
+        st.markdown("#### P³ Assessment — Portfolio × People × Process")
+        st.caption("Schaeffler's own innovation performance formula applied to this idea's organisational readiness")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "35% weight")
+        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "40% weight")
+        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "25% weight")
+        st.markdown("---")
+
+        # ── Portfolio dimension ───────────────────────────────
+        port = org_data.get("p3_portfolio",{})
+        st.markdown("#### Portfolio — Strategic fit")
+        st.markdown(f"<div style='background:#1a2d45;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{port.get('rationale','')}</div><div style='color:#94a3b8;font-size:11px;margin-top:8px;'>CLUSTER FIT</div><div style='color:#60a5fa;font-size:13px;margin-top:4px;'>{port.get('cluster_fit','')}</div></div>", unsafe_allow_html=True)
+        if port.get("strengths"):
+            cols_ps = st.columns(len(port["strengths"][:3]))
+            for i, s in enumerate(port["strengths"][:3]):
+                cols_ps[i].markdown(f'<div style="background:#0f2a1f;border:1px solid #22c55e33;border-radius:6px;padding:8px 12px;font-size:12px;color:#22c55e;">✓ {s}</div>', unsafe_allow_html=True)
+        if port.get("gaps"):
+            for g in port["gaps"][:2]:
+                st.markdown(f'<div style="background:#1a0f0f;border:1px solid #ef444433;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;color:#ef4444;">✗ Gap: {g}</div>', unsafe_allow_html=True)
+        st.markdown("---")
+
+        # ── People dimension ──────────────────────────────────
+        peop = org_data.get("p3_people",{})
+        st.markdown("#### People — Competency & skills")
+        st.markdown(f"<div style='background:#1a2d45;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{peop.get('rationale','')}</div></div>", unsafe_allow_html=True)
+        if peop.get("matched_competencies"):
+            st.markdown("**Matched Schaeffler competencies**")
+            comp_cols = st.columns(min(3,len(peop["matched_competencies"])))
+            for i, c in enumerate(peop["matched_competencies"][:3]):
+                comp_cols[i].markdown(f'<div style="background:#1a2d45;border:1px solid #60a5fa33;border-radius:6px;padding:8px;font-size:12px;color:#60a5fa;text-align:center;">{c}</div>', unsafe_allow_html=True)
+        if peop.get("competency_gap"):
+            st.markdown(f'<div style="background:#1a1020;border:1px solid #a78bfa44;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#a78bfa;">⚠️ Critical gap: {peop["competency_gap"]}<br><span style="color:#94a3b8;font-size:12px;">Closure route: {peop.get("sourcing_route","")}</span></div>', unsafe_allow_html=True)
+        st.markdown("---")
+
+        # ── Process dimension ─────────────────────────────────
+        proc = org_data.get("p3_process",{})
+        st.markdown("#### Process — Infrastructure & assets")
+        st.markdown(f"<div style='background:#1a2d45;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{proc.get('rationale','')}</div></div>", unsafe_allow_html=True)
+        if proc.get("applicable_assets"):
+            st.markdown("**Applicable assets / processes**")
+            for a in proc["applicable_assets"][:3]:
+                st.markdown(f"- {a}")
+        if proc.get("investment_required"):
+            st.markdown(f'<div style="background:#1a1a0f;border:1px solid #f59e0b44;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#f59e0b;">🔧 Investment required: {proc["investment_required"]}<br><span style="color:#94a3b8;font-size:12px;">Estimated time to close: {proc.get("time_to_close","")}</span></div>', unsafe_allow_html=True)
+        st.markdown("---")
+
+        # ── Partnership candidates ────────────────────────────
+        partners = org_data.get("partnership_candidates",[])
+        if partners:
+            st.markdown("#### Partnership candidates")
+            route_cols = {"Co-develop":"#60a5fa","Acquire":"#f59e0b","License":"#a78bfa","JDA":"#22c55e"}
+            for p in partners[:4]:
+                rc = route_cols.get(p.get("route","Co-develop"),"#60a5fa")
+                st.markdown(f"""
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
+  <div style="flex:1;">
+    <div style="color:{WHITE};font-weight:600;font-size:13px;">{p.get('name','')}</div>
+    <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{p.get('type','')} · {p.get('rationale','')}</div>
+  </div>
+  <div style="background:{rc}22;color:{rc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{p.get('route','')}</div>
+</div>""", unsafe_allow_html=True)
+            st.markdown("---")
+
+        # ── Org gaps register ─────────────────────────────────
+        gaps = org_data.get("org_gaps",[])
+        if gaps:
+            st.markdown("#### Organisational gaps")
+            sev_col = {"High":"#ef4444","Medium":"#f59e0b","Low":"#22c55e"}
+            for g in gaps[:4]:
+                sc = sev_col.get(g.get("severity","Medium"),"#f59e0b")
+                st.markdown(f"""
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
+  <div style="flex:1;">
+    <div style="color:{WHITE};font-weight:600;font-size:13px;">{g.get('gap','')}</div>
+    <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{g.get('closure_route','')} · Est. {g.get('timeline','')}</div>
+  </div>
+  <div style="background:{sc}22;color:{sc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{g.get('severity','')} severity</div>
+</div>""", unsafe_allow_html=True)
+            st.markdown("---")
+
+        # ── Build or partner ──────────────────────────────────
+        bop = org_data.get("build_or_partner",{})
+        st.markdown("#### Build or partner?")
+        bop_c1, bop_c2 = st.columns(2)
+        bop_c1.markdown(f'<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;"><div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">RECOMMENDATION</div><div style="color:#60a5fa;font-size:16px;font-weight:600;">{bop.get("recommendation","")}</div><div style="color:#e2e8f0;font-size:12px;margin-top:6px;">{bop.get("rationale","")}</div></div>', unsafe_allow_html=True)
+        bop_c2.markdown(f'<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;"><div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">TIME TO TRL 6</div><div style="color:#e2e8f0;font-size:13px;"><b>Internal:</b> {bop.get("time_to_trl6_internal","")}<br><b>With partner:</b> {bop.get("time_to_trl6_partner","")}</div></div>', unsafe_allow_html=True)
+
+        # ── Chat ──────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("💬 Questions about organisational readiness?")
+        for msg in st.session_state.s5_chat:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        user_q = st.chat_input("Ask about competencies, assets, partnerships...")
+        if user_q:
+            st.session_state.s5_chat.append({"role":"user","content":user_q})
+            with st.chat_message("user"):
+                st.markdown(user_q)
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    ctx = f"""You are a Schaeffler innovation readiness expert discussing P³ organisational assessment.
+Idea: {idea} | Quadrant: {quadrant}
+P³ scores — Portfolio: {d['p_portfolio']}/10 | People: {d['p_people']}/10 | Process: {d['p_process']}/10
+Build recommendation: {bop.get('recommendation','')}
+Critical gap: {org_data.get('p3_people',{}).get('competency_gap','')}
+Be specific to Schaeffler's context (Vitesco integration, E-Mobility shift, OEM relationships). 3-4 sentences."""
+                    history = [{"role":m["role"],"content":m["content"]} for m in st.session_state.s5_chat]
+                    reply = call_claude_chat(ctx, history)
+                    st.markdown(reply)
+                    st.session_state.s5_chat.append({"role":"assistant","content":reply})
+
+        # ── Continue ──────────────────────────────────────────
+        st.markdown("---")
+        st.success(f"✓ Organisational Readiness complete. Score: **{final}/10**")
+        if st.button("Continue to Stage 06: Scoring & Synthesis →", type="primary", key="s5_continue"):
+            st.session_state.active_stage = 6
+            st.rerun()
+
+        if st.button("← Re-run analysis", key="s5_rerun"):
+            st.session_state.s5_step = "intro"
+            st.session_state.s5_data = {}
+            st.session_state.s5_chat = []
+            st.rerun()
+
+
+# ════════════════════════════════════════════════════════════
+# STAGE 06 — SCORING & SYNTHESIS
+# ════════════════════════════════════════════════════════════
+elif st.session_state.active_stage == 6:
+    st.markdown("## Stage 06 · Scoring & Synthesis")
+    st.markdown("""<div style="background:#1a2d45;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Combines scores from Stages 02, 03, 04, and 05 into a single Innovation Potential Index (IPI). You set the weights. The assistant generates a final recommendation, strategic synthesis, and a downloadable master report covering the full pipeline analysis.</div>
 <div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Weighted IPI score · Radar chart · PROCEED / DEFER / REJECT recommendation · Strongest signals & concerns · Next steps · Full Innovation Assessment Report</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
@@ -2494,7 +3088,7 @@ elif st.session_state.active_stage == 5:
     s1c      = st.session_state.s1_classification
     quadrant = s1c.get("quadrant","RADICAL")
 
-    for k, v in {"s5_step":"intro","s5_data":{},"s5_chat":[]}.items():
+    for k, v in {"s6_step":"intro","s6_data":{},"s6_chat":[]}.items():
         if k not in st.session_state:
             st.session_state[k] = v
 
@@ -2502,65 +3096,71 @@ elif st.session_state.active_stage == 5:
     s2_done = bool(st.session_state.get("s2_data"))
     s3_done = bool(st.session_state.get("s3_data"))
     s4_done = bool(st.session_state.get("s4_data"))
+    s5_done = bool(st.session_state.get("s5_data"))
 
-    if not (s2_done and s3_done and s4_done):
-        st.warning("Complete Stages 02, 03, and 04 first before running the final synthesis.")
+    if not (s2_done and s3_done and s4_done and s5_done):
+        st.warning("Complete Stages 02, 03, 04, and 05 first before running the final synthesis.")
         missing = []
         if not s2_done: missing.append("Stage 02: Market Intelligence")
         if not s3_done: missing.append("Stage 03: Patent Intelligence")
         if not s4_done: missing.append("Stage 04: Technical Feasibility")
+        if not s5_done: missing.append("Stage 05: Organisational Readiness")
         for m in missing:
             st.markdown(f"- ⬜ {m}")
-        if st.button("← Back", key="s5_back2"):
-            st.session_state.active_stage = 4
+        if st.button("← Back", key="s6_back2"):
+            st.session_state.active_stage = 5
             st.rerun()
         st.stop()
 
     # Pull scores from previous stages
-    market_score    = st.session_state.s2_data.get("final_score", 5.0)
-    patent_score    = st.session_state.s3_data.get("final_score", 5.0)
+    market_score      = st.session_state.s2_data.get("final_score", 5.0)
+    patent_score      = st.session_state.s3_data.get("final_score", 5.0)
     feasibility_score = st.session_state.s4_data.get("final_score", 5.0)
+    org_score         = st.session_state.s6_data.get("final_score", 5.0)
 
     # ── Intro: show weights + let user adjust ─────────────────
-    if st.session_state.s5_step == "intro":
+    if st.session_state.s6_step == "intro":
         st.info(f"**Idea:** {idea}")
         st.markdown(f"**Quadrant:** {quadrant}")
         st.markdown("---")
 
         st.markdown("#### Scores from previous stages")
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         c1.metric("Market Intelligence",    f"{market_score} / 10")
         c2.metric("Patent Intelligence",    f"{patent_score} / 10")
         c3.metric("Technical Feasibility",  f"{feasibility_score} / 10")
+        c4.metric("Org Readiness",          f"{org_score} / 10")
 
         st.markdown("---")
         st.markdown("#### Innovation Potential Index — Scoring Weights")
         st.caption("Default weights set for first iteration. Adjust and refine with Johannes Enders.")
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            w_market = st.slider("Market Intelligence", 0, 100, 40, 5, key="w_market")
+            w_market = st.slider("Market Intelligence", 0, 100, 35, 5, key="w_market")
         with col2:
-            w_patent = st.slider("Patent Intelligence", 0, 100, 30, 5, key="w_patent")
+            w_patent = st.slider("Patent Intelligence", 0, 100, 25, 5, key="w_patent")
         with col3:
-            w_feasibility = st.slider("Technical Feasibility", 0, 100, 30, 5, key="w_feasibility")
+            w_feasibility = st.slider("Technical Feasibility", 0, 100, 25, 5, key="w_feasibility")
+        with col4:
+            w_org = st.slider("Org Readiness", 0, 100, 15, 5, key="w_org")
 
-        total_weight = w_market + w_patent + w_feasibility
+        total_weight = w_market + w_patent + w_feasibility + w_org
         if total_weight != 100:
             st.warning(f"Weights must add up to 100. Current total: {total_weight}. Adjust the sliders.")
         else:
             st.success(f"✓ Weights sum to 100")
             if st.button("Run Final Synthesis →", type="primary"):
-                st.session_state.s5_weights = {"market": w_market, "patent": w_patent, "feasibility": w_feasibility}
-                st.session_state.s5_step = "running"
+                st.session_state.s6_weights = {"market": w_market, "patent": w_patent, "feasibility": w_feasibility, "org": w_org}
+                st.session_state.s6_step = "running"
                 st.rerun()
 
     # ── Running ───────────────────────────────────────────────
-    elif st.session_state.s5_step == "running":
+    elif st.session_state.s6_step == "running":
         progress = st.progress(0)
         status   = st.empty()
 
-        weights = st.session_state.get("s5_weights", {"market":40,"patent":30,"feasibility":30})
+        weights = st.session_state.get("s6_weights", {"market":35,"patent":25,"feasibility":25,"org":15})
 
         status.markdown("📐 Calculating Innovation Potential Index...")
         progress.progress(20)
@@ -2568,7 +3168,8 @@ elif st.session_state.active_stage == 5:
         wm = weights["market"] / 100
         wp = weights["patent"] / 100
         wf = weights["feasibility"] / 100
-        ipi = round(market_score * wm + patent_score * wp + feasibility_score * wf, 1)
+        wo = weights.get("org", 15) / 100
+        ipi = round(market_score * wm + patent_score * wp + feasibility_score * wf + org_score * wo, 1)
 
         status.markdown("🧠 Writing narrative synthesis...")
         progress.progress(45)
@@ -2576,6 +3177,8 @@ elif st.session_state.active_stage == 5:
         s2d = st.session_state.s2_data
         s3d = st.session_state.s3_data
         s4d = st.session_state.s4_data
+        s5d = st.session_state.s5_data
+        org_d = s5d.get("org_data", {})
 
         system_synthesis = """You are a senior Schaeffler innovation strategist writing a final investment recommendation.
 Synthesise all four stages of analysis into a clear, actionable assessment.
@@ -2627,6 +3230,14 @@ Stage 04 — Technical Feasibility ({weights['feasibility']}% weight): {feasibil
 - Existence: {s4d.get('existence',{}).get('existence_verdict','')}
 - Entry readiness: {s4d.get('trl',{}).get('schaeffler_entry_readiness','')}
 - Time to readiness: {s4d.get('existence',{}).get('time_to_readiness','')}
+
+Stage 05 — Organisational Readiness ({weights.get('org',15)}% weight): {org_score}/10
+- P³ Portfolio: {s5d.get('p_portfolio',5)}/10
+- P³ People: {s5d.get('p_people',5)}/10
+- P³ Process: {s5d.get('p_process',5)}/10
+- Critical competency gap: {org_d.get('p3_people',{}).get('competency_gap','')}
+- Build strategy: {org_d.get('build_or_partner',{}).get('recommendation','')}
+- Time to TRL6 with partner: {org_d.get('build_or_partner',{}).get('time_to_trl6_partner','')}
 """
 
         # ── Call 1: structured fields ─────────────────────────
@@ -2693,26 +3304,27 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         status.markdown("✓ Complete.")
         time.sleep(0.5)
 
-        st.session_state.s5_data = {
+        st.session_state.s6_data = {
             "ipi": ipi,
             "weights": weights,
             "synthesis": synthesis,
             "scores": {
                 "market": market_score,
                 "patent": patent_score,
-                "feasibility": feasibility_score
+                "feasibility": feasibility_score,
+                "org": org_score
             }
         }
-        st.session_state.s5_step = "done"
+        st.session_state.s6_step = "done"
         st.rerun()
 
     # ── Results ───────────────────────────────────────────────
-    elif st.session_state.s5_step == "done":
-        d         = st.session_state.s5_data
+    elif st.session_state.s6_step == "done":
+        d         = st.session_state.s6_data
         ipi       = d.get("ipi", 0)
-        weights   = d.get("weights", {"market":40,"patent":30,"feasibility":30})
+        weights   = d.get("weights", {"market":35,"patent":25,"feasibility":25,"org":15})
         synthesis = d.get("synthesis", {})
-        scores    = d.get("scores", {"market":5,"patent":5,"feasibility":5})
+        scores    = d.get("scores", {"market":5,"patent":5,"feasibility":5,"org":5})
 
         rec = synthesis.get("recommendation","PROCEED WITH CONDITIONS")
         rec_colours = {
@@ -2794,7 +3406,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         col1.metric("Market Intelligence",   f"{scores['market']} / 10",   f"{weights['market']}% weight")
         col2.metric("Patent Intelligence",   f"{scores['patent']} / 10",   f"{weights['patent']}% weight")
         col3.metric("Technical Feasibility", f"{scores['feasibility']} / 10", f"{weights['feasibility']}% weight")
-        col4.metric("**IPI Score**",          f"**{ipi} / 10**")
+        col4.metric("Org Readiness",         f"{scores.get('org',5)} / 10", f"{weights.get('org',15)}% weight")
         st.markdown("---")
 
         # ── Recommendation ────────────────────────────────────
@@ -2843,10 +3455,10 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         st.caption("Generate an AI image showing how this solution could look in a real-world context.")
 
         if "s5_mockup_image" not in st.session_state:
-            st.session_state.s5_mockup_image = None
+            st.session_state.s6_mockup_image = None
 
-        if st.session_state.s5_mockup_image is None:
-            if st.button("🖼️ Generate Solution Image", type="secondary", key="s5_image"):
+        if st.session_state.s6_mockup_image is None:
+            if st.button("🖼️ Generate Solution Image", type="secondary", key="s6_image"):
                 with st.spinner("Generating image — this takes 10–20 seconds..."):
                     try:
                         # Step 1: Claude writes a precise image prompt
@@ -2875,35 +3487,36 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                                     raise
 
                         if img_response and img_response.status_code == 200 and len(img_response.content) > 5000:
-                            st.session_state.s5_mockup_image = img_response.content
-                            st.session_state.s5_mockup_prompt_used = img_prompt
+                            st.session_state.s6_mockup_image = img_response.content
+                            st.session_state.s6_mockup_prompt_used = img_prompt
                             st.rerun()
                         else:
                             st.error("Image generation timed out. Try again — Pollinations.ai can be slow on first request.")
                     except Exception as e:
                         st.error(f"Image generation error: {e}")
         else:
-            st.image(st.session_state.s5_mockup_image, use_container_width=True)
+            st.image(st.session_state.s6_mockup_image, use_container_width=True)
             st.caption(f"Prompt used: {st.session_state.get('s5_mockup_prompt_used','')}")
-            if st.button("🔄 Generate different image", key="s5_image_redo"):
-                st.session_state.s5_mockup_image = None
-                st.session_state.s5_mockup_prompt_used = None
+            if st.button("🔄 Generate different image", key="s6_image_redo"):
+                st.session_state.s6_mockup_image = None
+                st.session_state.s6_mockup_prompt_used = None
                 st.rerun()
 
         # ── Master report download ────────────────────────────
         st.markdown("---")
         if "s5_report_buf" not in st.session_state:
-            st.session_state.s5_report_buf = None
+            st.session_state.s6_report_buf = None
 
-        if st.session_state.s5_report_buf is None:
+        if st.session_state.s6_report_buf is None:
             if st.button("⬇️ Download Full Innovation Assessment Report", type="primary"):
-                with st.spinner("Generating master report — this covers all 4 stages..."):
+                with st.spinner("Generating master report — this covers all 5 stages..."):
                     try:
-                        st.session_state.s5_report_buf = generate_master_report(
+                        st.session_state.s6_report_buf = generate_master_report(
                             idea, quadrant, s1c,
                             st.session_state.s2_data,
                             st.session_state.s3_data,
                             st.session_state.s4_data,
+                            st.session_state.s5_data,
                             d
                         )
                         st.rerun()
@@ -2912,23 +3525,23 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         else:
             st.download_button(
                 label="⬇️ Download Full Innovation Assessment Report",
-                data=st.session_state.s5_report_buf,
+                data=st.session_state.s6_report_buf,
                 file_name=f"Schaeffler_Innovation_Assessment_{datetime.now().strftime('%Y%m%d')}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 type="primary"
             )
-            st.caption("Covers all 4 stages: Market Intelligence · Patent Intelligence · Technical Feasibility · Innovation Potential Index")
+            st.caption("Covers all 5 stages: Market Intelligence · Patent Intelligence · Technical Feasibility · Organisational Readiness · Innovation Potential Index")
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
         st.subheader("💬 Questions about the overall assessment?")
-        for msg in st.session_state.s5_chat:
+        for msg in st.session_state.s6_chat:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
         user_q = st.chat_input("Ask about the IPI score, recommendation, or next steps...")
         if user_q:
-            st.session_state.s5_chat.append({"role":"user","content":user_q})
+            st.session_state.s6_chat.append({"role":"user","content":user_q})
             with st.chat_message("user"):
                 st.markdown(user_q)
             with st.chat_message("assistant"):
@@ -2936,24 +3549,24 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                     ctx = f"""You are a senior Schaeffler innovation strategist discussing the final assessment.
 Idea: {idea} | Quadrant: {quadrant}
 IPI Score: {ipi}/10 | Recommendation: {rec}
-Market: {scores['market']}/10 | Patent: {scores['patent']}/10 | Feasibility: {scores['feasibility']}/10
+Market: {scores['market']}/10 | Patent: {scores['patent']}/10 | Feasibility: {scores['feasibility']}/10 | Org: {scores.get('org',5)}/10
 Headline: {synthesis.get('headline','')}
 Strongest signals: {synthesis.get('strongest_signals',[])}
 Key concerns: {synthesis.get('key_concerns',[])}
 Strategic fit: {synthesis.get('strategic_fit','')}
 Be direct and specific. Reference Schaeffler's context where relevant. 3-4 sentences."""
-                    history = [{"role":m["role"],"content":m["content"]} for m in st.session_state.s5_chat]
+                    history = [{"role":m["role"],"content":m["content"]} for m in st.session_state.s6_chat]
                     reply = call_claude_chat(ctx, history)
                     st.markdown(reply)
-                    st.session_state.s5_chat.append({"role":"assistant","content":reply})
+                    st.session_state.s6_chat.append({"role":"assistant","content":reply})
 
         # ── Re-run with different weights ─────────────────────
         st.markdown("---")
-        if st.button("← Adjust weights and re-run", key="s5_rerun"):
-            st.session_state.s5_step = "intro"
-            st.session_state.s5_data = {}
-            st.session_state.s5_chat = []
-            st.session_state.s5_report_buf = None
+        if st.button("← Adjust weights and re-run", key="s6_rerun"):
+            st.session_state.s6_step = "intro"
+            st.session_state.s6_data = {}
+            st.session_state.s6_chat = []
+            st.session_state.s6_report_buf = None
             st.rerun()
 
 
