@@ -1799,45 +1799,51 @@ if st.session_state.active_stage == 1:
                     st.session_state.s1_step = 2
                     st.rerun()
 
-    # Step 2 — Forced-choice enrichment (no Claude call needed — questions are fixed)
+    # Step 2 — Forced-choice enrichment
     if st.session_state.s1_step == 2:
         st.markdown("---")
         st.subheader("Step 2 — Three quick questions")
         st.info(f"**Your idea:** {st.session_state.s1_idea}")
-        st.caption("Select the best answer for each, then add any detail that helps.")
+        st.caption("These answers help refine the classification. The idea description itself drives the result — use these to add context, not to override what the idea clearly is.")
 
         # Q1 — Technology novelty
-        st.markdown("**1. Does this core technology exist anywhere today — in a lab, a startup, or a competitor product?**")
-        q1_choice = st.radio("", ["Yes, it exists somewhere", "No, it is genuinely new / theoretical"],
-                             key="q1_radio", label_visibility="collapsed")
-        q1_detail = st.text_input("Optional — where does it exist, or why is it new?", key="q1_detail",
-                                   placeholder="e.g. Siemens have a prototype, or 'no commercial demonstration found'")
+        st.markdown("**1. Has the core technology behind this idea been demonstrated anywhere — in a lab, a startup, a research paper, or a competitor product?**")
+        q1_choice = st.radio("", [
+            "Yes — it has been demonstrated somewhere (even if not commercialised)",
+            "No — the underlying technology is genuinely novel or theoretical"
+        ], key="q1_radio", label_visibility="collapsed")
+        q1_detail = st.text_input("Optional — where has it been demonstrated, or what makes it genuinely new?", key="q1_detail",
+                                   placeholder="e.g. MIT lab prototype, or 'no known demonstration of this mechanism'")
 
         st.markdown("---")
-        # Q2 — Market familiarity
-        st.markdown("**2. Is the target customer a market Schaeffler already sells into?**")
-        q2_choice = st.radio("", ["Yes, existing Schaeffler customer segment", "No, this is a new type of customer"],
-                             key="q2_radio", label_visibility="collapsed")
-        q2_detail = st.text_input("Optional — which segment, or what kind of new customer?", key="q2_detail",
-                                   placeholder="e.g. Passenger car OEMs, or 'consumer wearables — entirely new for Schaeffler'")
+        # Q2 — Market familiarity — reworded to avoid false DISRUPTIVE flips
+        st.markdown("**2. Does this idea target markets or applications that Schaeffler currently operates in?**")
+        st.caption("Schaeffler's current markets: automotive (ICE & EV), industrial machinery, rail, aerospace, energy, two-wheelers. If the idea fits any of these, select yes.")
+        q2_choice = st.radio("", [
+            "Yes — it targets automotive, industrial, rail, aerospace, energy or adjacent sectors Schaeffler already serves",
+            "No — it targets a market genuinely outside Schaeffler's current scope (e.g. consumer electronics, healthcare devices, retail)"
+        ], key="q2_radio", label_visibility="collapsed")
+        q2_detail = st.text_input("Optional — which specific market or application area?", key="q2_detail",
+                                   placeholder="e.g. EV drivetrain OEMs, or 'medical implant manufacturers — entirely new for Schaeffler'")
 
         st.markdown("---")
         # Q3 — Problem clarity
-        st.markdown("**3. Is the problem this idea solves already well understood by the industry?**")
-        q3_choice = st.radio("", ["Yes, it is a known problem with existing solutions", "No, the problem itself is new or not yet widely recognised"],
-                             key="q3_radio", label_visibility="collapsed")
+        st.markdown("**3. Is the problem this idea solves already recognised and being worked on by the industry?**")
+        q3_choice = st.radio("", [
+            "Yes — the problem is well known and others are actively trying to solve it",
+            "No — the problem itself is new, underappreciated, or not yet widely recognised"
+        ], key="q3_radio", label_visibility="collapsed")
         q3_detail = st.text_input("Optional — describe the problem in one sentence", key="q3_detail",
                                    placeholder="e.g. Bearing failure in EV drivetrains due to high-frequency current leakage")
 
         if st.button("Classify my idea →", type="primary"):
-            # Build structured answers from choices + optional detail
             a1 = q1_choice + (f" — {q1_detail}" if q1_detail.strip() else "")
             a2 = q2_choice + (f" — {q2_detail}" if q2_detail.strip() else "")
             a3 = q3_choice + (f" — {q3_detail}" if q3_detail.strip() else "")
             st.session_state.s1_questions = [
-                "Does this core technology exist anywhere today?",
-                "Is the target customer a market Schaeffler already sells into?",
-                "Is the problem this idea solves already well understood by the industry?"
+                "Has the core technology been demonstrated anywhere?",
+                "Does this idea target markets Schaeffler currently operates in?",
+                "Is the problem this idea solves already recognised by industry?"
             ]
             st.session_state.s1_answers = [a1, a2, a3]
             st.session_state.s1_step = 3
@@ -1860,6 +1866,15 @@ EXPLOIT    — Established/Adjacent tech + Established/Adjacent market → Produ
 EXTEND     — Established/Adjacent tech + New to Schaeffler/World market → Product Development
 RADICAL    — New to Schaeffler/World tech + Established/Adjacent market → Innovation pipeline
 DISRUPTIVE — New to Schaeffler/World tech + New to Schaeffler/World market → Innovation pipeline
+
+CRITICAL CLASSIFICATION RULES:
+1. The IDEA DESCRIPTION is your PRIMARY and most authoritative signal. Base your classification on what the idea actually IS and what market it serves.
+2. The three Q&A answers are SUPPLEMENTARY CONTEXT only — they help resolve genuine ambiguity in the idea description, but they must NEVER override a clear signal in the idea itself.
+3. Q2 ("Is the target customer new?") is particularly dangerous — Schaeffler serves automotive OEMs, industrial machinery, rail, aerospace, EV drivetrains, energy, etc. An idea for any of these is EXISTING MARKET even if the user says "new customer" due to unfamiliarity with Schaeffler's portfolio. Do not flip to DISRUPTIVE just because the user answered Q2 as "new customer".
+4. If the idea technology is clearly novel/breakthrough → lean RADICAL or DISRUPTIVE regardless of Q&A.
+5. If both the idea AND the answers strongly point to existing tech + existing market → EXPLOIT. If mixed → EXTEND.
+6. RADICAL vs DISRUPTIVE distinction: RADICAL targets markets Schaeffler already serves (automotive, industrial, rail, energy, EV drivetrains). DISRUPTIVE targets markets entirely outside Schaeffler's current scope (e.g. consumer electronics, healthcare devices, retail).
+7. The proceed field MUST follow this strict rule: EXPLOIT and EXTEND → proceed:false. RADICAL and DISRUPTIVE → proceed:true. This is mandatory.
 
 For EXPLOIT/EXTEND: name the relevant Schaeffler product division:
 E-Mobility / Powertrain & Chassis / Vehicle Lifetime Solutions / Bearings & Industrial Solutions
@@ -1888,7 +1903,7 @@ Return ONLY valid JSON:
   "market_level":"one of the 4 axis levels",
   "technology_novelty":"one sentence",
   "market_position":"one sentence",
-  "reasoning":"2-3 sentences",
+  "reasoning":"2-3 sentences explaining the classification primarily from the idea description. If Q&A answers conflicted with the idea, explain why you prioritised the idea.",
   "proceed":true/false,
   "schaeffler_division":"division name or empty string",
   "redirect_message":"one sentence if EXPLOIT/EXTEND else empty string",
@@ -1899,8 +1914,21 @@ Return ONLY valid JSON:
   "innovation_model":"Integrated or Accelerator or empty string"
 }"""
             try:
-                raw = call_claude(system, f"Idea: {st.session_state.s1_idea}\nQ: {q[0]} A: {a[0]}\nQ: {q[1]} A: {a[1]}\nQ: {q[2]} A: {a[2]}")
-                st.session_state.s1_classification = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+                raw = call_claude(system,
+                    f"IDEA DESCRIPTION (primary classification signal):\n{st.session_state.s1_idea}\n\n"
+                    f"SUPPLEMENTARY Q&A (use only to resolve genuine ambiguity — do not override the idea):\n"
+                    f"Q: {q[0]} A: {a[0]}\n"
+                    f"Q: {q[1]} A: {a[1]}\n"
+                    f"Q: {q[2]} A: {a[2]}")
+                raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+                fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+                if fb >= 0: raw_clean = raw_clean[fb:lb]
+                classification = json.loads(raw_clean)
+                # Hard-code proceed based on quadrant — never trust Claude's value here
+                # EXPLOIT and EXTEND must always redirect; RADICAL and DISRUPTIVE always proceed
+                q_result = classification.get("quadrant","").upper()
+                classification["proceed"] = q_result in ("RADICAL", "DISRUPTIVE")
+                st.session_state.s1_classification = classification
             except Exception as e:
                 st.error(f"Classification error: {e}")
                 st.stop()
@@ -1918,8 +1946,18 @@ Return ONLY valid JSON:
 
         if not proceed:
             division = c.get("schaeffler_division","Product Development")
-            st.warning(f"**{quadrant}** · {c.get('redirect_message','')}")
+            st.warning(f"**{quadrant}** — {c.get('redirect_message','')}")
             st.markdown(f"→ Suggested home: **{division}**")
+            st.markdown(f"""
+<div style="background:#1a2d45;border-radius:8px;padding:14px 18px;margin-top:12px;border-left:3px solid #f59e0b;">
+<div style="color:#f59e0b;font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:6px;">WHY THIS IDEA DOESN'T ENTER THE INNOVATION PIPELINE</div>
+<div style="color:#e2e8f0;font-size:13px;">
+<b>EXPLOIT</b> and <b>EXTEND</b> ideas use established or adjacent technology — they belong in Schaeffler's Product Development divisions, not the Innovation Pipeline, because the core technology risk has already been resolved.<br><br>
+The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakthrough tech, existing market) and <b>DISRUPTIVE</b> (breakthrough tech, new market) ideas where the technology itself is genuinely novel and unproven.
+</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;">Technology level: <b>{c.get('technology_level','')}</b> · Market level: <b>{c.get('market_level','')}</b></div>
+</div>
+""", unsafe_allow_html=True)
         else:
             emoji = "🔬" if quadrant == "RADICAL" else "🚀"
             st.success(f"{emoji} **{quadrant}** — {c.get('reasoning','')}")
