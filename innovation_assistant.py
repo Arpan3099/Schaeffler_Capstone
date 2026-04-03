@@ -15,7 +15,7 @@ from datetime import datetime
 # Load API key — Streamlit secrets take priority, fallback to hardcoded for local dev
 TAVILY_KEY = ""  # optional
 
-st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="⚙️", layout="centered")
+st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered")
 
 # ── API key — secrets for deployment, hardcoded fallback for local ────────────
 try:
@@ -23,9 +23,8 @@ try:
 except Exception:
     ANTHROPIC_KEY = "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"
 
-# ── Styling — sidebar identity only ──────────────────────────
+# ── Styling — sidebar identity + sidebar-toggle arrow fix ────
 st.markdown("""
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23007A3D'/><text x='16' y='23' font-family='Arial,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'>S</text></svg>">
 <style>
 /* ── Sidebar: Schaeffler green identity ── */
 section[data-testid="stSidebar"] {
@@ -46,6 +45,40 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     background: rgba(255,255,255,0.22) !important;
 }
 
+/* ── Fix sidebar collapse/expand toggle button ── */
+/* Streamlit renders a Material icon name as text when the font isn't loaded.
+   We hide it and force a unicode double-arrow instead. */
+button[data-testid="baseButton-headerNoPadding"] {
+    overflow: hidden !important;
+    position: relative !important;
+    width: 32px !important;
+    height: 32px !important;
+    background: rgba(255,255,255,0.15) !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+}
+button[data-testid="baseButton-headerNoPadding"] svg,
+button[data-testid="baseButton-headerNoPadding"] span {
+    display: none !important;
+}
+button[data-testid="baseButton-headerNoPadding"]::after {
+    content: "«";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    inset: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #FFFFFF;
+    font-family: Arial, sans-serif;
+}
+/* When sidebar is collapsed, the control button flips */
+[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
+    content: "»";
+}
+
 /* ── Source tag pill ── */
 .source-tag {
     background:#1e3a5f; color:#93c5fd;
@@ -54,6 +87,26 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     font-family: monospace;
 }
 </style>
+
+<script>
+// Inject favicon dynamically as an SVG data URI with Schaeffler S logo
+(function() {
+    var svgFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23007A3D'/%3E%3Ctext x='16' y='24' font-family='Arial,Helvetica,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E";
+    var existing = document.querySelector("link[rel*='icon']");
+    if (existing) {
+        existing.href = svgFavicon;
+    } else {
+        var link = document.createElement('link');
+        link.rel = 'icon';
+        link.type = 'image/svg+xml';
+        link.href = svgFavicon;
+        document.head.appendChild(link);
+    }
+    // Also set shortcut icon
+    var shortcut = document.querySelector("link[rel='shortcut icon']");
+    if (shortcut) shortcut.href = svgFavicon;
+})();
+</script>
 """, unsafe_allow_html=True)
 
 # ── Constants ─────────────────────────────────────────────────
