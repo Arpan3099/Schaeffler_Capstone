@@ -254,19 +254,263 @@ def get_dot_position(quadrant, confidence):
 
 
 
+
+def generate_org_report(idea, quadrant, s1c, s5d):
+    """Generate a Stage 05 Organisational Readiness Word report."""
+    org_data   = s5d.get("org_data", {})
+    portfolio  = org_data.get("p3_portfolio", {})
+    people     = org_data.get("p3_people", {})
+    process    = org_data.get("p3_process", {})
+    bop        = org_data.get("build_or_partner", {})
+    gaps       = org_data.get("org_gaps", [])
+    partners   = org_data.get("partnership_candidates", [])
+
+    org_ctx = (
+        f"Idea: {idea}\nQuadrant: {quadrant}\n"
+        f"P3 Portfolio score: {s5d.get('p_portfolio',5)}/10  Rationale: {portfolio.get('rationale','')}\n"
+        f"Cluster fit: {portfolio.get('cluster_fit','')}  Strengths: {chr(44).join(portfolio.get('strengths',[])[:3])}\n"
+        f"P3 People score: {s5d.get('p_people',5)}/10  Rationale: {people.get('rationale','')}\n"
+        f"Matched competencies: {chr(44).join(people.get('matched_competencies',[])[:4])}\n"
+        f"Critical gap: {people.get('competency_gap','')}  Closure route: {people.get('sourcing_route','')}\n"
+        f"P3 Process score: {s5d.get('p_process',5)}/10  Rationale: {process.get('rationale','')}\n"
+        f"Applicable assets: {chr(44).join(process.get('applicable_assets',[])[:3])}\n"
+        f"Investment required: {process.get('investment_required','')}  Time to close: {process.get('time_to_close','')}\n"
+        f"Build strategy: {bop.get('recommendation','')}  Rationale: {bop.get('rationale','')}\n"
+        f"Time internal: {bop.get('time_to_trl6_internal','')}  Time with partner: {bop.get('time_to_trl6_partner','')}\n"
+        f"Overall org readiness score: {s5d.get('final_score',5)}/10"
+    )
+    extended = call_claude(
+        '''You are a senior Schaeffler innovation strategist writing a detailed Organisational Readiness report.
+Write specific, substantive content referencing Schaeffler P3 formula (Performance = Portfolio x People x Process).
+Return ONLY valid JSON, no markdown backticks:
+{
+  "executive_summary": "3-4 full paragraphs: overall organisational readiness verdict, key P3 strengths and gaps, build-or-partner recommendation, and strategic rationale.",
+  "portfolio_analysis": "2-3 full paragraphs on strategic portfolio fit — how this idea aligns with Schaeffler innovation clusters, trends, product families, and the broader electrification strategy post-Vitesco.",
+  "people_analysis": "2-3 full paragraphs on human capital readiness — which Schaeffler competencies match, what is critically missing, and the most realistic route to close the gap (hire, upskill, acquire, partner).",
+  "process_analysis": "2-3 full paragraphs on process and infrastructure readiness — which Schaeffler assets and processes apply directly, what needs to be built, and estimated investment and timeline.",
+  "partnership_strategy": "2 full paragraphs on the recommended partnership strategy — who Schaeffler should partner with, what type of arrangement, and how to structure it.",
+  "risks": ["Org risk 1 with mitigation", "Org risk 2 with mitigation", "Org risk 3", "Org risk 4"],
+  "recommendations": ["Concrete org action 1 with timeline", "Concrete action 2", "Concrete action 3", "Concrete action 4"]
+}''',
+        org_ctx,
+        max_tokens=3500
+    )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
+    try:
+        ext = json.loads(raw_e)
+    except:
+        ext = {
+            "executive_summary": f"Schaeffler\'s organisational readiness for this idea scores {s5d.get('final_score',5)}/10. The P3 assessment shows Portfolio fit at {s5d.get('p_portfolio',5)}/10, People readiness at {s5d.get('p_people',5)}/10, and Process readiness at {s5d.get('p_process',5)}/10. Recommended build strategy: {bop.get('recommendation','Co-develop')}. {bop.get('rationale','')}",
+            "portfolio_analysis": f"Portfolio fit: {portfolio.get('rationale','')} Cluster fit: {portfolio.get('cluster_fit','')}",
+            "people_analysis": f"People readiness: {people.get('rationale','')} Critical gap: {people.get('competency_gap','')} Closure route: {people.get('sourcing_route','')}",
+            "process_analysis": f"Process readiness: {process.get('rationale','')} Investment required: {process.get('investment_required','')} Time to close: {process.get('time_to_close','')}",
+            "partnership_strategy": f"Partnership strategy: {bop.get('recommendation','Co-develop')}. Time to TRL6 internally: {bop.get('time_to_trl6_internal','')}. With partner: {bop.get('time_to_trl6_partner','')}.",
+            "risks": ["Competency gap requires immediate sourcing action — delay increases time to TRL6", "Partnership negotiations can be slow — initiate early", "Internal process gaps may create bottlenecks in development", "Build vs buy decision requires board-level sign-off"],
+            "recommendations": [f"Initiate {bop.get('recommendation','co-development')} process within 30 days", f"Address critical gap: {people.get('competency_gap','key competency')} via {people.get('sourcing_route','targeted hiring')}", "Map applicable Schaeffler assets to innovation project plan", "Establish steering committee for cross-divisional coordination"]
+        }
+
+    NAVY=RGBColor(0x1F,0x38,0x64); BLUE=RGBColor(0x2E,0x75,0xB6)
+    WHITE=RGBColor(0xFF,0xFF,0xFF); GREY=RGBColor(0x55,0x55,0x55)
+    BLACK=RGBColor(0x00,0x00,0x00); LBLUE=RGBColor(0x60,0xA5,0xFA)
+
+    def set_bg(cell, hx):
+        tc=cell._tc; tcPr=tc.get_or_add_tcPr(); shd=OxmlElement("w:shd")
+        shd.set(qn("w:val"),"clear"); shd.set(qn("w:color"),"auto"); shd.set(qn("w:fill"),hx); tcPr.append(shd)
+    def h1(doc, text):
+        p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(14); p.paragraph_format.space_after=Pt(4)
+        pPr=p._p.get_or_add_pPr(); pBdr=OxmlElement("w:pBdr"); bot=OxmlElement("w:bottom")
+        bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8"); bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
+        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(text)
+        r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
+    def h2(doc, text):
+        p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(8); p.paragraph_format.space_after=Pt(2)
+        r=p.add_run(text); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
+    def body(doc, text):
+        p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
+        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(text); r.font.size=Pt(10.5)
+    def kv(doc, label, value):
+        p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
+        r1=p.add_run(f"{label}: "); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
+        r2=p.add_run(str(value)); r2.font.size=Pt(10.5)
+    def bul(doc, text):
+        p=doc.add_paragraph(style="List Bullet"); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
+        r=p.add_run(str(text)); r.font.size=Pt(10.5)
+
+    doc=DocxDocument()
+    for sec in doc.sections:
+        sec.top_margin=Cm(2.0); sec.bottom_margin=Cm(2.0); sec.left_margin=Cm(2.5); sec.right_margin=Cm(2.5)
+
+    t=doc.add_table(rows=1,cols=1); t.style="Table Grid"; c=t.cell(0,0); set_bg(c,"1F3864")
+    p=c.paragraphs[0]; p.paragraph_format.space_before=Pt(10); p.paragraph_format.space_after=Pt(2)
+    r=p.add_run("ORGANISATIONAL READINESS REPORT"); r.bold=True; r.font.size=Pt(9); r.font.color.rgb=WHITE
+    p2=c.add_paragraph(); p2.paragraph_format.space_before=Pt(0); p2.paragraph_format.space_after=Pt(10)
+    r2=p2.add_run("Schaeffler AI Innovation Research Assistant  ·  Stage 05"); r2.font.size=Pt(9); r2.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
+    doc.add_paragraph()
+    p=doc.add_paragraph(); r=p.add_run("Organisational Readiness Assessment")
+    r.bold=True; r.font.size=Pt(18); r.font.color.rgb=NAVY
+    p2=doc.add_paragraph(); r2=p2.add_run(f"Score: {s5d.get('final_score',5)}/10  ·  Strategy: {bop.get('recommendation','')}  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}"); r2.font.size=Pt(10); r2.italic=True; r2.font.color.rgb=GREY
+    doc.add_paragraph()
+
+    h1(doc,"P³ Score Summary")
+    p3_tbl=doc.add_table(rows=1,cols=4); p3_tbl.style="Table Grid"
+    for i,h in enumerate(["Dimension","Score","Weight","Description"]):
+        c=p3_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
+        r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
+    for i,(dim,score,wt,desc) in enumerate([
+        ("Portfolio",f"{s5d.get('p_portfolio',5):.1f}/10","35%",portfolio.get('cluster_fit','')),
+        ("People",f"{s5d.get('p_people',5):.1f}/10","40%",people.get('competency_gap','')),
+        ("Process",f"{s5d.get('p_process',5):.1f}/10","25%",process.get('investment_required','')),
+    ]):
+        row=p3_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
+        for c in row.cells: set_bg(c,fill)
+        for j,val in enumerate([dim,score,wt,desc[:80] if desc else ""]):
+            r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+    fr=p3_tbl.add_row()
+    for c in fr.cells: set_bg(c,"1F3864")
+    r=fr.cells[0].paragraphs[0].add_run("OVERALL READINESS"); r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
+    r2=fr.cells[1].paragraphs[0].add_run(f"{s5d.get('final_score',5)}/10"); r2.bold=True; r2.font.size=Pt(11); r2.font.color.rgb=LBLUE
+    doc.add_paragraph()
+
+    h1(doc,"Executive Summary"); body(doc, ext.get("executive_summary",""))
+    h1(doc,"P³ Portfolio — Strategic Fit"); body(doc, ext.get("portfolio_analysis",""))
+    if portfolio.get("strengths"):
+        h2(doc,"Portfolio Strengths")
+        for s in portfolio["strengths"]: bul(doc, f"✓ {s}")
+    if portfolio.get("gaps"):
+        h2(doc,"Portfolio Gaps")
+        for g in portfolio["gaps"]: bul(doc, f"✗ {g}")
+    h1(doc,"P³ People — Competency Readiness"); body(doc, ext.get("people_analysis",""))
+    if people.get("matched_competencies"):
+        h2(doc,"Matched Competencies")
+        for c in people["matched_competencies"]: bul(doc, f"✓ {c}")
+    kv(doc,"Critical competency gap", people.get("competency_gap",""))
+    kv(doc,"Closure route", people.get("sourcing_route",""))
+    h1(doc,"P³ Process — Infrastructure & Assets"); body(doc, ext.get("process_analysis",""))
+    if process.get("applicable_assets"):
+        h2(doc,"Applicable Assets")
+        for a in process["applicable_assets"]: bul(doc, a)
+    kv(doc,"Investment required", process.get("investment_required",""))
+    kv(doc,"Estimated time to close", process.get("time_to_close",""))
+
+    if gaps:
+        h1(doc,"Organisational Gaps Register")
+        gt=doc.add_table(rows=1,cols=4); gt.style="Table Grid"
+        for i,h in enumerate(["Gap","Severity","Closure Route","Timeline"]):
+            c=gt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
+            r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
+        for idx,g in enumerate(gaps):
+            row=gt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            sev_fill={"High":"FFE4E4","Medium":"FFF8E4","Low":"E4FFE9"}.get(g.get("severity",""),"FFFFFF")
+            for c in row.cells: set_bg(c,sev_fill if idx==0 else fill)
+            for j,val in enumerate([g.get("gap",""),g.get("severity",""),g.get("closure_route",""),g.get("timeline","")]):
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+
+    if partners:
+        h1(doc,"Partnership Candidates"); body(doc, ext.get("partnership_strategy",""))
+        pt=doc.add_table(rows=1,cols=4); pt.style="Table Grid"
+        for i,h in enumerate(["Organisation","Type","Rationale","Route"]):
+            c=pt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
+            r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
+        for idx,p in enumerate(partners):
+            row=pt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            for c in row.cells: set_bg(c,fill)
+            for j,val in enumerate([p.get("name",""),p.get("type",""),p.get("rationale",""),p.get("route","")]):
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+
+    h1(doc,"Build-or-Partner Recommendation")
+    kv(doc,"Recommendation", bop.get("recommendation",""))
+    kv(doc,"Time to TRL 6 — Internal", bop.get("time_to_trl6_internal",""))
+    kv(doc,"Time to TRL 6 — With Partner", bop.get("time_to_trl6_partner",""))
+    body(doc, bop.get("rationale",""))
+    h1(doc,"Risks"); 
+    for risk in ext.get("risks",[]): bul(doc, risk)
+    h1(doc,"Recommendations")
+    for rec in ext.get("recommendations",[]): bul(doc, rec)
+
+    doc.add_paragraph()
+    ft=doc.add_table(rows=1,cols=1); ft.style="Table Grid"; fc=ft.cell(0,0); set_bg(fc,"1F3864")
+    fp=fc.paragraphs[0]; fp.paragraph_format.space_before=Pt(6); fp.paragraph_format.space_after=Pt(6)
+    fr=fp.add_run(f"Schaeffler AI Innovation Research Assistant  ·  Stage 05: Organisational Readiness  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität")
+    fr.font.size=Pt(8); fr.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
+    buf=io.BytesIO(); doc.save(buf); buf.seek(0)
+    return buf
+
+
 def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
-    """Generate the full master Innovation Assessment Word report covering all 5 stages."""
-    ipi       = s6d["ipi"]
-    weights   = s6d["weights"]
-    synthesis = s6d["synthesis"]
-    scores    = s6d["scores"]
-    market    = s2d.get("market",{})
-    comp      = s2d.get("comp",{})
-    sectors   = s2d.get("sectors",{})
-    landscape = s3d.get("landscape",{})
-    ansoff_d  = s3d.get("ansoff_data",{})
-    existence = s4d.get("existence",{})
-    trl       = s4d.get("trl",{})
+    """Generate the full comprehensive Innovation Assessment Word report covering all stages."""
+    ipi       = s6d.get("ipi", 0)
+    weights   = s6d.get("weights", {"market":35,"patent":25,"feasibility":25,"org":15})
+    synthesis = s6d.get("synthesis", {})
+    scores    = s6d.get("scores", {})
+    market    = s2d.get("market", {})
+    comp      = s2d.get("comp", {})
+    sectors   = s2d.get("sectors", {})
+    landscape = s3d.get("landscape", {})
+    ansoff_d  = s3d.get("ansoff_data", {})
+    existence = s4d.get("existence", {})
+    trl       = s4d.get("trl", {})
+    org_data  = s5d_org.get("org_data", {})
+    portfolio = org_data.get("p3_portfolio", {})
+    people    = org_data.get("p3_people", {})
+    process   = org_data.get("p3_process", {})
+    bop       = org_data.get("build_or_partner", {})
+
+    # Generate enriched narrative for the master report
+    master_ctx = (
+        f"Idea: {idea}\nQuadrant: {quadrant}\nIPI: {ipi}/10\nRecommendation: {synthesis.get('recommendation','')}\n\n"
+        f"STAGE 02 — Market ({weights.get('market',35)}%): {scores.get('market',5)}/10\n"
+        f"Market: {market.get('market_name','')}  Size 2024: {market.get('market_size_2024','')}  CAGR: {market.get('cagr','')}\n"
+        f"Primary sectors: {', '.join(s2d.get('sectors',{}).get('primary_sectors',[]))}\n"
+        f"Competition: {comp.get('competitive_intensity','')}  White space: {comp.get('white_space','')}\n\n"
+        f"STAGE 03 — Patent ({weights.get('patent',25)}%): {scores.get('patent',5)}/10\n"
+        f"Activity: {landscape.get('activity_level','')}  Trend: {landscape.get('filing_trend','')}\n"
+        f"Novelty: {ansoff_d.get('novelty_signal','')}  IP risk: {ansoff_d.get('ip_risk','')}\n"
+        f"White spaces: {'; '.join(landscape.get('white_spaces',[])[:3])}\n\n"
+        f"STAGE 04 — Feasibility ({weights.get('feasibility',25)}%): {scores.get('feasibility',5)}/10\n"
+        f"TRL: {trl.get('trl_level',3)} — {trl.get('trl_label','')}\n"
+        f"Existence: {existence.get('existence_verdict','')}  Entry readiness: {trl.get('schaeffler_entry_readiness','')}\n"
+        f"Time to production: {existence.get('time_to_readiness','')}\n\n"
+        f"STAGE 05 — Org Readiness ({weights.get('org',15)}%): {scores.get('org',5)}/10\n"
+        f"Portfolio: {s5d_org.get('p_portfolio',5)}/10  People: {s5d_org.get('p_people',5)}/10  Process: {s5d_org.get('p_process',5)}/10\n"
+        f"Strategy: {bop.get('recommendation','')}  Time with partner: {bop.get('time_to_trl6_partner','')}\n"
+        f"Critical gap: {people.get('competency_gap','')}\n\n"
+        f"Strongest signals: {'; '.join(synthesis.get('strongest_signals',[])[:3])}\n"
+        f"Key concerns: {'; '.join(synthesis.get('key_concerns',[])[:3])}\n"
+        f"Strategic fit: {synthesis.get('strategic_fit','')}"
+    )
+    enriched = call_claude(
+        '''You are a senior Schaeffler innovation strategist writing a comprehensive multi-stage Innovation Assessment Report.
+Write rich, specific, analytical content. Return ONLY valid JSON, no markdown backticks:
+{
+  "executive_summary": "4-5 full paragraphs: the headline verdict, what the data shows across all 4 dimensions (market, IP, feasibility, org), the single most compelling reason to proceed, the single most important risk, and the concrete next step.",
+  "strategic_narrative": "4-5 full paragraphs synthesising the opportunity holistically — how the market signals, IP landscape, technology readiness, and org capability interact. Reference Schaeffler electrification strategy, Vitesco merger, E-Mobility growth, OEM relationships and P3 formula.",
+  "market_highlights": "2 full paragraphs on the top 3 market signals — most important size/growth data point, the most relevant sector fit, and the most significant competitive dynamic.",
+  "ip_highlights": "2 full paragraphs on the top IP insights — novelty position, the most threatening filer, and the most valuable white space to capture.",
+  "feasibility_highlights": "2 full paragraphs on the technology readiness picture — TRL rationale, most convincing evidence found, and the one critical gap that needs solving before TRL6.",
+  "org_highlights": "2 full paragraphs on organisational readiness — the strongest existing capability, the most critical gap, and the recommended build-partner path.",
+  "risk_synthesis": ["Top cross-cutting risk 1 with specific mitigation", "Risk 2 with mitigation", "Risk 3 with mitigation", "Risk 4 with mitigation", "Risk 5 with mitigation"],
+  "action_plan": ["Immediate action (0-30 days): specific step 1", "Short-term (1-3 months): specific step 2", "Medium-term (3-6 months): specific step 3", "Longer-term (6-12 months): specific step 4", "Strategic (12+ months): specific step 5"]
+}''',
+        master_ctx, max_tokens=4000
+    )
+    raw_e = enriched.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
+    try:
+        enr = json.loads(raw_e)
+    except:
+        enr = {
+            "executive_summary": f"This innovation idea ({idea[:80]}) has been assessed across four dimensions of Schaeffler\'s Innovation Pipeline, yielding an Innovation Potential Index (IPI) of {ipi}/10. The recommendation is: {synthesis.get('recommendation','PROCEED WITH CONDITIONS')}. {synthesis.get('recommendation_rationale','')} The strongest signal is: {synthesis.get('strongest_signals',['market opportunity'])[0] if synthesis.get('strongest_signals') else 'market opportunity'}. The primary concern is: {synthesis.get('key_concerns',['technical maturity'])[0] if synthesis.get('key_concerns') else 'technical maturity'}.",
+            "strategic_narrative": synthesis.get("narrative", f"The idea targets {market.get('market_name','a growing market')} and sits in Schaeffler\'s {quadrant} innovation quadrant. {synthesis.get('strategic_fit','')}"),
+            "market_highlights": f"Market size: {market.get('market_size_2024','')} (2024), growing to {market.get('market_size_2030','')} by 2030 at {market.get('cagr','')} CAGR. Primary sector fit: {', '.join(s2d.get('sectors',{}).get('primary_sectors',[]))}. Competitive intensity: {comp.get('competitive_intensity','')}.",
+            "ip_highlights": f"Novelty signal: {ansoff_d.get('novelty_signal','Moderate')}. IP risk: {ansoff_d.get('ip_risk','Medium')}. White spaces: {'; '.join(landscape.get('white_spaces',[])[:2])}.",
+            "feasibility_highlights": f"TRL {trl.get('trl_level',3)}: {trl.get('trl_label','')}. Existence: {existence.get('existence_verdict','')}. Time to production: {existence.get('time_to_readiness','')}.",
+            "org_highlights": f"Org readiness: {scores.get('org',5)}/10. Strategy: {bop.get('recommendation','Co-develop')}. Critical gap: {people.get('competency_gap','')}.",
+            "risk_synthesis": synthesis.get("risks", ["IP risk requires FTO analysis", "Technical maturity requires R&D investment", "Competitive dynamics require monitoring", "Org readiness gaps require targeted hiring/partnering"]),
+            "action_plan": synthesis.get("next_steps", ["Commission engineering feasibility review", "Conduct FTO IP analysis", "Identify pilot customer", "Present to innovation steering committee"])
+        }
 
     NAVY=RGBColor(0x1F,0x38,0x64); BLUE=RGBColor(0x2E,0x75,0xB6)
     WHITE=RGBColor(0xFF,0xFF,0xFF); GREY=RGBColor(0x55,0x55,0x55)
@@ -276,53 +520,51 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
     def set_bg(cell, hx):
         tc=cell._tc; tcPr=tc.get_or_add_tcPr(); shd=OxmlElement("w:shd")
         shd.set(qn("w:val"),"clear"); shd.set(qn("w:color"),"auto"); shd.set(qn("w:fill"),hx); tcPr.append(shd)
-
     def h1(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(14); p.paragraph_format.space_after=Pt(4)
         pPr=p._p.get_or_add_pPr(); pBdr=OxmlElement("w:pBdr"); bot=OxmlElement("w:bottom")
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8"); bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
         pBdr.append(bot); pPr.append(pBdr); r=p.add_run(text)
         r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
-
     def h2(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(8); p.paragraph_format.space_after=Pt(2)
         r=p.add_run(text); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
-
     def body(doc, text):
+        if not text: return
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
-        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(text); r.font.size=Pt(10.5)
-
+        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(str(text)); r.font.size=Pt(10.5)
     def kv(doc, label, value):
+        if not value: return
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
         r1=p.add_run(f"{label}: "); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2=p.add_run(value); r2.font.size=Pt(10.5)
-
+        r2=p.add_run(str(value)); r2.font.size=Pt(10.5)
     def bul(doc, text):
+        if not text: return
         p=doc.add_paragraph(style="List Bullet"); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(text); r.font.size=Pt(10.5)
+        r=p.add_run(str(text)); r.font.size=Pt(10.5)
 
     doc=DocxDocument()
     for sec in doc.sections:
         sec.top_margin=Cm(2.0); sec.bottom_margin=Cm(2.0); sec.left_margin=Cm(2.5); sec.right_margin=Cm(2.5)
 
-    # ── Header ────────────────────────────────────────────────
+    # ── Cover header ──────────────────────────────────────────────
     t=doc.add_table(rows=1,cols=1); t.style="Table Grid"; c=t.cell(0,0); set_bg(c,"1F3864")
-    p=c.paragraphs[0]; p.paragraph_format.space_before=Pt(12); p.paragraph_format.space_after=Pt(2)
-    r=p.add_run("INNOVATION ASSESSMENT REPORT"); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=WHITE
-    p2=c.add_paragraph(); p2.paragraph_format.space_before=Pt(0); p2.paragraph_format.space_after=Pt(12)
-    r2=p2.add_run("Schaeffler AI Innovation Research Assistant  ·  Full Pipeline Assessment  ·  Stages 01–06")
+    p=c.paragraphs[0]; p.paragraph_format.space_before=Pt(14); p.paragraph_format.space_after=Pt(2)
+    r=p.add_run("SCHAEFFLER INNOVATION ASSESSMENT REPORT"); r.bold=True; r.font.size=Pt(12); r.font.color.rgb=WHITE
+    p2=c.add_paragraph(); p2.paragraph_format.space_before=Pt(0); p2.paragraph_format.space_after=Pt(14)
+    r2=p2.add_run("AI Innovation Research Assistant  ·  Full Pipeline Assessment  ·  Stages 01–06")
     r2.font.size=Pt(9); r2.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
     doc.add_paragraph()
 
-    # ── Title ─────────────────────────────────────────────────
-    p=doc.add_paragraph(); p.paragraph_format.space_after=Pt(2)
-    r=p.add_run(market.get("market_name", idea[:80])); r.bold=True; r.font.size=Pt(20); r.font.color.rgb=NAVY
+    # ── Title ──────────────────────────────────────────────────────
+    p=doc.add_paragraph(); r=p.add_run(market.get("market_name", idea[:80]) or idea[:80])
+    r.bold=True; r.font.size=Pt(22); r.font.color.rgb=NAVY
     p2=doc.add_paragraph()
     rec_text = synthesis.get("recommendation","")
-    r2=p2.add_run(f"IPI Score: {ipi}/10  ·  {rec_text}  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}")
+    r2=p2.add_run(f"IPI: {ipi}/10  ·  {rec_text}  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}")
     r2.font.size=Pt(10); r2.italic=True; r2.font.color.rgb=GREY
 
-    # ── Idea box ──────────────────────────────────────────────
+    # ── Idea box ──────────────────────────────────────────────────
     doc.add_paragraph()
     tb=doc.add_table(rows=1,cols=2); tb.style="Table Grid"
     c1=tb.cell(0,0); c2=tb.cell(0,1); set_bg(c1,"1F3864"); set_bg(c2,"EAF1FB"); c1.width=Inches(0.12)
@@ -333,69 +575,78 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
     ri=rp2.add_run(idea); ri.font.size=Pt(10); ri.italic=True
     doc.add_paragraph()
 
-    # ── IPI Score table ───────────────────────────────────────
-    h1(doc,"Innovation Potential Index")
+    # ── IPI Score table ───────────────────────────────────────────
+    h1(doc,"Innovation Potential Index (IPI)")
     ipi_tbl=doc.add_table(rows=1,cols=4); ipi_tbl.style="Table Grid"
-    for i,h in enumerate(["Stage","Score","Weight","Weighted"]):
+    for i,h in enumerate(["Stage","Score","Weight","Contribution"]):
         c=ipi_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
-    stage_rows=[
-        ("02 · Market Intelligence",      f"{scores['market']:.1f}/10",           f"{weights['market']}%",          f"{scores['market']*weights['market']/100:.1f}"),
-        ("03 · Patent Intelligence",      f"{scores['patent']:.1f}/10",           f"{weights['patent']}%",          f"{scores['patent']*weights['patent']/100:.1f}"),
-        ("04 · Technical Feasibility",    f"{scores['feasibility']:.1f}/10",      f"{weights['feasibility']}%",     f"{scores['feasibility']*weights['feasibility']/100:.1f}"),
-        ("05 · Organisational Readiness", f"{scores.get('org',5):.1f}/10",        f"{weights.get('org',15)}%",      f"{scores.get('org',5)*weights.get('org',15)/100:.1f}"),
-    ]
-    for i,(stage,score,wt,weighted) in enumerate(stage_rows):
+    for i,(stage,score,wt,contrib) in enumerate([
+        ("02 · Market Intelligence",    f"{scores.get('market',5):.1f}/10",      f"{weights.get('market',35)}%",      f"{scores.get('market',5)*weights.get('market',35)/100:.2f}"),
+        ("03 · Patent Intelligence",    f"{scores.get('patent',5):.1f}/10",      f"{weights.get('patent',25)}%",      f"{scores.get('patent',5)*weights.get('patent',25)/100:.2f}"),
+        ("04 · Technical Feasibility",  f"{scores.get('feasibility',5):.1f}/10", f"{weights.get('feasibility',25)}%", f"{scores.get('feasibility',5)*weights.get('feasibility',25)/100:.2f}"),
+        ("05 · Organisational Readiness",f"{scores.get('org',5):.1f}/10",        f"{weights.get('org',15)}%",         f"{scores.get('org',5)*weights.get('org',15)/100:.2f}"),
+    ]):
         row=ipi_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
-        for j,val in enumerate([stage,score,wt,weighted]):
+        for j,val in enumerate([stage,score,wt,contrib]):
             r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
     fr=ipi_tbl.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("INNOVATION POTENTIAL INDEX"); r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
-    r2=fr.cells[3].paragraphs[0].add_run(f"{ipi}/10"); r2.bold=True; r2.font.size=Pt(12); r2.font.color.rgb=LBLUE
+    r2=fr.cells[3].paragraphs[0].add_run(f"{ipi:.1f}/10"); r2.bold=True; r2.font.size=Pt(13); r2.font.color.rgb=LBLUE
     doc.add_paragraph()
 
-    # ── Recommendation ────────────────────────────────────────
-    h1(doc,"Recommendation & Synthesis")
-    kv(doc,"Recommendation",synthesis.get("recommendation",""))
-    kv(doc,"Rationale",synthesis.get("recommendation_rationale",""))
+    # ── Recommendation panel ──────────────────────────────────────
+    h1(doc,"Recommendation")
+    rec_col_map = {"PROCEED":"EAF9F0","PROCEED WITH CONDITIONS":"FFF8E4","DEFER":"FFF0E4","REJECT":"FFE9E9"}
+    rec_fill = rec_col_map.get(rec_text, "EAF1FB").lstrip("#")
+    rec_tbl=doc.add_table(rows=1,cols=1); rec_tbl.style="Table Grid"
+    rc=rec_tbl.cell(0,0); set_bg(rc, rec_fill)
+    p=rc.paragraphs[0]; p.paragraph_format.space_before=Pt(8); p.paragraph_format.space_after=Pt(4)
+    r=p.add_run(rec_text); r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
+    p2=rc.add_paragraph(); p2.paragraph_format.space_before=Pt(0); p2.paragraph_format.space_after=Pt(8)
+    r2=p2.add_run(synthesis.get("recommendation_rationale","")); r2.font.size=Pt(10)
     doc.add_paragraph()
+
     if synthesis.get("strongest_signals"):
         h2(doc,"Strongest Signals")
-        for s in synthesis["strongest_signals"]: bul(doc,f"✓ {s}")
+        for s in synthesis["strongest_signals"]: bul(doc, f"✓  {s}")
     if synthesis.get("key_concerns"):
         h2(doc,"Key Concerns")
-        for c in synthesis["key_concerns"]: bul(doc,f"⚠ {c}")
+        for c in synthesis["key_concerns"]: bul(doc, f"⚠  {c}")
     if synthesis.get("conditions"):
-        h2(doc,"Conditions")
-        for c in synthesis["conditions"]: bul(doc,f"→ {c}")
-    doc.add_paragraph()
-    kv(doc,"Strategic fit",synthesis.get("strategic_fit",""))
-    doc.add_paragraph()
-    body(doc,synthesis.get("narrative",""))
+        h2(doc,"Conditions to Proceed")
+        for c in synthesis["conditions"]: bul(doc, f"→  {c}")
 
-    # ── Next steps ────────────────────────────────────────────
-    if synthesis.get("next_steps"):
-        h2(doc,"Recommended Next Steps")
-        for i,step in enumerate(synthesis["next_steps"],1):
-            p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-            r=p.add_run(f"{i}. {step}"); r.font.size=Pt(10.5)
+    # ── Executive Summary ─────────────────────────────────────────
+    h1(doc,"Executive Summary")
+    body(doc, enr.get("executive_summary",""))
 
-    # ── Stage 02 summary ──────────────────────────────────────
-    h1(doc,"Stage 02 · Market Intelligence Summary")
-    kv(doc,"Score",f"{scores['market']}/10")
-    kv(doc,"Market",market.get("market_name",""))
-    kv(doc,"Size (2024)",market.get("market_size_2024",""))
-    kv(doc,"Projected (2030)",market.get("market_size_2030",""))
-    kv(doc,"CAGR",market.get("cagr",""))
-    kv(doc,"Maturity",market.get("market_maturity",""))
-    kv(doc,"Primary sectors",", ".join(sectors.get("primary_sectors",[])))
-    kv(doc,"Competitive intensity",comp.get("competitive_intensity",""))
-    kv(doc,"White space",comp.get("white_space",""))
-    kv(doc,"Schaeffler advantage",comp.get("schaeffler_advantage",""))
-    if comp.get("competitors"):
+    # ── Strategic Narrative ───────────────────────────────────────
+    h1(doc,"Strategic Narrative & Full Synthesis")
+    body(doc, enr.get("strategic_narrative",""))
+    if synthesis.get("strategic_fit"):
         doc.add_paragraph()
+        body(doc, synthesis.get("strategic_fit",""))
+
+    # ── Stage 02 — Market Intelligence ───────────────────────────
+    h1(doc,"Stage 02 · Market Intelligence  ·  Score: " + str(scores.get("market",5)) + "/10")
+    body(doc, enr.get("market_highlights",""))
+    doc.add_paragraph()
+    kv(doc,"Market", market.get("market_name",""))
+    kv(doc,"Size (2024)", market.get("market_size_2024",""))
+    kv(doc,"Projected (2030)", market.get("market_size_2030",""))
+    kv(doc,"CAGR", market.get("cagr",""))
+    kv(doc,"Maturity", market.get("market_maturity",""))
+    kv(doc,"Geography", market.get("geographic_focus",""))
+    kv(doc,"Competitive intensity", comp.get("competitive_intensity",""))
+    kv(doc,"White space", comp.get("white_space",""))
+    kv(doc,"Schaeffler advantage", comp.get("schaeffler_advantage",""))
+    if market.get("growth_drivers"):
+        h2(doc,"Growth Drivers")
+        for d in market["growth_drivers"][:4]: bul(doc, d)
+    if comp.get("competitors"):
         h2(doc,"Key Competitors")
         ct=doc.add_table(rows=1,cols=3); ct.style="Table Grid"
         for i,h in enumerate(["Company","Type","Relevance"]):
@@ -407,13 +658,12 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
             for j,val in enumerate([ci.get("name",""),ci.get("type",""),ci.get("relevance","")+" "+ci.get("source","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
     if sectors.get("sector_scores"):
-        doc.add_paragraph()
-        h2(doc,"Sector Cluster Scores")
+        h2(doc,"Schaeffler Sector Cluster Scores")
+        primary=sectors.get("primary_sectors",[])
         st2=doc.add_table(rows=1,cols=3); st2.style="Table Grid"
         for i,h in enumerate(["Sector","Score","Rationale"]):
             c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
-        primary=sectors.get("primary_sectors",[])
         for idx,(sec,data) in enumerate(sectors["sector_scores"].items()):
             row=st2.add_row(); fill="EAF5EA" if sec in primary else ("EAF1FB" if idx%2==0 else "FFFFFF")
             for c in row.cells: set_bg(c,fill)
@@ -421,56 +671,72 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
             r1=row.cells[1].paragraphs[0].add_run(f"{data.get('score',0)}/10"); r1.font.size=Pt(10); r1.bold=True
             r2=row.cells[2].paragraphs[0].add_run(data.get("rationale","")); r2.font.size=Pt(9.5)
 
-    # ── Stage 03 summary ──────────────────────────────────────
-    h1(doc,"Stage 03 · Patent Intelligence Summary")
-    kv(doc,"Score",f"{scores['patent']}/10")
-    kv(doc,"Filing activity",landscape.get("activity_level",""))
-    kv(doc,"Trend",landscape.get("filing_trend",""))
-    kv(doc,"Novelty signal",ansoff_d.get("novelty_signal",""))
-    kv(doc,"IP risk",ansoff_d.get("ip_risk",""))
+    # ── Stage 03 — Patent Intelligence ───────────────────────────
+    h1(doc,"Stage 03 · Patent Intelligence  ·  Score: " + str(scores.get("patent",5)) + "/10")
+    body(doc, enr.get("ip_highlights",""))
+    doc.add_paragraph()
+    kv(doc,"Filing activity", landscape.get("activity_level",""))
+    kv(doc,"Filing trend", landscape.get("filing_trend",""))
+    kv(doc,"Trend rationale", landscape.get("filing_trend_rationale",""))
+    kv(doc,"Novelty signal", ansoff_d.get("novelty_signal",""))
+    kv(doc,"Novelty rationale", ansoff_d.get("novelty_rationale",""))
+    kv(doc,"IP risk", ansoff_d.get("ip_risk",""))
+    kv(doc,"IP risk rationale", ansoff_d.get("ip_risk_rationale",""))
     sp=ansoff_d.get("schaeffler_position",{})
-    kv(doc,"Schaeffler existing IP",sp.get("existing_ip",""))
-    kv(doc,"IP gap addressed",sp.get("gap",""))
+    kv(doc,"Schaeffler existing IP", sp.get("existing_ip",""))
+    kv(doc,"IP gap addressed", sp.get("gap",""))
     if landscape.get("white_spaces"):
-        doc.add_paragraph()
         h2(doc,"IP White Spaces")
-        for ws in landscape["white_spaces"]: bul(doc,ws)
+        for ws in landscape["white_spaces"]: bul(doc, ws)
+    if landscape.get("technology_keywords"):
+        h2(doc,"Key Technology Search Terms")
+        body(doc, "  ·  ".join(landscape["technology_keywords"]))
     if landscape.get("key_filers"):
-        doc.add_paragraph()
         h2(doc,"Key Patent Filers")
         ft=doc.add_table(rows=1,cols=4); ft.style="Table Grid"
-        for i,h in enumerate(["Company","Type","Threat","Focus"]):
+        for i,h in enumerate(["Company","Type","Threat","Filing Focus"]):
             c=ft.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,fi in enumerate(landscape["key_filers"]):
             row=ft.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
-            for j,val in enumerate([fi.get("company",""),fi.get("type",""),fi.get("threat_level",""),fi.get("focus","")+" "+fi.get("source","")]):
+            for j,val in enumerate([fi.get("company",""),fi.get("type",""),fi.get("threat_level",""),fi.get("focus","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+        if landscape.get("landscape_summary"):
+            doc.add_paragraph(); body(doc, landscape["landscape_summary"])
 
-    # ── Stage 04 summary ──────────────────────────────────────
-    h1(doc,"Stage 04 · Technical Feasibility Summary")
-    kv(doc,"Score",f"{scores['feasibility']}/10")
-    kv(doc,"TRL",trl.get("trl_label",""))
-    kv(doc,"Existence",existence.get("existence_verdict",""))
-    kv(doc,"Entry readiness",trl.get("schaeffler_entry_readiness",""))
-    kv(doc,"Time to readiness",existence.get("time_to_readiness",""))
-    body(doc,trl.get("trl_rationale",""))
+    # ── Stage 04 — Technical Feasibility ─────────────────────────
+    h1(doc,"Stage 04 · Technical Feasibility  ·  Score: " + str(scores.get("feasibility",5)) + "/10")
+    body(doc, enr.get("feasibility_highlights",""))
+    doc.add_paragraph()
+    kv(doc,"TRL Level", trl.get("trl_label",""))
+    kv(doc,"Existence verdict", existence.get("existence_verdict",""))
+    kv(doc,"Schaeffler entry readiness", trl.get("schaeffler_entry_readiness",""))
+    kv(doc,"Time to production readiness", existence.get("time_to_readiness",""))
+    kv(doc,"Technology core", existence.get("technology_core",""))
+    if trl.get("trl_rationale"):
+        doc.add_paragraph(); body(doc, trl["trl_rationale"])
+    if existence.get("existence_summary"):
+        body(doc, existence["existence_summary"])
     if existence.get("evidence"):
-        doc.add_paragraph()
-        h2(doc,"Evidence")
-        ev_tbl=doc.add_table(rows=1,cols=3); ev_tbl.style="Table Grid"
-        for i,h in enumerate(["Type","Title","Source"]):
+        h2(doc,"Evidence (Academic, Startups, Pilots, Programmes)")
+        ev_tbl=doc.add_table(rows=1,cols=4); ev_tbl.style="Table Grid"
+        for i,h in enumerate(["Type","Title & Description","Relevance","Source"]):
             c=ev_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,ev in enumerate(existence["evidence"]):
             row=ev_tbl.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
-            for j,val in enumerate([ev.get("type",""),ev.get("title","")+" — "+ev.get("description",""),ev.get("source","")]):
+            for j,val in enumerate([ev.get("type",""), ev.get("title","")+" — "+ev.get("description",""), ev.get("relevance","")+" / "+ev.get("confidence",""), ev.get("source","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==1)
+    if existence.get("technology_gaps"):
+        h2(doc,"Technology Gaps to Bridge")
+        for gap in existence["technology_gaps"]: bul(doc, gap)
+    if existence.get("keywords"):
+        h2(doc,"Technology Keyword Map")
+        body(doc, "  ·  ".join(existence["keywords"]))
     if trl.get("key_technical_risks"):
-        doc.add_paragraph()
-        h2(doc,"Technical Risks")
+        h2(doc,"Key Technical Risks")
         rt=doc.add_table(rows=1,cols=3); rt.style="Table Grid"
         for i,h in enumerate(["Risk","Severity","Mitigation"]):
             c=rt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
@@ -481,47 +747,90 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
             for j,val in enumerate([risk.get("risk",""),risk.get("severity",""),risk.get("mitigation","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
 
-    # ── Stage 05 Org Readiness summary ──────────────────────
-    org_d2   = s5d_org.get("org_data", {})
-    h1(doc,"Stage 05 · Organisational Readiness Summary")
-    kv(doc,"Score",f"{scores.get('org',5)}/10")
-    kv(doc,"P³ Portfolio",f"{s5d_org.get('p_portfolio',5)}/10")
-    kv(doc,"P³ People",f"{s5d_org.get('p_people',5)}/10")
-    kv(doc,"P³ Process",f"{s5d_org.get('p_process',5)}/10")
-    kv(doc,"Build strategy",org_d2.get("build_or_partner",{}).get("recommendation",""))
-    kv(doc,"Time to TRL6 with partner",org_d2.get("build_or_partner",{}).get("time_to_trl6_partner",""))
-    kv(doc,"Critical competency gap",org_d2.get("p3_people",{}).get("competency_gap",""))
-    kv(doc,"Competency gap closure",org_d2.get("p3_people",{}).get("sourcing_route",""))
-    if org_d2.get("p3_process",{}).get("applicable_assets"):
-        doc.add_paragraph()
-        h2(doc,"Applicable Schaeffler assets")
-        for a in org_d2["p3_process"]["applicable_assets"]: bul(doc,a)
-    if org_d2.get("org_gaps"):
-        doc.add_paragraph()
-        h2(doc,"Organisational gaps")
-        gt=doc.add_table(rows=1,cols=3); gt.style="Table Grid"
-        for i,h in enumerate(["Gap","Severity","Closure route"]):
+    # ── Stage 05 — Organisational Readiness ──────────────────────
+    h1(doc,"Stage 05 · Organisational Readiness  ·  Score: " + str(scores.get("org",5)) + "/10")
+    body(doc, enr.get("org_highlights",""))
+    doc.add_paragraph()
+    kv(doc,"P³ Portfolio", f"{s5d_org.get('p_portfolio',5)}/10")
+    kv(doc,"P³ People", f"{s5d_org.get('p_people',5)}/10")
+    kv(doc,"P³ Process", f"{s5d_org.get('p_process',5)}/10")
+    kv(doc,"Build strategy", bop.get("recommendation",""))
+    kv(doc,"Time to TRL6 — Internal", bop.get("time_to_trl6_internal",""))
+    kv(doc,"Time to TRL6 — With Partner", bop.get("time_to_trl6_partner",""))
+    kv(doc,"Critical competency gap", people.get("competency_gap",""))
+    kv(doc,"Closure route", people.get("sourcing_route",""))
+    if portfolio.get("rationale"): body(doc, portfolio["rationale"])
+    if people.get("rationale"): body(doc, people["rationale"])
+    if process.get("rationale"): body(doc, process["rationale"])
+    if process.get("applicable_assets"):
+        h2(doc,"Applicable Schaeffler Assets")
+        for a in process["applicable_assets"]: bul(doc, a)
+    if people.get("matched_competencies"):
+        h2(doc,"Matched Competencies")
+        for c in people["matched_competencies"]: bul(doc, f"✓  {c}")
+    if org_data.get("org_gaps"):
+        h2(doc,"Organisational Gaps")
+        gt=doc.add_table(rows=1,cols=4); gt.style="Table Grid"
+        for i,h in enumerate(["Gap","Severity","Closure Route","Timeline"]):
             c=gt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
-        for idx,g in enumerate(org_d2["org_gaps"]):
+        for idx,g in enumerate(org_data["org_gaps"]):
             row=gt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
-            for j,val in enumerate([g.get("gap",""),g.get("severity",""),g.get("closure_route","")]):
+            for j,val in enumerate([g.get("gap",""),g.get("severity",""),g.get("closure_route",""),g.get("timeline","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
-    if org_d2.get("partnership_candidates"):
-        doc.add_paragraph()
-        h2(doc,"Partnership candidates")
-        pt=doc.add_table(rows=1,cols=3); pt.style="Table Grid"
-        for i,h in enumerate(["Organisation","Type","Route"]):
+    if org_data.get("partnership_candidates"):
+        h2(doc,"Partnership Candidates")
+        pt=doc.add_table(rows=1,cols=4); pt.style="Table Grid"
+        for i,h in enumerate(["Organisation","Type","Rationale","Route"]):
             c=pt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
-        for idx,p in enumerate(org_d2["partnership_candidates"]):
+        for idx,p in enumerate(org_data["partnership_candidates"]):
             row=pt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
-            for j,val in enumerate([p.get("name",""),p.get("type",""),p.get("route","")]):
+            for j,val in enumerate([p.get("name",""),p.get("type",""),p.get("rationale",""),p.get("route","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
 
-    # ── Footer ────────────────────────────────────────────────
+    # ── Integrated Risk Register ──────────────────────────────────
+    h1(doc,"Integrated Risk Register")
+    if enr.get("risk_synthesis"):
+        rt2=doc.add_table(rows=1,cols=2); rt2.style="Table Grid"
+        for i,h in enumerate(["Risk","Description & Mitigation"]):
+            c=rt2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
+            r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
+        for idx,risk in enumerate(enr["risk_synthesis"]):
+            row=rt2.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            for c in row.cells: set_bg(c,fill)
+            parts=str(risk).split(" — ",1) if " — " in str(risk) else [str(risk),"See full analysis"]
+            r0=row.cells[0].paragraphs[0].add_run(parts[0]); r0.font.size=Pt(9.5); r0.bold=True
+            r1=row.cells[1].paragraphs[0].add_run(parts[1] if len(parts)>1 else ""); r1.font.size=Pt(9.5)
+
+    # ── Action Plan ───────────────────────────────────────────────
+    h1(doc,"Recommended Action Plan")
+    if enr.get("action_plan"):
+        for i, step in enumerate(enr["action_plan"], 1):
+            p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
+            r=p.add_run(f"{i}.  {step}"); r.font.size=Pt(10.5)
+    if synthesis.get("next_steps"):
+        h2(doc,"Additional Next Steps")
+        for step in synthesis["next_steps"]: bul(doc, step)
+
+    # ── Quadrant classification summary ──────────────────────────
+    h1(doc,"Stage 01 · Innovation Classification")
+    kv(doc,"Quadrant", quadrant)
+    kv(doc,"Technology level", s1c.get("technology_level",""))
+    kv(doc,"Market level", s1c.get("market_level",""))
+    kv(doc,"Technology novelty", s1c.get("technology_novelty",""))
+    kv(doc,"Market position", s1c.get("market_position",""))
+    kv(doc,"Innovation cluster", s1c.get("innovation_cluster",""))
+    kv(doc,"Product family", s1c.get("product_family",""))
+    if s1c.get("trend_alignment"):
+        kv(doc,"Trend alignment", ", ".join(s1c.get("trend_alignment",[])))
+    kv(doc,"Project type", s1c.get("project_type",""))
+    kv(doc,"Innovation model", s1c.get("innovation_model",""))
+    kv(doc,"Reasoning", s1c.get("reasoning",""))
+
+    # ── Footer ────────────────────────────────────────────────────
     doc.add_paragraph()
     ft=doc.add_table(rows=1,cols=1); ft.style="Table Grid"; fc=ft.cell(0,0); set_bg(fc,"1F3864")
     fp=fc.paragraphs[0]; fp.paragraph_format.space_before=Pt(6); fp.paragraph_format.space_after=Pt(6)
@@ -530,27 +839,51 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
 
     buf=io.BytesIO(); doc.save(buf); buf.seek(0)
     return buf
-
-
 def generate_feasibility_report(idea, quadrant, s1c, existence, trl, scores):
     """Generate a Technical Feasibility Word report."""
-    extended = call_claude(
-        """Write a professional technical feasibility report for Schaeffler Group. Return ONLY valid JSON:
-{
-  "executive_summary": "3-4 paragraph summary of the technical feasibility assessment",
-  "technology_analysis": "3-4 paragraphs on the core technology, state of the art, and maturity",
-  "schaeffler_readiness": "2-3 paragraphs on Schaeffler-specific readiness and capability fit",
-  "development_pathway": "2-3 paragraphs on suggested development pathway from current TRL to deployment",
-  "risks": ["technical risk 1 with mitigation", "risk 2", "risk 3"],
-  "recommendations": ["rec 1", "rec 2", "rec 3"]
-}""",
-        f"Idea: {idea}\nTRL: {trl.get('trl_level','')}\nExistence: {existence.get('existence_verdict','')}\nEntry readiness: {trl.get('schaeffler_entry_readiness','')}\nTime to readiness: {existence.get('time_to_readiness','')}\nGaps: {existence.get('technology_gaps',[])}\nScore: {scores['final_score']}/10",
-        max_tokens=1500
+    feas_ctx = (
+        f"Idea: {idea}\nQuadrant: {quadrant}\n"
+        f"TRL level: {trl.get('trl_level',3)} — {trl.get('trl_label','')}\n"
+        f"TRL rationale: {trl.get('trl_rationale','')}\n"
+        f"Existence verdict: {existence.get('existence_verdict','')}\n"
+        f"Existence summary: {existence.get('existence_summary','')}\n"
+        f"Schaeffler entry readiness: {trl.get('schaeffler_entry_readiness','')}\n"
+        f"Time to production readiness: {existence.get('time_to_readiness','')}\n"
+        f"Technology core: {existence.get('technology_core','')}\n"
+        f"Technology gaps: {chr(59).join(existence.get('technology_gaps',[])[:4])}\n"
+        f"Key evidence: {chr(59).join([e.get('title','') + ' (' + e.get('source','') + ')' for e in existence.get('evidence',[])[:4]])}\n"
+        f"Analogous Schaeffler tech: {trl.get('analogous_schaeffler_technologies','') or trl.get('analogous_schaeffler_tech','')}\n"
+        f"Key technical risks: {chr(59).join([r.get('risk','') for r in trl.get('key_technical_risks',[])[:3]])}\n"
+        f"Score: {scores['final_score']}/10"
     )
+    extended = call_claude(
+        '''You are a Schaeffler R&D director writing a detailed technical feasibility assessment.
+Write specific, evidence-based content. Return ONLY valid JSON, no markdown backticks:
+{
+  "executive_summary": "3-4 full paragraphs: overall feasibility verdict, TRL assessment rationale, key evidence found, and what Schaeffler needs to do to advance the technology.",
+  "technology_analysis": "3-4 full paragraphs on the core technology mechanism, current state of the art globally, what has been demonstrated vs what remains theoretical, and the critical technical gaps to bridge.",
+  "schaeffler_readiness": "2-3 full paragraphs on Schaeffler-specific technical readiness — which existing competencies (bearings, mechatronics, Vitesco power electronics, tribology) are applicable, what is genuinely missing, and how analogous it is to existing Schaeffler product lines.",
+  "development_pathway": "2-3 full paragraphs: specific recommended development pathway from current TRL to TRL 6 and beyond — what milestones, what resources, what partnerships, and realistic timelines.",
+  "risks": ["Technical risk 1 with specific mitigation approach", "Technical risk 2 with mitigation", "Technical risk 3", "Technical risk 4"],
+  "recommendations": ["Concrete R&D action 1 with timeline", "Concrete action 2", "Concrete action 3", "Concrete action 4"]
+}''',
+        feas_ctx,
+        max_tokens=3500
+    )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(extended.strip().replace("```json","").replace("```","").strip())
+        ext = json.loads(raw_e)
     except:
-        ext = {"executive_summary":"See data below.","technology_analysis":"","schaeffler_readiness":"","development_pathway":"","risks":[],"recommendations":[]}
+        ext = {
+            "executive_summary": f"This innovation idea is assessed at TRL {trl.get('trl_level',3)} — {trl.get('trl_label','')}. Existence verdict: {existence.get('existence_verdict','Research Stage')}. {existence.get('existence_summary','')} Schaeffler entry readiness: {trl.get('schaeffler_entry_readiness','Ready for Innovation')}. Estimated time to production readiness: {existence.get('time_to_readiness','3-5 years')}.",
+            "technology_analysis": f"Core technology: {existence.get('technology_core','')}. TRL rationale: {trl.get('trl_rationale','')} Technology gaps to bridge: {chr(44).join(existence.get('technology_gaps',[])[:3])}.",
+            "schaeffler_readiness": f"Analogous Schaeffler technology: {trl.get('analogous_schaeffler_technologies','') or trl.get('analogous_schaeffler_tech','')}. {trl.get('entry_rationale','')}",
+            "development_pathway": f"From current TRL {trl.get('trl_level',3)}, the recommended development pathway progresses through lab validation, prototype testing in relevant environment, and pilot deployment. Estimated timeline: {existence.get('time_to_readiness','3-5 years')}.",
+            "risks": [r.get('risk','') + ' — ' + r.get('mitigation','') for r in trl.get('key_technical_risks',[])[:4]] or ["Technology gaps require systematic R&D investment", "Manufacturing scalability not yet demonstrated", "Integration with existing Schaeffler systems needs validation"],
+            "recommendations": ["Commission proof-of-concept study with Schaeffler R&D within 60 days", f"Target TRL {min(trl.get('trl_level',3)+2, 6)} within 18 months via innovation project", "Identify university or research institute partner for early-stage development", "Conduct internal engineering workshop to assess competency gaps"]
+        }
 
     NAVY=RGBColor(0x1F,0x38,0x64); WHITE=RGBColor(0xFF,0xFF,0xFF)
     GREY=RGBColor(0x55,0x55,0x55); BLACK=RGBColor(0x00,0x00,0x00)
@@ -731,22 +1064,46 @@ def generate_feasibility_report(idea, quadrant, s1c, existence, trl, scores):
 
 def generate_patent_report(idea, quadrant, s1c, landscape, ansoff_data, scores):
     """Generate a Patent Intelligence Word report."""
-    extended = call_claude(
-        """Write a professional patent intelligence report for Schaeffler Group. Return ONLY valid JSON:
-{
-  "executive_summary": "3-4 paragraph summary of the patent landscape and IP opportunity",
-  "landscape_analysis": "3-4 paragraphs on filing activity, trends, and key players",
-  "ip_strategy": "2-3 paragraphs on recommended IP strategy for Schaeffler",
-  "risks": ["IP risk 1 with mitigation", "IP risk 2 with mitigation", "IP risk 3"],
-  "recommendations": ["rec 1", "rec 2", "rec 3"]
-}""",
-        f"Idea: {idea}\nQuadrant: {quadrant}\nActivity: {landscape.get('activity_level','')}\nTrend: {landscape.get('filing_trend','')}\nNovelty: {ansoff_data.get('novelty_signal','')}\nIP risk: {ansoff_data.get('ip_risk','')}\nWhite spaces: {landscape.get('white_spaces',[])}\nScore: {scores['final_score']}/10",
-        max_tokens=1500
+    pat_ctx = (
+        f"Idea: {idea}\nQuadrant: {quadrant}\n"
+        f"Activity level: {landscape.get('activity_level','')}  Trend: {landscape.get('filing_trend','')}\n"
+        f"Filing trend rationale: {landscape.get('filing_trend_rationale','')}\n"
+        f"Novelty signal: {ansoff_data.get('novelty_signal','')}  IP risk: {ansoff_data.get('ip_risk','')}\n"
+        f"Novelty rationale: {ansoff_data.get('novelty_rationale','')}\n"
+        f"IP risk rationale: {ansoff_data.get('ip_risk_rationale','')}\n"
+        f"Key filers: {chr(44).join([f.get('company','') for f in landscape.get('key_filers',[])[:6]])}\n"
+        f"White spaces: {chr(59).join(landscape.get('white_spaces',[]))}\n"
+        f"Schaeffler existing IP: {ansoff_data.get('schaeffler_position',{}).get('existing_ip','')}\n"
+        f"IP gap addressed: {ansoff_data.get('schaeffler_position',{}).get('gap','')}\n"
+        f"Landscape summary: {landscape.get('landscape_summary','')}\nScore: {scores['final_score']}/10"
     )
+    extended = call_claude(
+        '''You are a senior patent intelligence analyst writing a detailed IP report for Schaeffler Group.
+Write specific, actionable content based on the data provided. Return ONLY valid JSON, no markdown backticks:
+{
+  "executive_summary": "3-4 full paragraphs: overall IP landscape assessment, novelty of the idea, key risks and opportunities, and headline recommendation for Schaeffler IP strategy.",
+  "landscape_analysis": "3-4 full paragraphs covering filing activity levels, who is filing and why, filing trends and what they indicate, which quadrant of IP activity is most active, and what it means for new entrants.",
+  "ip_strategy": "2-3 full paragraphs: specific recommended IP strategy for Schaeffler — whether to file broadly or narrowly, which white spaces to target, which claims to prioritise, and how to defend against existing filers.",
+  "risks": ["Specific IP risk 1 with mitigation strategy", "Specific risk 2 with action", "Specific risk 3 with action", "Specific risk 4"],
+  "recommendations": ["Concrete IP action 1 with timeline", "Concrete action 2", "Concrete action 3", "Concrete action 4"]
+}''',
+        pat_ctx,
+        max_tokens=3500
+    )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(extended.strip().replace("```json","").replace("```","").strip())
+        ext = json.loads(raw_e)
     except:
-        ext = {"executive_summary":"See data below.","landscape_analysis":"","ip_strategy":"","risks":[],"recommendations":[]}
+        sp = ansoff_data.get('schaeffler_position',{})
+        ext = {
+            "executive_summary": f"The patent landscape for this innovation shows {landscape.get('activity_level','moderate')} activity with a {landscape.get('filing_trend','stable')} trend. Novelty signal is {ansoff_data.get('novelty_signal','Moderate')} and IP risk is assessed as {ansoff_data.get('ip_risk','Medium')}. {landscape.get('landscape_summary','')} Schaeffler's existing IP: {sp.get('existing_ip','see analysis')}.",
+            "landscape_analysis": f"Filing trend is {landscape.get('filing_trend','stable')}. {landscape.get('filing_trend_rationale','')} Key filers include {chr(44).join([f.get('company','') for f in landscape.get('key_filers',[])[:4]])}. White spaces identified: {chr(59).join(landscape.get('white_spaces',[])[:3])}.",
+            "ip_strategy": f"Schaeffler should target the identified IP white spaces to establish a defensible position. The gap this idea addresses: {sp.get('gap','see analysis')}. Novelty rationale: {ansoff_data.get('novelty_rationale','')}",
+            "risks": [f"IP risk level {ansoff_data.get('ip_risk','Medium')}: {ansoff_data.get('ip_risk_rationale','conduct FTO analysis before R&D commitment')}", "Freedom-to-operate analysis required before external disclosure", "Monitor filing activity of identified key players for blocking patents", "Defensive filing strategy needed to protect white space positions"],
+            "recommendations": ["Commission formal FTO (freedom-to-operate) analysis within 60 days", "File provisional patent applications in identified white spaces", "Monitor competitor filing activity via patent watch service", "Engage Schaeffler patent counsel to assess portfolio gap"]
+        }
 
     NAVY  = RGBColor(0x1F,0x38,0x64); BLUE = RGBColor(0x2E,0x75,0xB6)
     WHITE = RGBColor(0xFF,0xFF,0xFF); GREY = RGBColor(0x55,0x55,0x55)
@@ -886,24 +1243,46 @@ def generate_patent_report(idea, quadrant, s1c, landscape, ansoff_data, scores):
 
 def generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, final_score):
     """Generate a formatted Word document market intelligence report."""
-    # Get Claude to write extended analysis
-    extended = call_claude(
-        """Write a professional market intelligence report for Schaeffler Group. Return ONLY valid JSON:
-{
-  "executive_summary": "3-4 paragraph executive summary",
-  "market_deep_dive": "3-4 paragraphs on market dynamics and trends",
-  "competitive_analysis": "3-4 paragraphs on competitive landscape",
-  "schaeffler_fit": "2-3 paragraphs on strategic fit for Schaeffler",
-  "risks": ["risk 1 with mitigation", "risk 2 with mitigation", "risk 3 with mitigation"],
-  "recommendations": ["rec 1", "rec 2", "rec 3"]
-}""",
-        f"Idea: {idea}\nQuadrant: {quadrant}\nMarket: {market.get('market_name','')}\nSize 2024: {market.get('market_size_2024','')}\nCAGR: {market.get('cagr','')}\nCompetition: {comp.get('competitive_intensity','')}\nPrimary sectors: {', '.join(sectors.get('primary_sectors',[]))}\nFinal score: {final_score}/10",
-        max_tokens=2000
+    mkt_ctx = (
+        f"Idea: {idea}\nQuadrant: {quadrant}\nMarket: {market.get('market_name','')}\n"
+        f"Size 2024: {market.get('market_size_2024','')}  Size 2030: {market.get('market_size_2030','')}\n"
+        f"CAGR: {market.get('cagr','')}  Maturity: {market.get('market_maturity','')}\n"
+        f"Geography: {market.get('geographic_focus','')}\n"
+        f"Growth drivers: {chr(59).join(market.get('growth_drivers',[])[:4])}\n"
+        f"Competitive intensity: {comp.get('competitive_intensity','')}  White space: {comp.get('white_space','')}\n"
+        f"Schaeffler advantage: {comp.get('schaeffler_advantage','')}\n"
+        f"Key competitors: {', '.join([c.get('name','') for c in comp.get('competitors',[])[:6]])}\n"
+        f"Primary sectors: {', '.join(sectors.get('primary_sectors',[]))}\n"
+        f"Sector fit rationale: {sectors.get('sector_fit_rationale','')}\nFinal score: {final_score}/10"
     )
+    extended = call_claude(
+        '''You are a senior market analyst writing a comprehensive market intelligence report for Schaeffler Group.
+Write substantive, specific content using the data provided. Return ONLY valid JSON, no markdown backticks:
+{
+  "executive_summary": "3-4 full paragraphs summarising market opportunity, competitive position, and strategic fit. Reference exact figures provided.",
+  "market_deep_dive": "3-4 full paragraphs covering market dynamics, demand signals, geographic breakdown, growth trajectory and 5-year outlook.",
+  "competitive_analysis": "3-4 full paragraphs on key players, their strategies, where white space exists, and how Schaeffler is positioned.",
+  "schaeffler_fit": "2-3 full paragraphs on strategic fit — reference Schaeffler electrification agenda, Vitesco merger, E-Mobility growth, and P3 portfolio formula.",
+  "risks": ["Specific risk 1 with concrete mitigation", "Specific risk 2 with mitigation", "Specific risk 3 with mitigation", "Specific risk 4"],
+  "recommendations": ["Concrete action 1 with timeline", "Concrete action 2", "Concrete action 3", "Concrete action 4"]
+}''',
+        mkt_ctx,
+        max_tokens=3500
+    )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(extended.strip().replace("```json","").replace("```","").strip())
+        ext = json.loads(raw_e)
     except:
-        ext = {"executive_summary":"See data below.","market_deep_dive":"","competitive_analysis":"","schaeffler_fit":"","risks":[],"recommendations":[]}
+        ext = {
+            "executive_summary": f"The {market.get('market_name','target market')} represents a {market.get('market_maturity','growing')} opportunity. Market size is estimated at {market.get('market_size_2024','significant')} in 2024, projected to reach {market.get('market_size_2030','substantial')} by 2030 at a CAGR of {market.get('cagr','strong growth')}. Competitive intensity is {comp.get('competitive_intensity','moderate')}, with white space identified: {comp.get('white_space','see analysis')}.",
+            "market_deep_dive": f"The market is characterised by {market.get('market_maturity','growth')} dynamics. Key growth drivers include: {chr(10).join(market.get('growth_drivers',['strong demand','digital transformation','electrification'])[:3])}. Geographic focus: {market.get('geographic_focus','global')}.",
+            "competitive_analysis": f"The competitive landscape shows {comp.get('competitive_intensity','moderate')} intensity. Schaeffler advantage: {comp.get('schaeffler_advantage','precision engineering and OEM relationships')}. White space: {comp.get('white_space','niche segments underserved')}.",
+            "schaeffler_fit": f"Primary sector fit is strongest in {chr(44).join(sectors.get('primary_sectors',[]))}, which aligns with Schaeffler's post-Vitesco portfolio strategy. {sectors.get('sector_fit_rationale','See sector analysis for detail.')}",
+            "risks": ["Competitive intensity requires freedom-to-operate analysis before R&D commitment — conduct FTO within 60 days", "Market timing risk: validate demand with target OEMs before scaling investment", "Sector fit assumptions require validation with Schaeffler divisional teams", "IP landscape may restrict entry — patent clearance essential"],
+            "recommendations": ["Commission internal engineering feasibility review within 30 days", "Conduct FTO IP analysis with Schaeffler patent counsel", f"Identify pilot customer in {chr(44).join(sectors.get('primary_sectors',['target sector'])[:1])} for co-development conversation", "Present to Innovation steering committee with this report as supporting material"]
+        }
 
     NAVY  = RGBColor(0x1F,0x38,0x64)
     BLUE  = RGBColor(0x2E,0x75,0xB6)
@@ -1763,10 +2142,28 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
             return val, sources
 
         def render_source_links(sources):
-            """Render sources as markdown links — URLs linked directly, others linked via Google search."""
+            """Render sources as clickable links — map known orgs to their search pages, fallback to Google."""
             if not sources:
                 return ""
             import re, urllib.parse
+            # Known org → their site search URL template
+            ORG_SEARCH = {
+                "mckinsey":      "https://www.mckinsey.com/search?q={q}",
+                "gartner":       "https://www.gartner.com/en/search#/?term={q}",
+                "bloomberg":     "https://www.bloomberg.com/search?query={q}",
+                "bloombergnef":  "https://about.bnef.com/search/?q={q}",
+                "iea":           "https://www.iea.org/search?q={q}",
+                "statista":      "https://www.statista.com/search/#searchContent={q}",
+                "roland berger": "https://www.rolandberger.com/en/Insights/search/?q={q}",
+                "frost":         "https://www.frost.com/search/?q={q}",
+                "frost & sullivan": "https://www.frost.com/search/?q={q}",
+                "deloitte":      "https://www.deloitte.com/global/en/search.html?q={q}",
+                "pwc":           "https://www.pwc.com/gx/en/search.html?q={q}",
+                "ihs markit":    "https://ihsmarkit.com/index.html#q={q}",
+                "mordor":        "https://www.mordorintelligence.com/search?q={q}",
+                "grand view":    "https://www.grandviewresearch.com/industry-analysis/search?keyword={q}",
+                "allied market": "https://www.alliedmarketresearch.com/search?query={q}",
+            }
             parts = []
             for s in sources:
                 url_match = re.search(r'https?://\S+', s)
@@ -1775,11 +2172,18 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
                     label = s[:s.find('http')].strip().rstrip(',').strip() or url
                     parts.append(f"[{label}]({url})")
                 else:
-                    # Build a Google Scholar / web search link from the source text
-                    search_query = s.strip().rstrip(',')
-                    encoded = urllib.parse.quote(search_query)
-                    search_url = f"https://www.google.com/search?q={encoded}"
-                    parts.append(f"[{search_query}]({search_url})")
+                    # Try to match against known org names
+                    s_lower = s.lower()
+                    search_url = None
+                    for org_key, url_tpl in ORG_SEARCH.items():
+                        if org_key in s_lower:
+                            q = urllib.parse.quote(idea[:50] + " " + s.strip())
+                            search_url = url_tpl.format(q=q)
+                            break
+                    if not search_url:
+                        # fallback: Google Scholar
+                        search_url = f"https://scholar.google.com/scholar?q={urllib.parse.quote(s.strip())}"
+                    parts.append(f"[{s.strip()}]({search_url})")
             return "  ·  ".join(parts)
 
         size_2024_raw = market.get("market_size_2024", "N/A")
@@ -1790,10 +2194,14 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         val_2030, src_2030 = extract_value_and_sources(size_2030_raw)
         val_cagr,  src_cagr  = extract_value_and_sources(cagr_raw)
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Size (2024)", val_2024)
-        c2.metric("Size (2030)", val_2030)
-        c3.metric("CAGR", val_cagr)
+        # Styled metric cards for market figures
+        mc1, mc2, mc3 = st.columns(3)
+        for col, label, val in [(mc1,"Market Size (2024)",val_2024),(mc2,"Market Size (2030)",val_2030),(mc3,"CAGR",val_cagr)]:
+            col.markdown(f"""
+<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;text-align:center;">
+  <div style="color:#94a3b8;font-size:11px;letter-spacing:1px;margin-bottom:6px;">{label.upper()}</div>
+  <div style="color:#60a5fa;font-size:20px;font-weight:700;line-height:1.2;">{val}</div>
+</div>""", unsafe_allow_html=True)
 
         # Render source links per field
         link_lines = []
@@ -3099,6 +3507,25 @@ Be specific to Schaeffler's context (Vitesco integration, E-Mobility shift, OEM 
 
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
+        if "s5_report_buf" not in st.session_state:
+            st.session_state.s5_report_buf = None
+        if st.session_state.s5_report_buf is None:
+            if st.button("⬇️ Download Organisational Readiness Report", type="primary", key="s5_dl"):
+                with st.spinner("Generating report — this takes about 20 seconds..."):
+                    try:
+                        st.session_state.s5_report_buf = generate_org_report(idea, quadrant, s1c, d)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report error: {e}")
+        else:
+            st.download_button(
+                label="⬇️ Download Organisational Readiness Report",
+                data=st.session_state.s5_report_buf,
+                file_name=f"Schaeffler_Org_Readiness_{datetime.now().strftime('%Y%m%d')}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary"
+            )
+        st.markdown("---")
         st.success(f"✓ Organisational Readiness complete. Score: **{final}/10**")
         if st.button("Continue to Stage 06: Scoring & Synthesis →", type="primary", key="s5_continue"):
             st.session_state.active_stage = 6
@@ -3108,6 +3535,7 @@ Be specific to Schaeffler's context (Vitesco integration, E-Mobility shift, OEM 
             st.session_state.s5_step = "intro"
             st.session_state.s5_data = {}
             st.session_state.s5_chat = []
+            st.session_state.s5_report_buf = None
             st.rerun()
 
 
