@@ -15,239 +15,246 @@ from datetime import datetime
 # Load API key — Streamlit secrets take priority, fallback to hardcoded for local dev
 TAVILY_KEY = ""  # optional
 
-st.set_page_config(
-    page_title="Schaeffler Innovation Assistant",
-    page_icon="⚙️",
-    layout="centered"
-)
+st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="⚙️", layout="centered")
 
-# ── API key ──────────────────────────────────────────────────────────────────
+# ── API key — secrets for deployment, hardcoded fallback for local ────────────
 try:
     ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
 except Exception:
     ANTHROPIC_KEY = "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"
 
-# ── Scroll to top ────────────────────────────────────────────────────────────
-st.markdown("""
-<script>
-(function(){
-  function up(){ var e=window.parent.document.querySelector("section.main"); if(e) e.scrollTop=0; }
-  up(); setTimeout(up,100); setTimeout(up,400);
-})();
-</script>
-""", unsafe_allow_html=True)
-
-# ── Schaeffler Dark Theme ─────────────────────────────────────────────────────
+# ── Scroll to top on every page load ─────────────────────────
+# ── Styling ───────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* ═══════════════════════════════════════════════════════════════
+   SCHAEFFLER INNOVATION ASSISTANT — GLOBAL DARK THEME
+   Background: black / near-black
+   Text: always white (#ffffff / #e2e8f0)
+   Accents: greens (#22c55e primary, #4ade80 light, #16a34a dark)
+   Charts: green palette
+   Chat input box: consistent dark card style
+═══════════════════════════════════════════════════════════════ */
 
-/* === GLOBAL === */
-html, body, [class*="css"] {
-    font-family: 'Inter', Arial, sans-serif !important;
-    background-color: #0A0A0A !important;
-    color: #FFFFFF !important;
-}
-.stApp { background-color: #0A0A0A !important; }
-
-/* === SIDEBAR === */
-section[data-testid="stSidebar"] {
-    background-color: #007A3D !important;
-    border-right: none !important;
-}
-section[data-testid="stSidebar"] * { color: #FFFFFF !important; }
-section[data-testid="stSidebar"] .stButton > button {
-    background: rgba(255,255,255,0.12) !important;
-    color: #FFFFFF !important;
-    border: 1px solid rgba(255,255,255,0.25) !important;
-    border-radius: 4px !important;
-    font-size: 12px !important;
-    text-align: left !important;
-    padding: 6px 10px !important;
-    width: 100% !important;
-    font-family: 'Inter', Arial, sans-serif !important;
-}
-section[data-testid="stSidebar"] .stButton > button:hover {
-    background: rgba(255,255,255,0.22) !important;
+/* ── App background ── */
+.stApp, .main, [data-testid="stAppViewContainer"],
+[data-testid="stMain"], [data-testid="block-container"] {
+    background-color: #0a0f0a !important;
+    color: #ffffff !important;
 }
 
-/* === MAIN CONTENT === */
-.block-container {
-    background-color: #111111 !important;
-    border-radius: 0 !important;
-    padding: 1.5rem 2rem !important;
-    max-width: 860px !important;
+/* ── Sidebar ── */
+[data-testid="stSidebar"], [data-testid="stSidebar"] > div {
+    background-color: #0d150d !important;
+    color: #ffffff !important;
+    border-right: 1px solid #1a2e1a !important;
+}
+[data-testid="stSidebar"] * { color: #ffffff !important; }
+
+/* ── All text elements ── */
+h1, h2, h3, h4, h5, h6,
+.stMarkdown, .stMarkdown p, .stMarkdown li,
+.stMarkdown strong, .stMarkdown em,
+p, span, label, div,
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] {
+    color: #ffffff !important;
 }
 
-/* === HEADINGS & TEXT === */
-h1, h2, h3, h4, h5, h6 { color: #FFFFFF !important; }
-p, li, span, label { color: #2A2A2A !important; }
-.stMarkdown p { color: #2A2A2A !important; }
-.stCaption, small { color: #888888 !important; }
+/* ── st.caption ── */
+[data-testid="stCaptionContainer"], .stCaption, small {
+    color: #a8d5a2 !important;
+}
 
-/* === PRIMARY BUTTONS — Schaeffler green === */
+/* ── Subheader / header ── */
+[data-testid="stHeadingWithActionElements"] h2,
+[data-testid="stHeadingWithActionElements"] h3 {
+    color: #ffffff !important;
+}
+
+/* ── st.info / st.warning / st.success / st.error ── */
+[data-testid="stAlert"] {
+    background-color: #0d1f0d !important;
+    border-color: #22c55e !important;
+    color: #ffffff !important;
+}
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] * { color: #ffffff !important; }
+[data-baseweb="notification"][kind="info"]    { border-color: #22c55e !important; background: #0d1f0d !important; }
+[data-baseweb="notification"][kind="warning"] { border-color: #f59e0b !important; background: #1a120a !important; }
+[data-baseweb="notification"][kind="success"] { border-color: #22c55e !important; background: #0a1a0a !important; }
+[data-baseweb="notification"][kind="error"]   { border-color: #ef4444 !important; background: #1a0a0a !important; }
+
+/* ── Metric cards ── */
+[data-testid="stMetric"], [data-testid="metric-container"] {
+    background-color: #0f1f0f !important;
+    border: 1px solid #1a3a1a !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+}
+[data-testid="stMetricLabel"] > div,
+[data-testid="stMetricLabel"] p { color: #a8d5a2 !important; }
+[data-testid="stMetricValue"] > div,
+[data-testid="stMetricValue"] { color: #ffffff !important; }
+[data-testid="stMetricDelta"] { color: #4ade80 !important; }
+
+/* ── Buttons ── */
 .stButton > button[kind="primary"] {
-    background-color: #007A3D !important;
-    color: #FFFFFF !important;
+    background-color: #16a34a !important;
+    color: #ffffff !important;
     border: none !important;
-    border-radius: 3px !important;
+    border-radius: 6px !important;
     font-weight: 600 !important;
-    font-family: 'Inter', Arial, sans-serif !important;
-    letter-spacing: 0.3px !important;
-    padding: 0.5rem 1.25rem !important;
 }
 .stButton > button[kind="primary"]:hover {
-    background-color: #005C2E !important;
+    background-color: #15803d !important;
 }
-
-/* === SECONDARY BUTTONS === */
-.stButton > button[kind="secondary"] {
-    background-color: #1E1E1E !important;
-    color: #FFFFFF !important;
-    border: 1.5px solid #007A3D !important;
-    border-radius: 3px !important;
-    font-weight: 500 !important;
-    font-family: 'Inter', Arial, sans-serif !important;
-}
-.stButton > button[kind="secondary"]:hover {
-    background-color: #1a3d2a !important;
-}
-
-/* === SUCCESS / WARNING / INFO === */
-.stSuccess > div {
-    background-color: #0d2a1a !important;
-    border-left: 4px solid #007A3D !important;
-    color: #FFFFFF !important;
-    border-radius: 3px !important;
-}
-.stWarning > div {
-    background-color: #1a1200 !important;
-    border-left: 4px solid #d97706 !important;
-    color: #FFFFFF !important;
-    border-radius: 3px !important;
-}
-.stInfo > div {
-    background-color: #0d2a1a !important;
-    border-left: 4px solid #007A3D !important;
-    color: #FFFFFF !important;
-    border-radius: 3px !important;
-}
-[data-testid="stAlert"] { color: #FFFFFF !important; }
-
-/* === METRICS === */
-[data-testid="stMetric"] {
-    background: #1E1E1E !important;
-    border-radius: 4px !important;
-    padding: 12px 16px !important;
-    border: 1px solid #2A2A2A !important;
-}
-[data-testid="stMetricValue"] { color: #007A3D !important; font-weight: 700 !important; }
-[data-testid="stMetricLabel"] { color: #AAAAAA !important; }
-[data-testid="stMetricDelta"] { color: #888888 !important; }
-
-/* === INPUTS & TEXTAREAS === */
-.stTextArea textarea, .stTextInput input {
-    background-color: #1E1E1E !important;
-    color: #FFFFFF !important;
-    border: 1.5px solid #2A2A2A !important;
-    border-radius: 3px !important;
-    font-family: 'Inter', Arial, sans-serif !important;
-}
-.stTextArea textarea:focus, .stTextInput input:focus {
-    border-color: #007A3D !important;
-    box-shadow: 0 0 0 2px rgba(0,122,61,0.25) !important;
-}
-.stTextArea textarea::placeholder, .stTextInput input::placeholder {
-    color: #555555 !important;
-}
-
-/* === CHAT INPUT === */
-[data-testid="stChatInput"] {
-    background-color: #1E1E1E !important;
-    border-top: 1px solid #2A2A2A !important;
-}
-[data-testid="stChatInput"] textarea {
-    background-color: #1E1E1E !important;
-    color: #FFFFFF !important;
-    border: 1.5px solid #2A2A2A !important;
+.stButton > button[kind="secondary"],
+.stButton > button:not([kind="primary"]) {
+    background-color: #0f2a0f !important;
+    color: #ffffff !important;
+    border: 1px solid #22c55e !important;
     border-radius: 6px !important;
-    font-family: 'Inter', Arial, sans-serif !important;
 }
-[data-testid="stChatInput"] textarea:focus {
-    border-color: #007A3D !important;
-    box-shadow: 0 0 0 2px rgba(0,122,61,0.25) !important;
+.stButton > button[kind="secondary"]:hover,
+.stButton > button:not([kind="primary"]):hover {
+    background-color: #1a3a1a !important;
 }
-[data-testid="stChatInput"] textarea::placeholder { color: #555555 !important; }
-[data-testid="stChatInput"] button {
-    background-color: #007A3D !important;
-    border-radius: 4px !important;
+/* Download buttons */
+[data-testid="stDownloadButton"] button {
+    background-color: #16a34a !important;
+    color: #ffffff !important;
+    border: none !important;
 }
 
-/* === CHAT MESSAGES === */
-[data-testid="stChatMessageContent"] {
-    background: #1E1E1E !important;
+/* ── Chat input box — consistent across all stages ── */
+[data-testid="stChatInput"],
+[data-testid="stChatInputContainer"],
+.stChatInput,
+[data-testid="stChatInputTextArea"],
+[data-baseweb="textarea"],
+.stChatInput textarea {
+    background-color: #0f2a0f !important;
+    border: 1px solid #22c55e !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+}
+[data-testid="stChatInput"] textarea::placeholder { color: #6aaa6a !important; }
+/* Chat send button */
+[data-testid="stChatInputSubmitButton"] button,
+[data-testid="baseButton-secondary"][aria-label*="send"] {
+    background-color: #16a34a !important;
+    color: #ffffff !important;
+}
+
+/* ── Chat messages ── */
+[data-testid="stChatMessage"] {
+    background-color: #0d1f0d !important;
+    border: 1px solid #1a3a1a !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+}
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] * { color: #ffffff !important; }
+/* User message slightly different shade */
+[data-testid="stChatMessage"][data-role="user"] {
+    background-color: #111f11 !important;
+}
+[data-testid="stChatMessage"][data-role="assistant"] {
+    background-color: #0a180a !important;
+}
+
+/* ── Text inputs and textareas ── */
+[data-testid="stTextInput"] input,
+[data-testid="stTextAreaInput"] textarea,
+.stTextInput input,
+.stTextArea textarea {
+    background-color: #0f1f0f !important;
+    color: #ffffff !important;
+    border: 1px solid #1a3a1a !important;
     border-radius: 6px !important;
-    color: #2A2A2A !important;
+}
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stTextAreaInput"] textarea::placeholder { color: #5a8a5a !important; }
+[data-testid="stTextInput"] label,
+[data-testid="stTextAreaInput"] label { color: #ffffff !important; }
+
+/* ── Select / radio / checkbox ── */
+[data-testid="stSelectbox"] select,
+[data-baseweb="select"] {
+    background-color: #0f1f0f !important;
+    color: #ffffff !important;
+    border-color: #1a3a1a !important;
+}
+[data-testid="stRadio"] label,
+[data-testid="stCheckbox"] label { color: #ffffff !important; }
+[data-testid="stRadio"] [data-testid="stMarkdownContainer"] { color: #ffffff !important; }
+
+/* ── Sliders ── */
+[data-testid="stSlider"] label { color: #ffffff !important; }
+[data-baseweb="slider"] [data-testid="stTickBarMin"],
+[data-baseweb="slider"] [data-testid="stTickBarMax"] { color: #a8d5a2 !important; }
+.stSlider [data-baseweb="slider"] div[role="slider"] {
+    background-color: #22c55e !important;
 }
 
-/* === PROGRESS BAR === */
-.stProgress > div > div { background-color: #007A3D !important; }
-.stProgress > div { background-color: #1E1E1E !important; }
+/* ── Progress bar ── */
+[data-testid="stProgress"] > div > div {
+    background-color: #22c55e !important;
+}
+[data-testid="stProgress"] > div {
+    background-color: #0f2a0f !important;
+}
 
-/* === EXPANDER === */
+/* ── Expander ── */
 [data-testid="stExpander"] {
-    background: #1E1E1E !important;
-    border: 1px solid #2A2A2A !important;
-    border-radius: 4px !important;
+    background-color: #0d1f0d !important;
+    border: 1px solid #1a3a1a !important;
+    border-radius: 6px !important;
 }
-[data-testid="stExpander"] summary {
-    color: #007A3D !important;
-    font-weight: 500 !important;
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary span { color: #ffffff !important; }
+
+/* ── Spinner ── */
+[data-testid="stSpinner"] p { color: #a8d5a2 !important; }
+
+/* ── Plotly chart container ── */
+.js-plotly-plot, .plotly, .plot-container {
+    background-color: transparent !important;
 }
-[data-testid="stExpander"] p, [data-testid="stExpander"] li { color: #2A2A2A !important; }
 
-/* === SLIDERS === */
-.stSlider [data-baseweb="slider"] div[role="slider"] { background: #007A3D !important; }
+/* ── Dividers ── */
+hr { border-color: #1a3a1a !important; }
 
-/* === DIVIDER === */
-hr { border-color: #2A2A2A !important; }
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; background: #0a0f0a; }
+::-webkit-scrollbar-thumb { background: #1a3a1a; border-radius: 3px; }
 
-/* === SOURCE TAGS === */
+/* ── Source tags ── */
 .source-tag {
-    background: #0d2a1a;
-    color: #4ade80;
+    background: #0f2a0f;
+    color: #4ade80 !important;
     font-size: 11px; padding: 2px 8px;
     border-radius: 3px; margin-left: 6px;
     font-family: monospace;
-}
-
-/* === HIDE STREAMLIT BRANDING === */
-#MainMenu, footer { visibility: hidden; }
-
-/* === SELECT BOXES / DROPDOWNS === */
-[data-baseweb="select"] > div {
-    background-color: #1E1E1E !important;
-    border-color: #2A2A2A !important;
-    color: #FFFFFF !important;
+    border: 1px solid #22c55e44;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Schaeffler Brand Constants ───────────────────────────────────────────────
-SCH_GREEN      = "#007A3D"
-SCH_GREEN_DARK = "#005C2E"
-SCH_GREEN_LITE = "#0d2a1a"
-SCH_WHITE      = "#FFFFFF"
-SCH_BLACK      = "#0A0A0A"
-SCH_CARD       = "#1E1E1E"
-SCH_BORDER     = "#2A2A2A"
-SCH_MUTED      = "#888888"
-# Chart aliases
-BG    = "#111111"
-BLUE  = "#007A3D"
-DIM   = "#888888"
-WHITE = "#FFFFFF"
-NAVY  = "#005C2E"
+# ── Constants ─────────────────────────────────────────────────
+BG      = "#0a0f0a"       # near-black background
+BG2     = "#0d1f0d"       # slightly lighter panels
+BG3     = "#0f2a0f"       # card backgrounds
+ACCENT  = "#22c55e"       # primary green
+ACCENT2 = "#4ade80"       # light green
+ACCENT3 = "#16a34a"       # dark green
+GRID    = "#1a3a1a"       # grid / border green
+DIM     = "#a8d5a2"       # muted green-white for labels
+WHITE   = "#ffffff"       # all text
+BLUE    = "#22c55e"       # replace BLUE with green throughout charts
+NAVY    = "#0d1f0d"       # dark panel (was navy)
 
 # ── Helpers ───────────────────────────────────────────────────
 def call_claude(system, user, max_tokens=2000):
@@ -362,8 +369,8 @@ with st.sidebar:
 
 # ── Ansoff chart helper ───────────────────────────────────────
 def ansoff_chart(quadrant, tech_score, market_score):
-    q_cols = {"EXPLOIT":"#1a2d1e","EXTEND":"#0d2a1a","RADICAL":"#005C2E","DISRUPT":"#0a1f12","DISRUPTIVE":"#0a1f12"}
-    text_col = "#e2e8f0"; dim_col = "#888888"; grid_col = "#2A2A2A"
+    q_cols = {"EXPLOIT":"#0a1a0a","EXTEND":"#0d200d","RADICAL":"#0f2a0f","DISRUPT":"#071407","DISRUPTIVE":"#071407"}
+    text_col = "#ffffff"; dim_col = "#a8d5a2"; grid_col = "#1a3a1a"
 
     fig = go.Figure()
     # Schaeffler convention: X=Technology (left=Established, right=New)
@@ -392,7 +399,7 @@ def ansoff_chart(quadrant, tech_score, market_score):
         ))
         fig.add_annotation(x=q["lx"], y=q["ly"], text=f"<b>{q['name']}</b>",
             showarrow=False,
-            font=dict(size=14, color=BLUE if q["name"]==quadrant else dim_col))
+            font=dict(size=14, color=ACCENT if q["name"]==quadrant else dim_col))
 
     fig.add_shape(type="line",x0=5,x1=5,y0=0,y1=10,line=dict(color=grid_col,width=1.5,dash="dot"))
     fig.add_shape(type="line",x0=0,x1=10,y0=5,y1=5,line=dict(color=grid_col,width=1.5,dash="dot"))
@@ -418,7 +425,7 @@ def ansoff_chart(quadrant, tech_score, market_score):
 
     fig.add_trace(go.Scatter(
         x=[tech_score], y=[market_score], mode="markers+text",
-        marker=dict(size=20, color=BLUE, line=dict(color="white",width=2)),
+        marker=dict(size=20, color=ACCENT, line=dict(color="white",width=2)),
         text=["  Your idea"], textposition="middle right",
         textfont=dict(size=12,color="white",family="Arial Bold"),
         showlegend=False,
@@ -569,7 +576,7 @@ Return ONLY valid JSON, no markdown backticks:
         ("People",f"{s5d.get('p_people',5):.1f}/10","40%",people.get('competency_gap','')),
         ("Process",f"{s5d.get('p_process',5):.1f}/10","25%",process.get('investment_required','')),
     ]):
-        row=p3_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
+        row=p3_tbl.add_row(); fill="0f2a0f" if i%2==0 else "0d1f0d"
         for c in row.cells: set_bg(c,fill)
         for j,val in enumerate([dim,score,wt,desc[:80] if desc else ""]):
             r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
@@ -607,8 +614,8 @@ Return ONLY valid JSON, no markdown backticks:
             c=gt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,g in enumerate(gaps):
-            row=gt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
-            sev_fill={"High":"FFE4E4","Medium":"FFF8E4","Low":"E4FFE9"}.get(g.get("severity",""),"FFFFFF")
+            row=gt.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
+            sev_fill={"High":"FFE4E4","Medium":"1a1200","Low":"E4FFE9"}.get(g.get("severity",""),"0d1f0d")
             for c in row.cells: set_bg(c,sev_fill if idx==0 else fill)
             for j,val in enumerate([g.get("gap",""),g.get("severity",""),g.get("closure_route",""),g.get("timeline","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
@@ -620,7 +627,7 @@ Return ONLY valid JSON, no markdown backticks:
             c=pt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,p in enumerate(partners):
-            row=pt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=pt.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([p.get("name",""),p.get("type",""),p.get("rationale",""),p.get("route","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
@@ -773,7 +780,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     # ── Idea box ──────────────────────────────────────────────────
     doc.add_paragraph()
     tb=doc.add_table(rows=1,cols=2); tb.style="Table Grid"
-    c1=tb.cell(0,0); c2=tb.cell(0,1); set_bg(c1,"1F3864"); set_bg(c2,"EAF1FB"); c1.width=Inches(0.12)
+    c1=tb.cell(0,0); c2=tb.cell(0,1); set_bg(c1,"1F3864"); set_bg(c2,"0f2a0f"); c1.width=Inches(0.12)
     c1.paragraphs[0].add_run("")
     rp=c2.paragraphs[0]; rp.paragraph_format.space_before=Pt(8); rp.paragraph_format.space_after=Pt(2)
     rb=rp.add_run("Innovation Idea"); rb.bold=True; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
@@ -793,7 +800,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         ("04 · Technical Feasibility",  f"{scores.get('feasibility',5):.1f}/10", f"{weights.get('feasibility',25)}%", f"{scores.get('feasibility',5)*weights.get('feasibility',25)/100:.2f}"),
         ("05 · Organisational Readiness",f"{scores.get('org',5):.1f}/10",        f"{weights.get('org',15)}%",         f"{scores.get('org',5)*weights.get('org',15)/100:.2f}"),
     ]):
-        row=ipi_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
+        row=ipi_tbl.add_row(); fill="0f2a0f" if i%2==0 else "0d1f0d"
         for c in row.cells: set_bg(c,fill)
         for j,val in enumerate([stage,score,wt,contrib]):
             r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
@@ -805,8 +812,8 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
 
     # ── Recommendation panel ──────────────────────────────────────
     h1(doc,"Recommendation")
-    rec_col_map = {"PROCEED":"EAF9F0","PROCEED WITH CONDITIONS":"FFF8E4","DEFER":"FFF0E4","REJECT":"FFE9E9"}
-    rec_fill = rec_col_map.get(rec_text, "EAF1FB").lstrip("#")
+    rec_col_map = {"PROCEED":"0a1a0a","PROCEED WITH CONDITIONS":"1a1200","DEFER":"1a0f00","REJECT":"1a0000"}
+    rec_fill = rec_col_map.get(rec_text, "0f2a0f").lstrip("#")
     rec_tbl=doc.add_table(rows=1,cols=1); rec_tbl.style="Table Grid"
     rc=rec_tbl.cell(0,0); set_bg(rc, rec_fill)
     p=rc.paragraphs[0]; p.paragraph_format.space_before=Pt(8); p.paragraph_format.space_after=Pt(4)
@@ -859,7 +866,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             c=ct.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,ci in enumerate(comp["competitors"]):
-            row=ct.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=ct.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ci.get("name",""),ci.get("type",""),ci.get("relevance","")+" "+ci.get("source","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
@@ -871,7 +878,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,(sec,data) in enumerate(sectors["sector_scores"].items()):
-            row=st2.add_row(); fill="EAF5EA" if sec in primary else ("EAF1FB" if idx%2==0 else "FFFFFF")
+            row=st2.add_row(); fill="0a1a0a" if sec in primary else ("0f2a0f" if idx%2==0 else "0d1f0d")
             for c in row.cells: set_bg(c,fill)
             r0=row.cells[0].paragraphs[0].add_run(sec); r0.font.size=Pt(10); r0.bold=(sec in primary)
             r1=row.cells[1].paragraphs[0].add_run(f"{data.get('score',0)}/10"); r1.font.size=Pt(10); r1.bold=True
@@ -904,7 +911,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             c=ft.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,fi in enumerate(landscape["key_filers"]):
-            row=ft.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=ft.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([fi.get("company",""),fi.get("type",""),fi.get("threat_level",""),fi.get("focus","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
@@ -931,7 +938,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             c=ev_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,ev in enumerate(existence["evidence"]):
-            row=ev_tbl.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=ev_tbl.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ev.get("type",""), ev.get("title","")+" — "+ev.get("description",""), ev.get("relevance","")+" / "+ev.get("confidence",""), ev.get("source","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==1)
@@ -948,7 +955,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             c=rt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,risk in enumerate(trl["key_technical_risks"]):
-            row=rt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=rt.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([risk.get("risk",""),risk.get("severity",""),risk.get("mitigation","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
@@ -981,7 +988,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             c=gt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,g in enumerate(org_data["org_gaps"]):
-            row=gt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=gt.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([g.get("gap",""),g.get("severity",""),g.get("closure_route",""),g.get("timeline","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
@@ -992,7 +999,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             c=pt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,p in enumerate(org_data["partnership_candidates"]):
-            row=pt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=pt.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([p.get("name",""),p.get("type",""),p.get("rationale",""),p.get("route","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
@@ -1005,7 +1012,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             c=rt2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,risk in enumerate(enr["risk_synthesis"]):
-            row=rt2.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=rt2.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             parts=str(risk).split(" — ",1) if " — " in str(risk) else [str(risk),"See full analysis"]
             r0=row.cells[0].paragraphs[0].add_run(parts[0]); r0.font.size=Pt(9.5); r0.bold=True
@@ -1141,7 +1148,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
     # Idea box
     doc.add_paragraph()
     tb=doc.add_table(rows=1,cols=2); tb.style="Table Grid"
-    c1=tb.cell(0,0); c2=tb.cell(0,1); set_bg(c1,"1F3864"); set_bg(c2,"EAF1FB"); c1.width=Inches(0.12)
+    c1=tb.cell(0,0); c2=tb.cell(0,1); set_bg(c1,"1F3864"); set_bg(c2,"0f2a0f"); c1.width=Inches(0.12)
     c1.paragraphs[0].add_run("")
     rp=c2.paragraphs[0]; rp.paragraph_format.space_before=Pt(8); rp.paragraph_format.space_after=Pt(2)
     rb=rp.add_run("Innovation Idea"); rb.bold=True; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
@@ -1160,7 +1167,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         ("Existence Quality",f"{scores['existence_score']:.1f}/10","30%"),
         ("Risk Profile",f"{scores['risk_score']:.1f}/10","20%"),
     ]):
-        row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
+        row=st2.add_row(); fill="0f2a0f" if i%2==0 else "0d1f0d"
         for c in row.cells: set_bg(c,fill)
         for j,val in enumerate([dim,score,wt]):
             r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
@@ -1201,7 +1208,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
     current_trl = trl.get("trl_level",3)
     for lvl,lbl,desc in trl_rows:
         row=trl_tbl.add_row()
-        fill="EAF5EA" if lvl==current_trl else ("EAF1FB" if lvl%2==0 else "FFFFFF")
+        fill="0a1a0a" if lvl==current_trl else ("0f2a0f" if lvl%2==0 else "0d1f0d")
         for c in row.cells: set_bg(c,fill)
         r0=row.cells[0].paragraphs[0].add_run(f"TRL {lvl}"); r0.font.size=Pt(10); r0.bold=(lvl==current_trl)
         r1=row.cells[1].paragraphs[0].add_run(lbl); r1.font.size=Pt(10); r1.bold=(lvl==current_trl)
@@ -1221,7 +1228,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
             c=ev_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,ev in enumerate(evidence):
-            row=ev_tbl.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=ev_tbl.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ev.get("type",""),ev.get("title",""),ev.get("relevance",""),ev.get("source","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==1)
@@ -1246,7 +1253,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
             c=rt.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,risk in enumerate(risks):
-            row=rt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=rt.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([risk.get("risk",""),risk.get("severity",""),risk.get("mitigation","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
@@ -1363,7 +1370,7 @@ Write specific, actionable content based on the data provided. Return ONLY valid
     # Idea box
     doc.add_paragraph()
     tb=doc.add_table(rows=1,cols=2); tb.style="Table Grid"
-    c1=tb.cell(0,0); c2=tb.cell(0,1); set_bg(c1,"1F3864"); set_bg(c2,"EAF1FB"); c1.width=Inches(0.12)
+    c1=tb.cell(0,0); c2=tb.cell(0,1); set_bg(c1,"1F3864"); set_bg(c2,"0f2a0f"); c1.width=Inches(0.12)
     c1.paragraphs[0].add_run("")
     rp=c2.paragraphs[0]; rp.paragraph_format.space_before=Pt(8); rp.paragraph_format.space_after=Pt(2)
     rb=rp.add_run("Innovation Idea"); rb.bold=True; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
@@ -1382,7 +1389,7 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         ("Novelty Signal",f"{scores['novelty_score']:.1f}/10","35%"),
         ("IP Risk (inverted)",f"{scores['ip_score']:.1f}/10","25%"),
     ]):
-        row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
+        row=st2.add_row(); fill="0f2a0f" if i%2==0 else "0d1f0d"
         for j,c in enumerate(row.cells): set_bg(c,fill)
         for j,val in enumerate([dim,score,wt]):
             r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
@@ -1414,7 +1421,7 @@ Write specific, actionable content based on the data provided. Return ONLY valid
             c=ft.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
         for idx,fi in enumerate(filers):
-            row=ft.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=ft.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([fi.get("company",""),fi.get("type",""),fi.get("threat_level",""),fi.get("focus","")+" "+fi.get("source","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
@@ -1586,7 +1593,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     doc.add_paragraph()
     tb = doc.add_table(rows=1,cols=2); tb.style="Table Grid"
     c1=tb.cell(0,0); c2=tb.cell(0,1)
-    set_bg(c1,"1F3864"); set_bg(c2,"EAF1FB")
+    set_bg(c1,"1F3864"); set_bg(c2,"0f2a0f")
     c1.width=Inches(0.12)
     c1.paragraphs[0].add_run("")
     rp=c2.paragraphs[0]
@@ -1608,7 +1615,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         ("Competition Opportunity",f"{weights['Competition Opportunity'][0]:.1f}/10","25%",f"{weights['Competition Opportunity'][0]*0.25:.1f}"),
     ]
     for i,(dim,score,weight,weighted) in enumerate(rows_data):
-        row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
+        row=st2.add_row(); fill="0f2a0f" if i%2==0 else "0d1f0d"
         for j,val in enumerate([dim,score,weight,weighted]):
             c=row.cells[j]; set_bg(c,fill)
             r=c.paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
@@ -1647,7 +1654,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     hdr_row(st3,["Sector","Score","Rationale"])
     for idx,(sector,data) in enumerate(sectors.get("sector_scores",{}).items()):
         row=st3.add_row()
-        fill="EAF5EA" if sector in primary else ("EAF1FB" if idx%2==0 else "FFFFFF")
+        fill="0a1a0a" if sector in primary else ("0f2a0f" if idx%2==0 else "0d1f0d")
         for c in row.cells: set_bg(c,fill)
         r0=row.cells[0].paragraphs[0].add_run(sector)
         r0.font.size=Pt(10); r0.bold=(sector in primary)
@@ -1669,7 +1676,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         ct=doc.add_table(rows=1,cols=3); ct.style="Table Grid"
         hdr_row(ct,["Company","Type","Relevance"])
         for idx,ci in enumerate(comp["competitors"]):
-            row=ct.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
+            row=ct.add_row(); fill="0f2a0f" if idx%2==0 else "0d1f0d"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ci.get("name",""),ci.get("type",""),ci.get("relevance","")+" "+ci.get("source","")]):
                 r=row.cells[j].paragraphs[0].add_run(val)
@@ -1970,10 +1977,10 @@ Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partn
 
 if st.session_state.active_stage == 1:
     st.markdown("## Stage 01 · Quadrant Classifier")
-    st.markdown("""<div style="background:#1a2d1e;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
+    st.markdown("""<div style="background:#0f2a0f;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #22c55e;">
 <div style="color:#4ade80;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Maps your idea onto Schaeffler's modified Ansoff matrix — Exploit, Extend, Radical, or Disrupt. Ideas in Radical and Disrupt proceed through the full pipeline. Others are redirected to the right Schaeffler product division.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Quadrant classification · Schaeffler Motion product family fit · Strategic trend alignment · Innovation pathway (Start-Up Mode vs Innovation Factory)</div>
+<div style="color:#ffffff;font-size:13px;margin-top:6px;">Maps your idea onto Schaeffler's modified Ansoff matrix — Exploit, Extend, Radical, or Disrupt. Ideas in Radical and Disrupt proceed through the full pipeline. Others are redirected to the right Schaeffler product division.</div>
+<div style="color:#a8d5a2;font-size:12px;margin-top:8px;"><b style="color:#ffffff;">You get:</b> Quadrant classification · Schaeffler Motion product family fit · Strategic trend alignment · Innovation pathway (Start-Up Mode vs Innovation Factory)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2155,13 +2162,13 @@ Return ONLY valid JSON:
             st.warning(f"**{quadrant}** — {c.get('redirect_message','')}")
             st.markdown(f"→ Suggested home: **{division}**")
             st.markdown(f"""
-<div style="background:#1a2d1e;border-radius:8px;padding:14px 18px;margin-top:12px;border-left:3px solid #f59e0b;">
+<div style="background:#0f2a0f;border-radius:8px;padding:14px 18px;margin-top:12px;border-left:3px solid #f59e0b;">
 <div style="color:#f59e0b;font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:6px;">WHY THIS IDEA DOESN'T ENTER THE INNOVATION PIPELINE</div>
-<div style="color:#e2e8f0;font-size:13px;">
+<div style="color:#ffffff;font-size:13px;">
 <b>EXPLOIT</b> and <b>EXTEND</b> ideas use established or adjacent technology — they belong in Schaeffler's Product Development divisions, not the Innovation Pipeline, because the core technology risk has already been resolved.<br><br>
 The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakthrough tech, existing market) and <b>DISRUPTIVE</b> (breakthrough tech, new market) ideas where the technology itself is genuinely novel and unproven.
 </div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;">Technology level: <b>{c.get('technology_level','')}</b> · Market level: <b>{c.get('market_level','')}</b></div>
+<div style="color:#a8d5a2;font-size:12px;margin-top:8px;">Technology level: <b>{c.get('technology_level','')}</b> · Market level: <b>{c.get('market_level','')}</b></div>
 </div>
 """, unsafe_allow_html=True)
         else:
@@ -2175,16 +2182,16 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
         # ── 4-level axis labels ───────────────────────────────
         if proceed:
             col_t, col_m = st.columns(2)
-            col_t.markdown(f'<div style="background:#1a2d1e;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#94a3b8;font-size:11px;letter-spacing:1px;">TECHNOLOGY LEVEL</div><div style="color:#4ade80;font-size:14px;font-weight:600;">{c.get("technology_level","")}</div></div>', unsafe_allow_html=True)
-            col_m.markdown(f'<div style="background:#1a2d1e;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#94a3b8;font-size:11px;letter-spacing:1px;">MARKET LEVEL</div><div style="color:#4ade80;font-size:14px;font-weight:600;">{c.get("market_level","")}</div></div>', unsafe_allow_html=True)
+            col_t.markdown(f'<div style="background:#0f2a0f;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#a8d5a2;font-size:11px;letter-spacing:1px;">TECHNOLOGY LEVEL</div><div style="color:#ffffff;font-size:14px;font-weight:600;">{c.get("technology_level","")}</div></div>', unsafe_allow_html=True)
+            col_m.markdown(f'<div style="background:#0f2a0f;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#a8d5a2;font-size:11px;letter-spacing:1px;">MARKET LEVEL</div><div style="color:#ffffff;font-size:14px;font-weight:600;">{c.get("market_level","")}</div></div>', unsafe_allow_html=True)
             col_a, col_b, col_c = st.columns(3)
-            col_a.markdown(f'<div style="background:#1a2d1e;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">INNOVATION CLUSTER</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("innovation_cluster","")}</div></div>', unsafe_allow_html=True)
-            col_b.markdown(f'<div style="background:#1a2d1e;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">PRODUCT FAMILY</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("product_family","")}</div></div>', unsafe_allow_html=True)
-            col_c.markdown(f'<div style="background:#1a2d1e;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">TREND ALIGNMENT</div><div style="color:#e2e8f0;font-size:12px;margin-top:2px;">{", ".join(c.get("trend_alignment",[]))}</div></div>', unsafe_allow_html=True)
+            col_a.markdown(f'<div style="background:#0f2a0f;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#a8d5a2;font-size:10px;letter-spacing:1px;">INNOVATION CLUSTER</div><div style="color:#ffffff;font-size:12px;font-weight:600;margin-top:2px;">{c.get("innovation_cluster","")}</div></div>', unsafe_allow_html=True)
+            col_b.markdown(f'<div style="background:#0f2a0f;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#a8d5a2;font-size:10px;letter-spacing:1px;">PRODUCT FAMILY</div><div style="color:#ffffff;font-size:12px;font-weight:600;margin-top:2px;">{c.get("product_family","")}</div></div>', unsafe_allow_html=True)
+            col_c.markdown(f'<div style="background:#0f2a0f;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#a8d5a2;font-size:10px;letter-spacing:1px;">TREND ALIGNMENT</div><div style="color:#ffffff;font-size:12px;margin-top:2px;">{", ".join(c.get("trend_alignment",[]))}</div></div>', unsafe_allow_html=True)
             pipeline = c.get("pipeline_route","")
             if pipeline:
-                route_col = "#22c55e" if "Integrated" in pipeline else "#4ade80"
-                st.markdown(f'<div style="background:#111111;border:1px solid {route_col}44;border-radius:6px;padding:8px 14px;margin:8px 0;"><span style="color:{route_col};font-size:12px;font-weight:600;">🔀 Pipeline route: {pipeline}</span></div>', unsafe_allow_html=True)
+                route_col = "#22c55e" if "Integrated" in pipeline else "#22c55e"
+                st.markdown(f'<div style="background:#0a0f0a;border:1px solid {route_col}44;border-radius:6px;padding:8px 14px;margin:8px 0;"><span style="color:{route_col};font-size:12px;font-weight:600;">🔀 Pipeline route: {pipeline}</span></div>', unsafe_allow_html=True)
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Technology novelty", f"{tech_score} / 10")
@@ -2255,10 +2262,10 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 2:
     st.markdown("## Stage 02 · Market Intelligence")
-    st.markdown("""<div style="background:#1a2d1e;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
+    st.markdown("""<div style="background:#0f2a0f;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #22c55e;">
 <div style="color:#4ade80;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Analyses the commercial opportunity behind your idea — how big the market is, how fast it is growing, who the competitors are, and how well the idea fits across Schaeffler's 10 customer sector clusters.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Market size & CAGR with sources · Sector cluster fit chart · Competitor landscape · Market Intelligence Score (0–10)</div>
+<div style="color:#ffffff;font-size:13px;margin-top:6px;">Analyses the commercial opportunity behind your idea — how big the market is, how fast it is growing, who the competitors are, and how well the idea fits across Schaeffler's 10 customer sector clusters.</div>
+<div style="color:#a8d5a2;font-size:12px;margin-top:8px;"><b style="color:#ffffff;">You get:</b> Market size & CAGR with sources · Sector cluster fit chart · Competitor landscape · Market Intelligence Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2359,7 +2366,7 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
 
         # ── Score banner ──────────────────────────────────────
         score_col = "#22c55e" if final>=7 else "#f59e0b" if final>=4 else "#ef4444"
-        banner = f"""<div style="background:{BG};border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid {DIM};"><div style="color:{WHITE};font-size:11px;letter-spacing:1.5px;opacity:0.5;margin-bottom:4px;">MARKET INTELLIGENCE SCORE</div><div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:{DIM};"> / 10</span></div><div style="color:#2A2A2A;font-size:13px;margin-top:6px;opacity:0.8;">{market.get('market_name','')}</div></div>"""
+        banner = f"""<div style="background:{BG};border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid {DIM};"><div style="color:{WHITE};font-size:11px;letter-spacing:1.5px;opacity:0.5;margin-bottom:4px;">MARKET INTELLIGENCE SCORE</div><div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:{DIM};"> / 10</span></div><div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{market.get('market_name','')}</div></div>"""
         st.markdown(banner, unsafe_allow_html=True)
 
         # ── Score breakdown ───────────────────────────────────
@@ -2442,8 +2449,8 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         mc1, mc2, mc3 = st.columns(3)
         for col, label, val in [(mc1,"Market Size (2024)",val_2024),(mc2,"Market Size (2030)",val_2030),(mc3,"CAGR",val_cagr)]:
             col.markdown(f"""
-<div style="background:#1a2d1e;border-radius:8px;padding:14px 16px;text-align:center;">
-  <div style="color:#94a3b8;font-size:11px;letter-spacing:1px;margin-bottom:6px;">{label.upper()}</div>
+<div style="background:#0f2a0f;border-radius:8px;padding:14px 16px;text-align:center;">
+  <div style="color:#a8d5a2;font-size:11px;letter-spacing:1px;margin-bottom:6px;">{label.upper()}</div>
   <div style="color:#4ade80;font-size:20px;font-weight:700;line-height:1.2;">{val}</div>
 </div>""", unsafe_allow_html=True)
 
@@ -2478,7 +2485,7 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         if sector_scores:
             names  = list(sector_scores.keys())
             vals   = [sector_scores[s]["score"] for s in names]
-            colors = [BLUE if s in primary else DIM for s in names]
+            colors = [ACCENT if s in primary else GRID for s in names]
             fig_bar = go.Figure(go.Bar(
                 x=vals, y=names, orientation="h", marker_color=colors,
                 text=[f"{v}/10" for v in vals], textposition="outside",
@@ -2488,9 +2495,9 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
             fig_bar.update_layout(
                 plot_bgcolor=BG, paper_bgcolor=BG, height=340,
                 xaxis=dict(range=[0,12],showgrid=False,zeroline=False,
-                           tickfont=dict(color=WHITE),title_font=dict(color=DIM)),
-                yaxis=dict(showgrid=False,zeroline=False,tickfont=dict(color=WHITE,size=11)),
-                margin=dict(l=10,r=60,t=10,b=30), font=dict(color=WHITE)
+                           tickfont=dict(color="#ffffff"),title_font=dict(color=DIM)),
+                yaxis=dict(showgrid=False,zeroline=False,tickfont=dict(color="#ffffff",size=11)),
+                margin=dict(l=10,r=60,t=10,b=30), font=dict(color="#ffffff")
             )
             st.plotly_chart(fig_bar, use_container_width=True)
             st.caption(f"Primary sectors: {', '.join(primary)}")
@@ -2579,10 +2586,10 @@ Be specific, cite sources where possible, 3-4 sentences max."""
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 3:
     st.markdown("## Stage 03 · Patent Intelligence")
-    st.markdown("""<div style="background:#1a2d1e;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
+    st.markdown("""<div style="background:#0f2a0f;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #22c55e;">
 <div style="color:#4ade80;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Maps the patent landscape for your idea's core technology — who is filing, whether they are competitors or potential customers, where the IP white spaces are, and how Schaeffler's existing patent portfolio relates to the idea.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Patent Ansoff map with all key filers plotted · IP white spaces · Schaeffler IP gap analysis · Patent Intelligence Score (0–10)</div>
+<div style="color:#ffffff;font-size:13px;margin-top:6px;">Maps the patent landscape for your idea's core technology — who is filing, whether they are competitors or potential customers, where the IP white spaces are, and how Schaeffler's existing patent portfolio relates to the idea.</div>
+<div style="color:#a8d5a2;font-size:12px;margin-top:8px;"><b style="color:#ffffff;">You get:</b> Patent Ansoff map with all key filers plotted · IP white spaces · Schaeffler IP gap analysis · Patent Intelligence Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2756,7 +2763,7 @@ Return ONLY valid JSON:
 <div style="background:{BG};border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid {DIM};">
   <div style="color:{WHITE};font-size:11px;letter-spacing:1px;opacity:0.5;margin-bottom:4px;">PATENT INTELLIGENCE SCORE</div>
   <div style="color:{score_col};font-size:42px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:{DIM};"> / 10</span></div>
-  <div style="color:#2A2A2A;font-size:13px;margin-top:6px;opacity:0.8;">{landscape.get("landscape_summary","")}</div>
+  <div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{landscape.get("landscape_summary","")}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -2835,9 +2842,9 @@ Return ONLY valid JSON:
             import re as _re
             def md_bold_to_html(text):
                 return _re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
-            bullets_html = "".join(f'<div style="margin:5px 0;color:#e2e8f0;font-size:13px;">› {md_bold_to_html(p)}</div>' for p in pointers)
+            bullets_html = "".join(f'<div style="margin:5px 0;color:#ffffff;font-size:13px;">› {md_bold_to_html(p)}</div>' for p in pointers)
             st.markdown(f"""
-<div style="background:#0f2137;border-left:3px solid #4ade80;border-radius:6px;padding:12px 16px;margin-bottom:14px;">
+<div style="background:#071407;border-left:3px solid #22c55e;border-radius:6px;padding:12px 16px;margin-bottom:14px;">
 <div style="color:#4ade80;font-size:11px;letter-spacing:1px;font-weight:600;margin-bottom:8px;">PATTERN NOTES</div>
 {bullets_html}
 </div>
@@ -2849,29 +2856,29 @@ Return ONLY valid JSON:
 
         # Quadrant shading
         q_fills = [
-            dict(x=[0,5,5,0],   y=[0,0,5,5],   name="EXPLOIT", fill="#1a2d1e", lx=2.5,ly=2.5),
-            dict(x=[5,10,10,5], y=[0,0,5,5],   name="EXTEND",  fill="#0d2a1a", lx=7.5,ly=2.5),
-            dict(x=[0,5,5,0],   y=[5,5,10,10], name="RADICAL", fill="#005C2E", lx=2.5,ly=7.5),
-            dict(x=[5,10,10,5], y=[5,5,10,10], name="DISRUPT", fill="#0a1f12", lx=7.5,ly=7.5),
+            dict(x=[0,5,5,0],   y=[0,0,5,5],   name="EXPLOIT", fill="#0a1a0a", lx=2.5,ly=2.5),
+            dict(x=[5,10,10,5], y=[0,0,5,5],   name="EXTEND",  fill="#0d200d", lx=7.5,ly=2.5),
+            dict(x=[0,5,5,0],   y=[5,5,10,10], name="RADICAL", fill="#0f2a0f", lx=2.5,ly=7.5),
+            dict(x=[5,10,10,5], y=[5,5,10,10], name="DISRUPT", fill="#071407", lx=7.5,ly=7.5),
         ]
         for q in q_fills:
             fig.add_trace(go.Scatter(
                 x=q["x"]+[q["x"][0]], y=q["y"]+[q["y"][0]],
                 fill="toself", fillcolor=q["fill"],
-                line=dict(color="#2A2A2A",width=1),
+                line=dict(color="#1a3a1a",width=1),
                 mode="lines", showlegend=False, hoverinfo="skip"
             ))
             fig.add_annotation(x=q["lx"],y=q["ly"],text=f"<b>{q['name']}</b>",
-                showarrow=False, font=dict(size=12,color="#888888"))
+                showarrow=False, font=dict(size=12,color="#a8d5a2"))
 
         # Grid lines
-        fig.add_shape(type="line",x0=5,x1=5,y0=0,y1=10,line=dict(color="#2A2A2A",width=1.5,dash="dot"))
-        fig.add_shape(type="line",x0=0,x1=10,y0=5,y1=5,line=dict(color="#2A2A2A",width=1.5,dash="dot"))
+        fig.add_shape(type="line",x0=5,x1=5,y0=0,y1=10,line=dict(color="#1a3a1a",width=1.5,dash="dot"))
+        fig.add_shape(type="line",x0=0,x1=10,y0=5,y1=5,line=dict(color="#1a3a1a",width=1.5,dash="dot"))
 
         # Competitor/filer points
         type_colours = {
             "Competitor":         "#ef4444",
-            "Customer":           "#4ade80",
+            "Customer":           "#22c55e",
             "Research Institution":"#a78bfa",
             "Adjacent Player":    "#f59e0b",
             "Patent Troll":       "#6b7280",
@@ -2895,7 +2902,7 @@ Return ONLY valid JSON:
             fig.add_trace(go.Scatter(
                 x=[schaeffler_pos.get("x_score",2)], y=[schaeffler_pos.get("y_score",2)],
                 mode="markers+text",
-                marker=dict(size=16, color="#f97316", symbol="diamond",
+                marker=dict(size=16, color="#f59e0b", symbol="diamond",
                            line=dict(color="white",width=2)),
                 text=["  Schaeffler IP"],
                 textposition="middle right",
@@ -2908,7 +2915,7 @@ Return ONLY valid JSON:
         fig.add_trace(go.Scatter(
             x=[idea_pos.get("x_score",7)], y=[idea_pos.get("y_score",7)],
             mode="markers+text",
-            marker=dict(size=18, color="#22c55e", symbol="star",
+            marker=dict(size=18, color=ACCENT, symbol="star",
                        line=dict(color="white",width=2)),
             text=["  Your idea"],
             textposition="middle right",
@@ -2925,7 +2932,7 @@ Return ONLY valid JSON:
             dict(x=-1.1,y=7.5,text="New Market",angle=-90),
         ]:
             fig.add_annotation(x=ann["x"],y=ann["y"],text=ann["text"],
-                showarrow=False,font=dict(size=10,color="#e2e8f0"),textangle=ann["angle"])
+                showarrow=False,font=dict(size=10,color="#ffffff"),textangle=ann["angle"])
 
         fig.update_layout(
             plot_bgcolor=BG, paper_bgcolor=BG, height=460,
@@ -2933,7 +2940,7 @@ Return ONLY valid JSON:
                       title="Technology Dimension →",title_font=dict(size=11,color=DIM)),
             yaxis=dict(range=[-1.5,11],showticklabels=False,showgrid=False,zeroline=False,
                       title="Market Dimension →",title_font=dict(size=11,color=DIM)),
-            margin=dict(l=70,r=20,t=20,b=55), font=dict(color=WHITE)
+            margin=dict(l=70,r=20,t=20,b=55), font=dict(color="#ffffff")
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -2953,11 +2960,11 @@ Return ONLY valid JSON:
                 threat_col = {"High":"#ef4444","Medium":"#f59e0b","Low":"#22c55e"}.get(fi.get("threat_level","Medium"),"#6b7280")
                 type_col   = type_colours.get(fi.get("type","Adjacent Player"),"#6b7280")
                 st.markdown(f"""
-<div style="background:#1a2d1e;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:center;gap:12px;">
+<div style="background:#0f2a0f;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:center;gap:12px;">
   <div style="min-width:130px;color:{WHITE};font-weight:600;font-size:13px;">{fi.get('company','')}</div>
   <div style="background:{type_col}22;color:{type_col};font-size:11px;padding:2px 8px;border-radius:10px;min-width:120px;text-align:center;">{fi.get('type','')}</div>
   <div style="background:{threat_col}22;color:{threat_col};font-size:11px;padding:2px 8px;border-radius:10px;min-width:80px;text-align:center;">⚡ {fi.get('threat_level','')} threat</div>
-  <div style="color:#94a3b8;font-size:12px;flex:1;">{fi.get('focus','')}</div>
+  <div style="color:#a8d5a2;font-size:12px;flex:1;">{fi.get('focus','')}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -3052,10 +3059,10 @@ Be specific and concise — 2-4 sentences."""
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 4:
     st.markdown("## Stage 04 · Technical Feasibility")
-    st.markdown("""<div style="background:#1a2d1e;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
+    st.markdown("""<div style="background:#0f2a0f;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #22c55e;">
 <div style="color:#4ade80;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Checks whether the core technology has actually been demonstrated anywhere — in labs, startups, pilots, or adjacent industries. Rates maturity using a Schaeffler-adapted version of NASA's TRL scale (1–9) and identifies the key technical risks to address.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> TRL rating with rationale · Evidence from research & industry · Technology keyword map · Risk register · Feasibility Score (0–10)</div>
+<div style="color:#ffffff;font-size:13px;margin-top:6px;">Checks whether the core technology has actually been demonstrated anywhere — in labs, startups, pilots, or adjacent industries. Rates maturity using a Schaeffler-adapted version of NASA's TRL scale (1–9) and identifies the key technical risks to address.</div>
+<div style="color:#a8d5a2;font-size:12px;margin-top:8px;"><b style="color:#ffffff;">You get:</b> TRL rating with rationale · Evidence from research & industry · Technology keyword map · Risk register · Feasibility Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3225,7 +3232,7 @@ Return ONLY valid JSON:
         trl_level = trl.get("trl_level", 3)
         trl_pct   = int((trl_level / 9) * 100)
         entry_col = {"Too Early":"#ef4444","Ready for Innovation":"#22c55e",
-                     "Ready for Product Development":"#4ade80"}.get(
+                     "Ready for Product Development":"#22c55e"}.get(
                      trl.get("schaeffler_entry_readiness",""), "#f59e0b")
 
         st.markdown(f"""
@@ -3264,12 +3271,12 @@ Return ONLY valid JSON:
     <span style="color:{WHITE};font-weight:600;font-size:15px;">{trl.get("trl_label","")}</span>
     <span style="color:{trl_col};font-weight:700;font-size:18px;">TRL {trl_level}/9</span>
   </div>
-  <div style="background:#1a2d1e;border-radius:6px;height:14px;overflow:hidden;">
+  <div style="background:#0f2a0f;border-radius:6px;height:14px;overflow:hidden;">
     <div style="background:{trl_col};height:100%;width:{trl_pct}%;border-radius:6px;transition:width 0.3s;"></div>
   </div>
   <div style="display:flex;justify-content:space-between;margin-top:4px;">
-    <span style="color:#888888;font-size:10px;">TRL 1 — Theoretical</span>
-    <span style="color:#888888;font-size:10px;">TRL 9 — Commercial</span>
+    <span style="color:#a8d5a2;font-size:10px;">TRL 1 — Theoretical</span>
+    <span style="color:#a8d5a2;font-size:10px;">TRL 9 — Commercial</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -3295,8 +3302,8 @@ Return ONLY valid JSON:
             ]
             for lvl, label, desc in trl_descriptions:
                 is_current = (lvl == trl_level)
-                bg_col = "#005C2E" if is_current else "#1a2d1e"
-                text_col_inner = "#4ade80" if is_current else "#94a3b8"
+                bg_col = "#1F3864" if is_current else "#1a2d45"
+                text_col_inner = "#22c55e" if is_current else "#94a3b8"
                 st.markdown(f"""
 <div style="background:{bg_col};border-radius:4px;padding:6px 12px;margin:3px 0;display:flex;gap:12px;align-items:center;">
   <div style="color:{trl_colours.get(lvl,'#f59e0b')};font-weight:700;min-width:40px;">TRL {lvl}</div>
@@ -3317,7 +3324,7 @@ Return ONLY valid JSON:
                 "Academic Paper":"📄","Startup":"🚀","Pilot":"🔧",
                 "Government Programme":"🏛️","Industry Deployment":"🏭"
             }
-            rel_cols = {"Direct":"#22c55e","Adjacent":"#4ade80","Analogous":"#f59e0b"}
+            rel_cols = {"Direct":"#22c55e","Adjacent":"#22c55e","Analogous":"#f59e0b"}
             conf_cols = {"High":"#22c55e","Medium":"#f59e0b","Low":"#ef4444"}
             # Sort: Direct > Adjacent > Analogous, then High > Medium > Low confidence
             rel_order  = {"Direct":0,"Adjacent":1,"Analogous":2}
@@ -3330,17 +3337,17 @@ Return ONLY valid JSON:
                 st.caption(f"Showing top 5 of {len(evidence_items)} evidence items by relevance. Full list in the downloaded report.")
             for ev in top_ev:
                 icon = type_icons.get(ev.get("type",""), "📌")
-                rel_col  = rel_cols.get(ev.get("relevance","Adjacent"), "#4ade80")
+                rel_col  = rel_cols.get(ev.get("relevance","Adjacent"), "#22c55e")
                 conf_col = conf_cols.get(ev.get("confidence","Medium"), "#f59e0b")
                 st.markdown(f"""
-<div style="background:#1a2d1e;border-radius:6px;padding:10px 14px;margin:5px 0;">
+<div style="background:#0f2a0f;border-radius:6px;padding:10px 14px;margin:5px 0;">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
     <span style="font-size:14px;">{icon}</span>
     <span style="color:{WHITE};font-weight:600;font-size:13px;">{ev.get("title","")}</span>
     <span style="background:{rel_col}22;color:{rel_col};font-size:10px;padding:2px 7px;border-radius:8px;">{ev.get("relevance","")}</span>
     <span style="background:{conf_col}22;color:{conf_col};font-size:10px;padding:2px 7px;border-radius:8px;">{ev.get("confidence","")} confidence</span>
   </div>
-  <div style="color:#cbd5e1;font-size:12px;">{ev.get("description","")} <span style="color:#888888;">{ev.get("source","")}</span></div>
+  <div style="color:#ffffff;font-size:12px;">{ev.get("description","")} <span style="color:#a8d5a2;">{ev.get("source","")}</span></div>
 </div>
 """, unsafe_allow_html=True)
         st.markdown("---")
@@ -3352,8 +3359,8 @@ Return ONLY valid JSON:
         if keywords:
             # Size keywords by estimated relevance (first = most relevant)
             sizes = [28, 24, 22, 20, 18, 16, 15, 14, 13, 12]
-            colours_kw = ["#4ade80","#34d399","#a78bfa","#f59e0b","#f472b6",
-                          "#4ade80","#34d399","#a78bfa","#f59e0b","#f472b6"]
+            colours_kw = ["#22c55e","#34d399","#a78bfa","#f59e0b","#f472b6",
+                          "#22c55e","#34d399","#a78bfa","#f59e0b","#f472b6"]
             badges = ""
             for i, kw in enumerate(keywords[:10]):
                 sz  = sizes[i] if i < len(sizes) else 12
@@ -3373,12 +3380,12 @@ Return ONLY valid JSON:
             for risk in top_risks:
                 sev_col = {"High":"#ef4444","Medium":"#f59e0b","Low":"#22c55e"}.get(risk.get("severity","Medium"),"#f59e0b")
                 st.markdown(f"""
-<div style="background:#1a2d1e;border-radius:6px;padding:10px 14px;margin:5px 0;border-left:3px solid {sev_col};">
+<div style="background:#0f2a0f;border-radius:6px;padding:10px 14px;margin:5px 0;border-left:3px solid {sev_col};">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
     <span style="background:{sev_col}22;color:{sev_col};font-size:10px;padding:2px 8px;border-radius:8px;">{risk.get("severity","")} severity</span>
     <span style="color:{WHITE};font-size:13px;">{risk.get("risk","")}</span>
   </div>
-  <div style="color:#94a3b8;font-size:12px;">↳ Mitigation: {risk.get("mitigation","")}</div>
+  <div style="color:#a8d5a2;font-size:12px;">↳ Mitigation: {risk.get("mitigation","")}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -3464,10 +3471,10 @@ Be specific, reference evidence where relevant, keep to 3-4 sentences."""
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 5:
     st.markdown("## Stage 05 · Organisational Readiness")
-    st.markdown("""<div style="background:#1a2d1e;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
+    st.markdown("""<div style="background:#0f2a0f;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #22c55e;">
 <div style="color:#4ade80;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Assesses whether Schaeffler is organisationally ready to pursue this idea — grounded in Schaeffler's own P³ formula: <b style="color:#4ade80;">Performance = Portfolio × People × Process</b>. The market may be real and the technology proven, but if the internal capabilities, assets, and partnerships are not in place, the idea will stall before it reaches the Innovation pipeline.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Competency fit · Asset leverage · Partnership readiness · Org gap register · Build-or-partner recommendation · Organisational Readiness Score (0–10)</div>
+<div style="color:#ffffff;font-size:13px;margin-top:6px;">Assesses whether Schaeffler is organisationally ready to pursue this idea — grounded in Schaeffler's own P³ formula: <b style="color:#4ade80;">Performance = Portfolio × People × Process</b>. The market may be real and the technology proven, but if the internal capabilities, assets, and partnerships are not in place, the idea will stall before it reaches the Innovation pipeline.</div>
+<div style="color:#a8d5a2;font-size:12px;margin-top:8px;"><b style="color:#ffffff;">You get:</b> Competency fit · Asset leverage · Partnership readiness · Org gap register · Build-or-partner recommendation · Organisational Readiness Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3632,7 +3639,7 @@ Return ONLY valid JSON:
 <div style="background:{BG};border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid {DIM};">
   <div style="color:{WHITE};font-size:11px;letter-spacing:1px;opacity:0.5;margin-bottom:4px;">ORGANISATIONAL READINESS SCORE</div>
   <div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:{DIM};"> / 10</span></div>
-  <div style="color:#2A2A2A;font-size:13px;margin-top:6px;opacity:0.8;">Build strategy: <b>{bop_rec}</b></div>
+  <div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">Build strategy: <b>{bop_rec}</b></div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -3648,53 +3655,53 @@ Return ONLY valid JSON:
         # ── Portfolio dimension ───────────────────────────────
         port = org_data.get("p3_portfolio",{})
         st.markdown("#### Portfolio — Strategic fit")
-        st.markdown(f"<div style='background:#1a2d1e;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{port.get('rationale','')}</div><div style='color:#94a3b8;font-size:11px;margin-top:8px;'>CLUSTER FIT</div><div style='color:#4ade80;font-size:13px;margin-top:4px;'>{port.get('cluster_fit','')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#0f2a0f;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#a8d5a2;font-size:11px;'>RATIONALE</div><div style='color:#ffffff;font-size:13px;margin-top:4px;'>{port.get('rationale','')}</div><div style='color:#a8d5a2;font-size:11px;margin-top:8px;'>CLUSTER FIT</div><div style='color:#4ade80;font-size:13px;margin-top:4px;'>{port.get('cluster_fit','')}</div></div>", unsafe_allow_html=True)
         if port.get("strengths"):
             cols_ps = st.columns(len(port["strengths"][:3]))
             for i, s in enumerate(port["strengths"][:3]):
-                cols_ps[i].markdown(f'<div style="background:#0f2a1f;border:1px solid #22c55e33;border-radius:6px;padding:8px 12px;font-size:12px;color:#22c55e;">✓ {s}</div>', unsafe_allow_html=True)
+                cols_ps[i].markdown(f'<div style="background:#0a1a0a;border:1px solid #22c55e33;border-radius:6px;padding:8px 12px;font-size:12px;color:#22c55e;">✓ {s}</div>', unsafe_allow_html=True)
         if port.get("gaps"):
             for g in port["gaps"][:2]:
-                st.markdown(f'<div style="background:#1a0f0f;border:1px solid #ef444433;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;color:#ef4444;">✗ Gap: {g}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background:#1a0a0a;border:1px solid #ef444433;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;color:#ef4444;">✗ Gap: {g}</div>', unsafe_allow_html=True)
         st.markdown("---")
 
         # ── People dimension ──────────────────────────────────
         peop = org_data.get("p3_people",{})
         st.markdown("#### People — Competency & skills")
-        st.markdown(f"<div style='background:#1a2d1e;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{peop.get('rationale','')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#0f2a0f;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#a8d5a2;font-size:11px;'>RATIONALE</div><div style='color:#ffffff;font-size:13px;margin-top:4px;'>{peop.get('rationale','')}</div></div>", unsafe_allow_html=True)
         if peop.get("matched_competencies"):
             st.markdown("**Matched Schaeffler competencies**")
             comp_cols = st.columns(min(3,len(peop["matched_competencies"])))
             for i, c in enumerate(peop["matched_competencies"][:3]):
-                comp_cols[i].markdown(f'<div style="background:#1a2d1e;border:1px solid #4ade8033;border-radius:6px;padding:8px;font-size:12px;color:#4ade80;text-align:center;">{c}</div>', unsafe_allow_html=True)
+                comp_cols[i].markdown(f'<div style="background:#0f2a0f;border:1px solid #22c55e33;border-radius:6px;padding:8px;font-size:12px;color:#4ade80;text-align:center;">{c}</div>', unsafe_allow_html=True)
         if peop.get("competency_gap"):
-            st.markdown(f'<div style="background:#1a1020;border:1px solid #a78bfa44;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#a78bfa;">⚠️ Critical gap: {peop["competency_gap"]}<br><span style="color:#94a3b8;font-size:12px;">Closure route: {peop.get("sourcing_route","")}</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#0f1a0f;border:1px solid #a78bfa44;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#a78bfa;">⚠️ Critical gap: {peop["competency_gap"]}<br><span style="color:#a8d5a2;font-size:12px;">Closure route: {peop.get("sourcing_route","")}</span></div>', unsafe_allow_html=True)
         st.markdown("---")
 
         # ── Process dimension ─────────────────────────────────
         proc = org_data.get("p3_process",{})
         st.markdown("#### Process — Infrastructure & assets")
-        st.markdown(f"<div style='background:#1a2d1e;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{proc.get('rationale','')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#0f2a0f;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#a8d5a2;font-size:11px;'>RATIONALE</div><div style='color:#ffffff;font-size:13px;margin-top:4px;'>{proc.get('rationale','')}</div></div>", unsafe_allow_html=True)
         if proc.get("applicable_assets"):
             st.markdown("**Applicable assets / processes**")
             for a in proc["applicable_assets"][:3]:
                 st.markdown(f"- {a}")
         if proc.get("investment_required"):
-            st.markdown(f'<div style="background:#1a1a0f;border:1px solid #f59e0b44;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#f59e0b;">🔧 Investment required: {proc["investment_required"]}<br><span style="color:#94a3b8;font-size:12px;">Estimated time to close: {proc.get("time_to_close","")}</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#0f1a0f;border:1px solid #f59e0b44;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#f59e0b;">🔧 Investment required: {proc["investment_required"]}<br><span style="color:#a8d5a2;font-size:12px;">Estimated time to close: {proc.get("time_to_close","")}</span></div>', unsafe_allow_html=True)
         st.markdown("---")
 
         # ── Partnership candidates ────────────────────────────
         partners = org_data.get("partnership_candidates",[])
         if partners:
             st.markdown("#### Partnership candidates")
-            route_cols = {"Co-develop":"#4ade80","Acquire":"#f59e0b","License":"#a78bfa","JDA":"#22c55e"}
+            route_cols = {"Co-develop":"#22c55e","Acquire":"#f59e0b","License":"#a78bfa","JDA":"#22c55e"}
             for p in partners[:4]:
-                rc = route_cols.get(p.get("route","Co-develop"),"#4ade80")
+                rc = route_cols.get(p.get("route","Co-develop"),"#22c55e")
                 st.markdown(f"""
-<div style="background:#1a2d1e;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
+<div style="background:#0f2a0f;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
     <div style="color:{WHITE};font-weight:600;font-size:13px;">{p.get('name','')}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{p.get('type','')} · {p.get('rationale','')}</div>
+    <div style="color:#a8d5a2;font-size:12px;margin-top:3px;">{p.get('type','')} · {p.get('rationale','')}</div>
   </div>
   <div style="background:{rc}22;color:{rc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{p.get('route','')}</div>
 </div>""", unsafe_allow_html=True)
@@ -3708,10 +3715,10 @@ Return ONLY valid JSON:
             for g in gaps[:4]:
                 sc = sev_col.get(g.get("severity","Medium"),"#f59e0b")
                 st.markdown(f"""
-<div style="background:#1a2d1e;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
+<div style="background:#0f2a0f;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
     <div style="color:{WHITE};font-weight:600;font-size:13px;">{g.get('gap','')}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{g.get('closure_route','')} · Est. {g.get('timeline','')}</div>
+    <div style="color:#a8d5a2;font-size:12px;margin-top:3px;">{g.get('closure_route','')} · Est. {g.get('timeline','')}</div>
   </div>
   <div style="background:{sc}22;color:{sc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{g.get('severity','')} severity</div>
 </div>""", unsafe_allow_html=True)
@@ -3721,8 +3728,8 @@ Return ONLY valid JSON:
         bop = org_data.get("build_or_partner",{})
         st.markdown("#### Build or partner?")
         bop_c1, bop_c2 = st.columns(2)
-        bop_c1.markdown(f'<div style="background:#1a2d1e;border-radius:8px;padding:14px 16px;"><div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">RECOMMENDATION</div><div style="color:#4ade80;font-size:16px;font-weight:600;">{bop.get("recommendation","")}</div><div style="color:#e2e8f0;font-size:12px;margin-top:6px;">{bop.get("rationale","")}</div></div>', unsafe_allow_html=True)
-        bop_c2.markdown(f'<div style="background:#1a2d1e;border-radius:8px;padding:14px 16px;"><div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">TIME TO TRL 6</div><div style="color:#e2e8f0;font-size:13px;"><b>Internal:</b> {bop.get("time_to_trl6_internal","")}<br><b>With partner:</b> {bop.get("time_to_trl6_partner","")}</div></div>', unsafe_allow_html=True)
+        bop_c1.markdown(f'<div style="background:#0f2a0f;border-radius:8px;padding:14px 16px;"><div style="color:#a8d5a2;font-size:11px;margin-bottom:4px;">RECOMMENDATION</div><div style="color:#4ade80;font-size:16px;font-weight:600;">{bop.get("recommendation","")}</div><div style="color:#ffffff;font-size:12px;margin-top:6px;">{bop.get("rationale","")}</div></div>', unsafe_allow_html=True)
+        bop_c2.markdown(f'<div style="background:#0f2a0f;border-radius:8px;padding:14px 16px;"><div style="color:#a8d5a2;font-size:11px;margin-bottom:4px;">TIME TO TRL 6</div><div style="color:#ffffff;font-size:13px;"><b>Internal:</b> {bop.get("time_to_trl6_internal","")}<br><b>With partner:</b> {bop.get("time_to_trl6_partner","")}</div></div>', unsafe_allow_html=True)
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
@@ -3788,10 +3795,10 @@ Be specific to Schaeffler's context (Vitesco integration, E-Mobility shift, OEM 
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 6:
     st.markdown("## Stage 06 · Scoring & Synthesis")
-    st.markdown("""<div style="background:#1a2d1e;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
+    st.markdown("""<div style="background:#0f2a0f;border-radius:8px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #22c55e;">
 <div style="color:#4ade80;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Combines scores from Stages 02, 03, 04, and 05 into a single Innovation Potential Index (IPI). You set the weights. The assistant generates a final recommendation, strategic synthesis, and a downloadable master report covering the full pipeline analysis.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Weighted IPI score · Radar chart · PROCEED / DEFER / REJECT recommendation · Strongest signals & concerns · Next steps · Full Innovation Assessment Report</div>
+<div style="color:#ffffff;font-size:13px;margin-top:6px;">Combines scores from Stages 02, 03, 04, and 05 into a single Innovation Potential Index (IPI). You set the weights. The assistant generates a final recommendation, strategic synthesis, and a downloadable master report covering the full pipeline analysis.</div>
+<div style="color:#a8d5a2;font-size:12px;margin-top:8px;"><b style="color:#ffffff;">You get:</b> Weighted IPI score · Radar chart · PROCEED / DEFER / REJECT recommendation · Strongest signals & concerns · Next steps · Full Innovation Assessment Report</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -4054,7 +4061,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
     <div>
       <div style="color:{WHITE};font-size:11px;letter-spacing:1px;opacity:0.5;margin-bottom:4px;">INNOVATION POTENTIAL INDEX</div>
       <div style="color:{ipi_col};font-size:48px;font-weight:700;line-height:1;">{ipi}<span style="font-size:20px;color:{DIM};"> / 10</span></div>
-      <div style="color:#2A2A2A;font-size:13px;margin-top:6px;opacity:0.8;">{synthesis.get('headline','')}</div>
+      <div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{synthesis.get('headline','')}</div>
     </div>
     <div style="text-align:right;">
       <div style="color:{WHITE};font-size:11px;opacity:0.5;margin-bottom:4px;">RECOMMENDATION</div>
@@ -4077,14 +4084,14 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
             r=values_close, theta=cats_close,
             fill="toself",
             fillcolor=f"rgba(96,165,250,0.15)",
-            line=dict(color=BLUE, width=2),
-            marker=dict(size=8, color=BLUE),
+            line=dict(color=ACCENT, width=2),
+            marker=dict(size=8, color=ACCENT),
             name="Score"
         ))
         # Add benchmark line at 7
         fig_radar.add_trace(go.Scatterpolar(
             r=[7,7,7,7,7], theta=cats_close,
-            line=dict(color="#888888", width=1, dash="dot"),
+            line=dict(color="#a8d5a2", width=1, dash="dot"),
             marker=dict(size=0),
             fill=None,
             name="Target (7/10)",
@@ -4095,18 +4102,18 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                 bgcolor=BG,
                 radialaxis=dict(
                     visible=True, range=[0,10],
-                    tickfont=dict(color=WHITE, size=10),
-                    gridcolor="#2A2A2A", linecolor="#2A2A2A",
+                    tickfont=dict(color="#ffffff", size=10),
+                    gridcolor="#1a3a1a", linecolor="#1a3a1a",
                     tickvals=[2,4,6,8,10]
                 ),
                 angularaxis=dict(
-                    tickfont=dict(color=WHITE, size=12),
-                    gridcolor="#2A2A2A", linecolor="#2A2A2A"
+                    tickfont=dict(color="#ffffff", size=12),
+                    gridcolor="#1a3a1a", linecolor="#1a3a1a"
                 )
             ),
             paper_bgcolor=BG,
             plot_bgcolor=BG,
-            legend=dict(font=dict(color=WHITE), bgcolor=BG),
+            legend=dict(font=dict(color="#ffffff"), bgcolor=BG),
             height=400,
             margin=dict(l=60,r=60,t=40,b=40)
         )
