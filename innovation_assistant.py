@@ -23,22 +23,17 @@ try:
 except Exception:
     ANTHROPIC_KEY = "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"
 
-# ── Styling ───────────────────────────────────────────────────
+# ── Styling — sidebar identity only ──────────────────────────
 st.markdown("""
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23007A3D'/><text x='16' y='23' font-family='Arial,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'>S</text></svg>">
 <style>
-/* ── Schaeffler brand font stack ── */
-html, body, [class*="css"], [data-testid] {
-    font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif !important;
-}
-
-/* ── Sidebar: Schaeffler green ── */
+/* ── Sidebar: Schaeffler green identity ── */
 section[data-testid="stSidebar"] {
     background-color: #007A3D !important;
     border-right: none !important;
 }
 section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
-    font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif !important;
 }
 section[data-testid="stSidebar"] .stButton > button {
     background: rgba(255,255,255,0.12) !important;
@@ -46,106 +41,27 @@ section[data-testid="stSidebar"] .stButton > button {
     border: 1px solid rgba(255,255,255,0.35) !important;
     border-radius: 4px !important;
     font-size: 12px !important;
-    font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif !important;
 }
 section[data-testid="stSidebar"] .stButton > button:hover {
     background: rgba(255,255,255,0.22) !important;
 }
 
-/* ── Main app: dark background ── */
-.main, .block-container, [data-testid="stAppViewContainer"] > .main {
-    background-color: #0f1e35 !important;
-}
-[data-testid="stAppViewContainer"] {
-    background-color: #0f1e35 !important;
-}
-
-/* ── Primary buttons: Schaeffler green ── */
-div[data-testid="stButton"] > button[kind="primary"] {
-    background-color: #007A3D !important;
-    color: #FFFFFF !important;
-    border: none !important;
-    border-radius: 4px !important;
-    font-weight: 600 !important;
-    font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif !important;
-    letter-spacing: 0.3px;
-}
-div[data-testid="stButton"] > button[kind="primary"]:hover {
-    background-color: #005A2D !important;
-}
-
-/* ── Secondary buttons: green outline ── */
-div[data-testid="stButton"] > button[kind="secondary"] {
-    background-color: transparent !important;
-    color: #00C853 !important;
-    border: 1.5px solid #007A3D !important;
-    border-radius: 4px !important;
-    font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif !important;
-}
-div[data-testid="stButton"] > button[kind="secondary"]:hover {
-    background-color: rgba(0,122,61,0.12) !important;
-}
-
-/* ── Metric values: Schaeffler green ── */
-[data-testid="metric-container"] [data-testid="stMetricValue"] {
-    color: #00C853 !important;
-    font-weight: 700 !important;
-}
-[data-testid="metric-container"] [data-testid="stMetricLabel"] {
-    color: #a0bfaa !important;
-}
-[data-testid="metric-container"] [data-testid="stMetricDelta"] {
-    color: #4a8c6a !important;
-}
-
-/* ── Inputs and sliders ── */
-input, textarea, select {
-    background-color: #162d47 !important;
-    color: #f0faf4 !important;
-    border-color: #1e4d35 !important;
-}
-[data-testid="stSlider"] > div > div > div {
-    background-color: #007A3D !important;
-}
-
-/* ── Expander ── */
-[data-testid="stExpander"] {
-    border-color: #1e4d35 !important;
-    background-color: #162d47 !important;
-}
-[data-testid="stExpander"] summary {
-    color: #f0faf4 !important;
-}
-
-/* ── HR ── */
-hr { border-color: #1e4d35 !important; }
-
 /* ── Source tag pill ── */
 .source-tag {
-    background: #0a2d1a;
-    color: #00C853;
-    font-size: 11px; padding: 2px 8px;
-    border-radius: 3px; margin-left: 6px;
+    background:#1e3a5f; color:#93c5fd;
+    font-size:11px; padding:2px 8px;
+    border-radius:3px; margin-left:6px;
     font-family: monospace;
 }
-
-/* ── Radio buttons ── */
-[data-testid="stRadio"] label { color: #f0faf4 !important; }
-
-/* ── Captions ── */
-[data-testid="stCaptionContainer"] { color: #4a8c6a !important; }
-
-/* ── Streamlit alerts - tint dark ── */
-[data-testid="stAlert"] { border-radius: 4px !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── Constants ─────────────────────────────────────────────────
 BG    = "#0f1e35"
-BLUE  = "#00A651"
-DIM   = "#4a8c6a"
-WHITE = "#f0faf4"
-NAVY  = "#003D20"
+BLUE  = "#60a5fa"
+DIM   = "#4a6fa5"
+WHITE = "#e2e8f0"
+NAVY  = "#1F3864"
 
 # ── Helpers ───────────────────────────────────────────────────
 def call_claude(system, user, max_tokens=2000):
@@ -249,13 +165,13 @@ with st.sidebar:
     for num, label in stages:
         active = st.session_state.active_stage
         if num == active:
-            st.markdown(f"""<div style="font-family:Arial,sans-serif;background:rgba(255,255,255,0.15);border-radius:4px;padding:8px 12px;margin:3px 0;font-size:12px;font-weight:700;color:#FFFFFF;border-left:3px solid #FFFFFF;letter-spacing:0.3px;">▶ {label}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="font-family:Arial,sans-serif;background:rgba(255,255,255,0.15);border-radius:4px;padding:8px 12px;margin:3px 0;font-size:12px;font-weight:700;color:#FFFFFF;border-left:3px solid #FFFFFF;letter-spacing:0.3px;">&#9658; {label}</div>""", unsafe_allow_html=True)
         elif num in completed:
             if st.button(f"✓  {label}", key=f"nav_{num}", use_container_width=True):
                 st.session_state.active_stage = num
                 st.rerun()
         else:
-            st.markdown(f"""<div style="font-family:Arial,sans-serif;padding:8px 12px;margin:3px 0;font-size:12px;color:rgba(255,255,255,0.45);">○  {label}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="font-family:Arial,sans-serif;padding:8px 12px;margin:3px 0;font-size:12px;color:rgba(255,255,255,0.45);">&#9675; {label}</div>""", unsafe_allow_html=True)
 
     if st.session_state.s1_idea:
         st.markdown("---")
@@ -265,8 +181,8 @@ with st.sidebar:
 
 # ── Ansoff chart helper ───────────────────────────────────────
 def ansoff_chart(quadrant, tech_score, market_score):
-    q_cols = {"EXPLOIT":"#0d1f14","EXTEND":"#0a2419","RADICAL":"#003D20","DISRUPT":"#002915","DISRUPTIVE":"#002915"}
-    text_col = "#f0faf4"; dim_col = "#4a8c6a"; grid_col = "#1e4d35"
+    q_cols = {"EXPLOIT":"#1a2d45","EXTEND":"#1e3a5f","RADICAL":"#1F3864","DISRUPT":"#0d2137","DISRUPTIVE":"#0d2137"}
+    text_col = "#e2e8f0"; dim_col = "#4a6fa5"; grid_col = "#2a4a70"
 
     fig = go.Figure()
     # Schaeffler convention: X=Technology (left=Established, right=New)
@@ -295,7 +211,7 @@ def ansoff_chart(quadrant, tech_score, market_score):
         ))
         fig.add_annotation(x=q["lx"], y=q["ly"], text=f"<b>{q['name']}</b>",
             showarrow=False,
-            font=dict(size=14, color="#00C853" if q["name"] in ("RADICAL","DISRUPT","DISRUPTIVE") else ("#00A651" if q["name"]==quadrant else "#4a8c6a")))
+            font=dict(size=14, color=BLUE if q["name"]==quadrant else dim_col))
 
     fig.add_shape(type="line",x0=5,x1=5,y0=0,y1=10,line=dict(color=grid_col,width=1.5,dash="dot"))
     fig.add_shape(type="line",x0=0,x1=10,y0=5,y1=5,line=dict(color=grid_col,width=1.5,dash="dot"))
@@ -1872,11 +1788,11 @@ Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partn
 
 
 if st.session_state.active_stage == 1:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 01</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Quadrant Classifier</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
+    st.markdown("## Stage 01 · Quadrant Classifier")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
 <div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Maps your idea onto Schaeffler's modified Ansoff matrix — Exploit, Extend, Radical, or Disrupt. Ideas in Radical and Disrupt proceed through the full pipeline. Others are redirected to the right Schaeffler product division.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Quadrant classification · Schaeffler Motion product family fit · Strategic trend alignment · Innovation pathway (Start-Up Mode vs Innovation Factory)</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Quadrant classification · Schaeffler Motion product family fit · Strategic trend alignment · Innovation pathway (Start-Up Mode vs Innovation Factory)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2058,13 +1974,13 @@ Return ONLY valid JSON:
             st.warning(f"**{quadrant}** — {c.get('redirect_message','')}")
             st.markdown(f"→ Suggested home: **{division}**")
             st.markdown(f"""
-<div style="background:#0d2419;border-radius:8px;padding:14px 18px;margin-top:12px;border-left:3px solid #f59e0b;">
+<div style="background:#1a2d45;border-radius:8px;padding:14px 18px;margin-top:12px;border-left:3px solid #f59e0b;">
 <div style="color:#f59e0b;font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:6px;">WHY THIS IDEA DOESN'T ENTER THE INNOVATION PIPELINE</div>
 <div style="color:#e2e8f0;font-size:13px;">
 <b>EXPLOIT</b> and <b>EXTEND</b> ideas use established or adjacent technology — they belong in Schaeffler's Product Development divisions, not the Innovation Pipeline, because the core technology risk has already been resolved.<br><br>
 The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakthrough tech, existing market) and <b>DISRUPTIVE</b> (breakthrough tech, new market) ideas where the technology itself is genuinely novel and unproven.
 </div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;">Technology level: <b>{c.get('technology_level','')}</b> · Market level: <b>{c.get('market_level','')}</b></div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;">Technology level: <b>{c.get('technology_level','')}</b> · Market level: <b>{c.get('market_level','')}</b></div>
 </div>
 """, unsafe_allow_html=True)
         else:
@@ -2078,16 +1994,16 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
         # ── 4-level axis labels ───────────────────────────────
         if proceed:
             col_t, col_m = st.columns(2)
-            col_t.markdown(f'<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#4a8c6a;font-size:11px;letter-spacing:1px;">TECHNOLOGY LEVEL</div><div style="color:#00C853;font-size:14px;font-weight:600;">{c.get("technology_level","")}</div></div>', unsafe_allow_html=True)
-            col_m.markdown(f'<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#4a8c6a;font-size:11px;letter-spacing:1px;">MARKET LEVEL</div><div style="color:#00C853;font-size:14px;font-weight:600;">{c.get("market_level","")}</div></div>', unsafe_allow_html=True)
+            col_t.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#94a3b8;font-size:11px;letter-spacing:1px;">TECHNOLOGY LEVEL</div><div style="color:#60a5fa;font-size:14px;font-weight:600;">{c.get("technology_level","")}</div></div>', unsafe_allow_html=True)
+            col_m.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#94a3b8;font-size:11px;letter-spacing:1px;">MARKET LEVEL</div><div style="color:#60a5fa;font-size:14px;font-weight:600;">{c.get("market_level","")}</div></div>', unsafe_allow_html=True)
             col_a, col_b, col_c = st.columns(3)
-            col_a.markdown(f'<div style="background:#0d2419;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#4a8c6a;font-size:10px;letter-spacing:1px;">INNOVATION CLUSTER</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("innovation_cluster","")}</div></div>', unsafe_allow_html=True)
-            col_b.markdown(f'<div style="background:#0d2419;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#4a8c6a;font-size:10px;letter-spacing:1px;">PRODUCT FAMILY</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("product_family","")}</div></div>', unsafe_allow_html=True)
-            col_c.markdown(f'<div style="background:#0d2419;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#4a8c6a;font-size:10px;letter-spacing:1px;">TREND ALIGNMENT</div><div style="color:#e2e8f0;font-size:12px;margin-top:2px;">{", ".join(c.get("trend_alignment",[]))}</div></div>', unsafe_allow_html=True)
+            col_a.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">INNOVATION CLUSTER</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("innovation_cluster","")}</div></div>', unsafe_allow_html=True)
+            col_b.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">PRODUCT FAMILY</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("product_family","")}</div></div>', unsafe_allow_html=True)
+            col_c.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">TREND ALIGNMENT</div><div style="color:#e2e8f0;font-size:12px;margin-top:2px;">{", ".join(c.get("trend_alignment",[]))}</div></div>', unsafe_allow_html=True)
             pipeline = c.get("pipeline_route","")
             if pipeline:
-                route_col = "#22c55e" if "Integrated" in pipeline else "#00C853"
-                st.markdown(f'<div style="background:#0a2419;border:1px solid {route_col}55;border-radius:6px;padding:8px 14px;margin:8px 0;"><span style="color:{route_col};font-size:12px;font-weight:600;">🔀 Pipeline route: {pipeline}</span></div>', unsafe_allow_html=True)
+                route_col = "#22c55e" if "Integrated" in pipeline else "#60a5fa"
+                st.markdown(f'<div style="background:#0f1e35;border:1px solid {route_col}44;border-radius:6px;padding:8px 14px;margin:8px 0;"><span style="color:{route_col};font-size:12px;font-weight:600;">🔀 Pipeline route: {pipeline}</span></div>', unsafe_allow_html=True)
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Technology novelty", f"{tech_score} / 10")
@@ -2157,11 +2073,11 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
 # STAGE 02 — MARKET INTELLIGENCE
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 2:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 02</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Market Intelligence</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
+    st.markdown("## Stage 02 · Market Intelligence")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
 <div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Analyses the commercial opportunity behind your idea — how big the market is, how fast it is growing, who the competitors are, and how well the idea fits across Schaeffler's 10 customer sector clusters.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Market size & CAGR with sources · Sector cluster fit chart · Competitor landscape · Market Intelligence Score (0–10)</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Market size & CAGR with sources · Sector cluster fit chart · Competitor landscape · Market Intelligence Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2262,7 +2178,7 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
 
         # ── Score banner ──────────────────────────────────────
         score_col = "#22c55e" if final>=7 else "#f59e0b" if final>=4 else "#ef4444"
-        banner = f"""<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #1e4d35;"><div style="color:{WHITE};font-size:11px;letter-spacing:1.5px;opacity:0.5;margin-bottom:4px;">MARKET INTELLIGENCE SCORE</div><div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#4a8c6a;"> / 10</span></div><div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{market.get('market_name','')}</div></div>"""
+        banner = f"""<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #2a4a70;"><div style="color:{WHITE};font-size:11px;letter-spacing:1.5px;opacity:0.5;margin-bottom:4px;">MARKET INTELLIGENCE SCORE</div><div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#94a3b8;"> / 10</span></div><div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{market.get('market_name','')}</div></div>"""
         st.markdown(banner, unsafe_allow_html=True)
 
         # ── Score breakdown ───────────────────────────────────
@@ -2345,9 +2261,9 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         mc1, mc2, mc3 = st.columns(3)
         for col, label, val in [(mc1,"Market Size (2024)",val_2024),(mc2,"Market Size (2030)",val_2030),(mc3,"CAGR",val_cagr)]:
             col.markdown(f"""
-<div style="background:#0d2419;border-radius:8px;padding:14px 16px;text-align:center;">
-  <div style="color:#4a8c6a;font-size:11px;letter-spacing:1px;margin-bottom:6px;">{label.upper()}</div>
-  <div style="color:#00C853;font-size:20px;font-weight:700;line-height:1.2;">{val}</div>
+<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;text-align:center;">
+  <div style="color:#94a3b8;font-size:11px;letter-spacing:1px;margin-bottom:6px;">{label.upper()}</div>
+  <div style="color:#60a5fa;font-size:20px;font-weight:700;line-height:1.2;">{val}</div>
 </div>""", unsafe_allow_html=True)
 
         # Render source links per field
@@ -2381,11 +2297,11 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         if sector_scores:
             names  = list(sector_scores.keys())
             vals   = [sector_scores[s]["score"] for s in names]
-            colors = ["#007A3D" if s in primary else "#1e4d35" for s in names]
+            colors = [BLUE if s in primary else DIM for s in names]
             fig_bar = go.Figure(go.Bar(
                 x=vals, y=names, orientation="h", marker_color=colors,
                 text=[f"{v}/10" for v in vals], textposition="outside",
-                textfont=dict(color="#f0faf4",size=11),
+                textfont=dict(color=WHITE,size=11),
                 hovertemplate="<b>%{y}</b><br>%{x}/10<extra></extra>"
             ))
             fig_bar.update_layout(
@@ -2481,11 +2397,11 @@ Be specific, cite sources where possible, 3-4 sentences max."""
 # STAGE 03 — PATENT INTELLIGENCE
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 3:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 03</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Patent Intelligence</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
+    st.markdown("## Stage 03 · Patent Intelligence")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
 <div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Maps the patent landscape for your idea's core technology — who is filing, whether they are competitors or potential customers, where the IP white spaces are, and how Schaeffler's existing patent portfolio relates to the idea.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Patent Ansoff map with all key filers plotted · IP white spaces · Schaeffler IP gap analysis · Patent Intelligence Score (0–10)</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Patent Ansoff map with all key filers plotted · IP white spaces · Schaeffler IP gap analysis · Patent Intelligence Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2656,9 +2572,9 @@ Return ONLY valid JSON:
         # Score banner
         score_col = "#22c55e" if final>=7 else "#f59e0b" if final>=4 else "#ef4444"
         st.markdown(f"""
-<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #1e4d35;">
-  <div style="color:#4a8c6a;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">PATENT INTELLIGENCE SCORE</div>
-  <div style="color:{score_col};font-size:42px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#4a8c6a;"> / 10</span></div>
+<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #2a4a70;">
+  <div style="color:#94a3b8;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">PATENT INTELLIGENCE SCORE</div>
+  <div style="color:{score_col};font-size:42px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#94a3b8;"> / 10</span></div>
   <div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{landscape.get("landscape_summary","")}</div>
 </div>
 """, unsafe_allow_html=True)
@@ -2740,8 +2656,8 @@ Return ONLY valid JSON:
                 return _re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
             bullets_html = "".join(f'<div style="margin:5px 0;color:#e2e8f0;font-size:13px;">› {md_bold_to_html(p)}</div>' for p in pointers)
             st.markdown(f"""
-<div style="background:#0a2419;border-left:3px solid #007A3D;border-radius:4px;padding:12px 16px;margin-bottom:14px;">
-<div style="color:#00C853;font-size:11px;letter-spacing:1px;font-weight:600;margin-bottom:8px;">PATTERN NOTES</div>
+<div style="background:#1a2d45;border-left:3px solid #2E75B6;border-radius:4px;padding:12px 16px;margin-bottom:14px;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;margin-bottom:8px;">PATTERN NOTES</div>
 {bullets_html}
 </div>
 """, unsafe_allow_html=True)
@@ -2752,10 +2668,10 @@ Return ONLY valid JSON:
 
         # Quadrant shading
         q_fills = [
-            dict(x=[0,5,5,0],   y=[0,0,5,5],   name="EXPLOIT", fill="#0d1f14", lx=2.5,ly=2.5),
-            dict(x=[5,10,10,5], y=[0,0,5,5],   name="EXTEND",  fill="#0a2419", lx=7.5,ly=2.5),
-            dict(x=[0,5,5,0],   y=[5,5,10,10], name="RADICAL", fill="#003D20", lx=2.5,ly=7.5),
-            dict(x=[5,10,10,5], y=[5,5,10,10], name="DISRUPT", fill="#002915", lx=7.5,ly=7.5),
+            dict(x=[0,5,5,0],   y=[0,0,5,5],   name="EXPLOIT", fill="#1a2d45", lx=2.5,ly=2.5),
+            dict(x=[5,10,10,5], y=[0,0,5,5],   name="EXTEND",  fill="#1e3a5f", lx=7.5,ly=2.5),
+            dict(x=[0,5,5,0],   y=[5,5,10,10], name="RADICAL", fill="#1F3864", lx=2.5,ly=7.5),
+            dict(x=[5,10,10,5], y=[5,5,10,10], name="DISRUPT", fill="#0d2137", lx=7.5,ly=7.5),
         ]
         for q in q_fills:
             fig.add_trace(go.Scatter(
@@ -2765,7 +2681,7 @@ Return ONLY valid JSON:
                 mode="lines", showlegend=False, hoverinfo="skip"
             ))
             fig.add_annotation(x=q["lx"],y=q["ly"],text=f"<b>{q['name']}</b>",
-                showarrow=False, font=dict(size=12,color="#00C853" if q["fill"] in ("#003D20","#002915") else "#4a8c6a"))
+                showarrow=False, font=dict(size=12,color="#4a6fa5"))
 
         # Grid lines
         fig.add_shape(type="line",x0=5,x1=5,y0=0,y1=10,line=dict(color="#2a4a70",width=1.5,dash="dot"))
@@ -2774,7 +2690,7 @@ Return ONLY valid JSON:
         # Competitor/filer points
         type_colours = {
             "Competitor":         "#ef4444",
-            "Customer":           "#00A651",
+            "Customer":           "#60a5fa",
             "Research Institution":"#a78bfa",
             "Adjacent Player":    "#f59e0b",
             "Patent Troll":       "#6b7280",
@@ -2856,11 +2772,11 @@ Return ONLY valid JSON:
                 threat_col = {"High":"#ef4444","Medium":"#f59e0b","Low":"#22c55e"}.get(fi.get("threat_level","Medium"),"#6b7280")
                 type_col   = type_colours.get(fi.get("type","Adjacent Player"),"#6b7280")
                 st.markdown(f"""
-<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:center;gap:12px;">
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:center;gap:12px;">
   <div style="min-width:130px;color:{WHITE};font-weight:600;font-size:13px;">{fi.get('company','')}</div>
   <div style="background:{type_col}22;color:{type_col};font-size:11px;padding:2px 8px;border-radius:10px;min-width:120px;text-align:center;">{fi.get('type','')}</div>
   <div style="background:{threat_col}22;color:{threat_col};font-size:11px;padding:2px 8px;border-radius:10px;min-width:80px;text-align:center;">⚡ {fi.get('threat_level','')} threat</div>
-  <div style="color:#4a8c6a;font-size:12px;flex:1;">{fi.get('focus','')}</div>
+  <div style="color:#94a3b8;font-size:12px;flex:1;">{fi.get('focus','')}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -2954,11 +2870,11 @@ Be specific and concise — 2-4 sentences."""
 # STAGE 04 — TECHNICAL FEASIBILITY
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 4:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 04</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Technical Feasibility</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
+    st.markdown("## Stage 04 · Technical Feasibility")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
 <div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Checks whether the core technology has actually been demonstrated anywhere — in labs, startups, pilots, or adjacent industries. Rates maturity using a Schaeffler-adapted version of NASA's TRL scale (1–9) and identifies the key technical risks to address.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> TRL rating with rationale · Evidence from research & industry · Technology keyword map · Risk register · Feasibility Score (0–10)</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> TRL rating with rationale · Evidence from research & industry · Technology keyword map · Risk register · Feasibility Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3128,14 +3044,14 @@ Return ONLY valid JSON:
         trl_level = trl.get("trl_level", 3)
         trl_pct   = int((trl_level / 9) * 100)
         entry_col = {"Too Early":"#ef4444","Ready for Innovation":"#22c55e",
-                     "Ready for Product Development":"#00A651"}.get(
+                     "Ready for Product Development":"#60a5fa"}.get(
                      trl.get("schaeffler_entry_readiness",""), "#f59e0b")
 
         st.markdown(f"""
-<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #1e4d35;">
-  <div style="color:#4a8c6a;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">TECHNICAL FEASIBILITY SCORE</div>
+<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #2a4a70;">
+  <div style="color:#94a3b8;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">TECHNICAL FEASIBILITY SCORE</div>
   <div style="display:flex;align-items:flex-end;gap:24px;">
-    <div style="color:{score_col};font-size:42px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#4a8c6a;"> / 10</span></div>
+    <div style="color:{score_col};font-size:42px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#94a3b8;"> / 10</span></div>
     <div>
       <div style="color:{entry_col};font-size:14px;font-weight:600;">{trl.get("schaeffler_entry_readiness","")}</div>
       <div style="color:{WHITE};font-size:12px;opacity:0.7;">{existence.get("existence_verdict","")}</div>
@@ -3167,7 +3083,7 @@ Return ONLY valid JSON:
     <span style="color:{WHITE};font-weight:600;font-size:15px;">{trl.get("trl_label","")}</span>
     <span style="color:{trl_col};font-weight:700;font-size:18px;">TRL {trl_level}/9</span>
   </div>
-  <div style="background:#0d2419;border-radius:6px;height:14px;overflow:hidden;">
+  <div style="background:#1a2d45;border-radius:6px;height:14px;overflow:hidden;">
     <div style="background:{trl_col};height:100%;width:{trl_pct}%;border-radius:6px;transition:width 0.3s;"></div>
   </div>
   <div style="display:flex;justify-content:space-between;margin-top:4px;">
@@ -3199,7 +3115,7 @@ Return ONLY valid JSON:
             for lvl, label, desc in trl_descriptions:
                 is_current = (lvl == trl_level)
                 bg_col = "#1F3864" if is_current else "#1a2d45"
-                text_col_inner = "#00C853" if is_current else "#4a8c6a"
+                text_col_inner = "#60a5fa" if is_current else "#94a3b8"
                 st.markdown(f"""
 <div style="background:{bg_col};border-radius:4px;padding:6px 12px;margin:3px 0;display:flex;gap:12px;align-items:center;">
   <div style="color:{trl_colours.get(lvl,'#f59e0b')};font-weight:700;min-width:40px;">TRL {lvl}</div>
@@ -3220,7 +3136,7 @@ Return ONLY valid JSON:
                 "Academic Paper":"📄","Startup":"🚀","Pilot":"🔧",
                 "Government Programme":"🏛️","Industry Deployment":"🏭"
             }
-            rel_cols = {"Direct":"#22c55e","Adjacent":"#00A651","Analogous":"#f59e0b"}
+            rel_cols = {"Direct":"#22c55e","Adjacent":"#60a5fa","Analogous":"#f59e0b"}
             conf_cols = {"High":"#22c55e","Medium":"#f59e0b","Low":"#ef4444"}
             # Sort: Direct > Adjacent > Analogous, then High > Medium > Low confidence
             rel_order  = {"Direct":0,"Adjacent":1,"Analogous":2}
@@ -3233,10 +3149,10 @@ Return ONLY valid JSON:
                 st.caption(f"Showing top 5 of {len(evidence_items)} evidence items by relevance. Full list in the downloaded report.")
             for ev in top_ev:
                 icon = type_icons.get(ev.get("type",""), "📌")
-                rel_col  = rel_cols.get(ev.get("relevance","Adjacent"), "#00A651")
+                rel_col  = rel_cols.get(ev.get("relevance","Adjacent"), "#60a5fa")
                 conf_col = conf_cols.get(ev.get("confidence","Medium"), "#f59e0b")
                 st.markdown(f"""
-<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:5px 0;">
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
     <span style="font-size:14px;">{icon}</span>
     <span style="color:{WHITE};font-weight:600;font-size:13px;">{ev.get("title","")}</span>
@@ -3255,14 +3171,14 @@ Return ONLY valid JSON:
         if keywords:
             # Size keywords by estimated relevance (first = most relevant)
             sizes = [28, 24, 22, 20, 18, 16, 15, 14, 13, 12]
-            colours_kw = ["#007A3D","#00A651","#00C853","#4a8c6a","#005A2D",
-                          "#007A3D","#00A651","#00C853","#4a8c6a","#005A2D"]
+            colours_kw = ["#60a5fa","#34d399","#a78bfa","#f59e0b","#f472b6",
+                          "#60a5fa","#34d399","#a78bfa","#f59e0b","#f472b6"]
             badges = ""
             for i, kw in enumerate(keywords[:10]):
                 sz  = sizes[i] if i < len(sizes) else 12
                 col = colours_kw[i % len(colours_kw)]
                 badges += f'<span style="background:{col}22;color:{col};font-size:{sz}px;padding:6px 14px;border-radius:20px;margin:4px;display:inline-block;font-weight:600;">{kw}</span>'
-            st.markdown(f'<div style="background:#0f1e35;border-radius:8px;padding:16px;line-height:2.2;border:1px solid #1e4d35;">{badges}</div>',
+            st.markdown(f'<div style="background:#0f1e35;border-radius:8px;padding:16px;line-height:2.2;border:1px solid #2a4a70;">{badges}</div>',
                         unsafe_allow_html=True)
         st.markdown("---")
 
@@ -3276,12 +3192,12 @@ Return ONLY valid JSON:
             for risk in top_risks:
                 sev_col = {"High":"#ef4444","Medium":"#f59e0b","Low":"#22c55e"}.get(risk.get("severity","Medium"),"#f59e0b")
                 st.markdown(f"""
-<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:5px 0;border-left:3px solid {sev_col};">
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;border-left:3px solid {sev_col};">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
     <span style="background:{sev_col}22;color:{sev_col};font-size:10px;padding:2px 8px;border-radius:8px;">{risk.get("severity","")} severity</span>
     <span style="color:{WHITE};font-size:13px;">{risk.get("risk","")}</span>
   </div>
-  <div style="color:#4a8c6a;font-size:12px;">↳ Mitigation: {risk.get("mitigation","")}</div>
+  <div style="color:#94a3b8;font-size:12px;">↳ Mitigation: {risk.get("mitigation","")}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -3366,11 +3282,11 @@ Be specific, reference evidence where relevant, keep to 3-4 sentences."""
 # STAGE 05 — ORGANISATIONAL READINESS
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 5:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 05</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Organisational Readiness</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Assesses whether Schaeffler is organisationally ready to pursue this idea — grounded in Schaeffler's own P³ formula: <b style="color:#00C853;">Performance = Portfolio × People × Process</b>. The market may be real and the technology proven, but if the internal capabilities, assets, and partnerships are not in place, the idea will stall before it reaches the Innovation pipeline.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Competency fit · Asset leverage · Partnership readiness · Org gap register · Build-or-partner recommendation · Organisational Readiness Score (0–10)</div>
+    st.markdown("## Stage 05 · Organisational Readiness")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Assesses whether Schaeffler is organisationally ready to pursue this idea — grounded in Schaeffler's own P³ formula: <b style="color:#60a5fa;">Performance = Portfolio × People × Process</b>. The market may be real and the technology proven, but if the internal capabilities, assets, and partnerships are not in place, the idea will stall before it reaches the Innovation pipeline.</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Competency fit · Asset leverage · Partnership readiness · Org gap register · Build-or-partner recommendation · Organisational Readiness Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3532,9 +3448,9 @@ Return ONLY valid JSON:
         score_col = "#22c55e" if final>=7 else "#f59e0b" if final>=4 else "#ef4444"
         bop_rec = org_data.get("build_or_partner",{}).get("recommendation","Co-develop")
         st.markdown(f"""
-<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #1e4d35;">
-  <div style="color:#4a8c6a;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">ORGANISATIONAL READINESS SCORE</div>
-  <div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#4a8c6a;"> / 10</span></div>
+<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #2a4a70;">
+  <div style="color:#94a3b8;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">ORGANISATIONAL READINESS SCORE</div>
+  <div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#94a3b8;"> / 10</span></div>
   <div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">Build strategy: <b>{bop_rec}</b></div>
 </div>
 """, unsafe_allow_html=True)
@@ -3551,53 +3467,53 @@ Return ONLY valid JSON:
         # ── Portfolio dimension ───────────────────────────────
         port = org_data.get("p3_portfolio",{})
         st.markdown("#### Portfolio — Strategic fit")
-        st.markdown(f"<div style='background:#0d2419;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#4a8c6a;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{port.get('rationale','')}</div><div style='color:#4a8c6a;font-size:11px;margin-top:8px;'>CLUSTER FIT</div><div style='color:#00C853;font-size:13px;margin-top:4px;'>{port.get('cluster_fit','')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#1a2d45;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{port.get('rationale','')}</div><div style='color:#94a3b8;font-size:11px;margin-top:8px;'>CLUSTER FIT</div><div style='color:#60a5fa;font-size:13px;margin-top:4px;'>{port.get('cluster_fit','')}</div></div>", unsafe_allow_html=True)
         if port.get("strengths"):
             cols_ps = st.columns(len(port["strengths"][:3]))
             for i, s in enumerate(port["strengths"][:3]):
-                cols_ps[i].markdown(f'<div style="background:#0a2010;border:1px solid #007A3D55;border-radius:6px;padding:8px 12px;font-size:12px;color:#22c55e;">✓ {s}</div>', unsafe_allow_html=True)
+                cols_ps[i].markdown(f'<div style="background:#0a2010;border:1px solid #60a5fa33;border-radius:6px;padding:8px 12px;font-size:12px;color:#22c55e;">✓ {s}</div>', unsafe_allow_html=True)
         if port.get("gaps"):
             for g in port["gaps"][:2]:
-                st.markdown(f'<div style="background:#1a0808;border:1px solid #ef444444;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;color:#ef4444;">✗ Gap: {g}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background:#1a0f0f;border:1px solid #ef444433;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;color:#ef4444;">✗ Gap: {g}</div>', unsafe_allow_html=True)
         st.markdown("---")
 
         # ── People dimension ──────────────────────────────────
         peop = org_data.get("p3_people",{})
         st.markdown("#### People — Competency & skills")
-        st.markdown(f"<div style='background:#0d2419;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#4a8c6a;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{peop.get('rationale','')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#1a2d45;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{peop.get('rationale','')}</div></div>", unsafe_allow_html=True)
         if peop.get("matched_competencies"):
             st.markdown("**Matched Schaeffler competencies**")
             comp_cols = st.columns(min(3,len(peop["matched_competencies"])))
             for i, c in enumerate(peop["matched_competencies"][:3]):
-                comp_cols[i].markdown(f'<div style="background:#0a2419;border:1px solid #007A3D55;border-radius:4px;padding:8px;font-size:12px;color:#00C853;text-align:center;">{c}</div>', unsafe_allow_html=True)
+                comp_cols[i].markdown(f'<div style="background:#0a2419;border:1px solid #60a5fa33;border-radius:4px;padding:8px;font-size:12px;color:#60a5fa;text-align:center;">{c}</div>', unsafe_allow_html=True)
         if peop.get("competency_gap"):
-            st.markdown(f'<div style="background:#150d1f;border:1px solid #a78bfa55;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#a78bfa;">⚠️ Critical gap: {peop["competency_gap"]}<br><span style="color:#4a8c6a;font-size:12px;">Closure route: {peop.get("sourcing_route","")}</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#1a1020;border:1px solid #a78bfa44;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#a78bfa;">⚠️ Critical gap: {peop["competency_gap"]}<br><span style="color:#94a3b8;font-size:12px;">Closure route: {peop.get("sourcing_route","")}</span></div>', unsafe_allow_html=True)
         st.markdown("---")
 
         # ── Process dimension ─────────────────────────────────
         proc = org_data.get("p3_process",{})
         st.markdown("#### Process — Infrastructure & assets")
-        st.markdown(f"<div style='background:#0d2419;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#4a8c6a;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{proc.get('rationale','')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#1a2d45;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{proc.get('rationale','')}</div></div>", unsafe_allow_html=True)
         if proc.get("applicable_assets"):
             st.markdown("**Applicable assets / processes**")
             for a in proc["applicable_assets"][:3]:
                 st.markdown(f"- {a}")
         if proc.get("investment_required"):
-            st.markdown(f'<div style="background:#1a1200;border:1px solid #f59e0b55;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#f59e0b;">🔧 Investment required: {proc["investment_required"]}<br><span style="color:#4a8c6a;font-size:12px;">Estimated time to close: {proc.get("time_to_close","")}</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#1a1a0f;border:1px solid #f59e0b44;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#f59e0b;">🔧 Investment required: {proc["investment_required"]}<br><span style="color:#94a3b8;font-size:12px;">Estimated time to close: {proc.get("time_to_close","")}</span></div>', unsafe_allow_html=True)
         st.markdown("---")
 
         # ── Partnership candidates ────────────────────────────
         partners = org_data.get("partnership_candidates",[])
         if partners:
             st.markdown("#### Partnership candidates")
-            route_cols = {"Co-develop":"#007A3D","Acquire":"#f59e0b","License":"#a78bfa","JDA":"#22c55e"}
+            route_cols = {"Co-develop":"#60a5fa","Acquire":"#f59e0b","License":"#a78bfa","JDA":"#22c55e"}
             for p in partners[:4]:
-                rc = route_cols.get(p.get("route","Co-develop"),"#007A3D")
+                rc = route_cols.get(p.get("route","Co-develop"),"#60a5fa")
                 st.markdown(f"""
-<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
     <div style="color:{WHITE};font-weight:600;font-size:13px;">{p.get('name','')}</div>
-    <div style="color:#4a8c6a;font-size:12px;margin-top:3px;">{p.get('type','')} · {p.get('rationale','')}</div>
+    <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{p.get('type','')} · {p.get('rationale','')}</div>
   </div>
   <div style="background:{rc}22;color:{rc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{p.get('route','')}</div>
 </div>""", unsafe_allow_html=True)
@@ -3611,10 +3527,10 @@ Return ONLY valid JSON:
             for g in gaps[:4]:
                 sc = sev_col.get(g.get("severity","Medium"),"#f59e0b")
                 st.markdown(f"""
-<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
     <div style="color:{WHITE};font-weight:600;font-size:13px;">{g.get('gap','')}</div>
-    <div style="color:#4a8c6a;font-size:12px;margin-top:3px;">{g.get('closure_route','')} · Est. {g.get('timeline','')}</div>
+    <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{g.get('closure_route','')} · Est. {g.get('timeline','')}</div>
   </div>
   <div style="background:{sc}22;color:{sc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{g.get('severity','')} severity</div>
 </div>""", unsafe_allow_html=True)
@@ -3624,8 +3540,8 @@ Return ONLY valid JSON:
         bop = org_data.get("build_or_partner",{})
         st.markdown("#### Build or partner?")
         bop_c1, bop_c2 = st.columns(2)
-        bop_c1.markdown(f'<div style="background:#0d2419;border-radius:8px;padding:14px 16px;"><div style="color:#4a8c6a;font-size:11px;margin-bottom:4px;">RECOMMENDATION</div><div style="color:#00C853;font-size:16px;font-weight:600;">{bop.get("recommendation","")}</div><div style="color:#e2e8f0;font-size:12px;margin-top:6px;">{bop.get("rationale","")}</div></div>', unsafe_allow_html=True)
-        bop_c2.markdown(f'<div style="background:#0d2419;border-radius:8px;padding:14px 16px;"><div style="color:#4a8c6a;font-size:11px;margin-bottom:4px;">TIME TO TRL 6</div><div style="color:#e2e8f0;font-size:13px;"><b>Internal:</b> {bop.get("time_to_trl6_internal","")}<br><b>With partner:</b> {bop.get("time_to_trl6_partner","")}</div></div>', unsafe_allow_html=True)
+        bop_c1.markdown(f'<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;"><div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">RECOMMENDATION</div><div style="color:#60a5fa;font-size:16px;font-weight:600;">{bop.get("recommendation","")}</div><div style="color:#e2e8f0;font-size:12px;margin-top:6px;">{bop.get("rationale","")}</div></div>', unsafe_allow_html=True)
+        bop_c2.markdown(f'<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;"><div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">TIME TO TRL 6</div><div style="color:#e2e8f0;font-size:13px;"><b>Internal:</b> {bop.get("time_to_trl6_internal","")}<br><b>With partner:</b> {bop.get("time_to_trl6_partner","")}</div></div>', unsafe_allow_html=True)
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
@@ -3690,11 +3606,11 @@ Be specific to Schaeffler's context (Vitesco integration, E-Mobility shift, OEM 
 # STAGE 06 — SCORING & SYNTHESIS
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 6:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 06</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Scoring &amp; Synthesis</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
+    st.markdown("## Stage 06 · Scoring & Synthesis")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
 <div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Combines scores from Stages 02, 03, 04, and 05 into a single Innovation Potential Index (IPI). You set the weights. The assistant generates a final recommendation, strategic synthesis, and a downloadable master report covering the full pipeline analysis.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Weighted IPI score · Radar chart · PROCEED / DEFER / REJECT recommendation · Strongest signals & concerns · Next steps · Full Innovation Assessment Report</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Weighted IPI score · Radar chart · PROCEED / DEFER / REJECT recommendation · Strongest signals & concerns · Next steps · Full Innovation Assessment Report</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3952,11 +3868,11 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
 
         # ── IPI banner ────────────────────────────────────────
         st.markdown(f"""
-<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #1e4d35;">
+<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #2a4a70;">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;">
     <div>
-      <div style="color:#4a8c6a;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">INNOVATION POTENTIAL INDEX</div>
-      <div style="color:{ipi_col};font-size:48px;font-weight:700;line-height:1;">{ipi}<span style="font-size:20px;color:#4a8c6a;"> / 10</span></div>
+      <div style="color:#94a3b8;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">INNOVATION POTENTIAL INDEX</div>
+      <div style="color:{ipi_col};font-size:48px;font-weight:700;line-height:1;">{ipi}<span style="font-size:20px;color:#94a3b8;"> / 10</span></div>
       <div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{synthesis.get('headline','')}</div>
     </div>
     <div style="text-align:right;">
@@ -3979,7 +3895,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         fig_radar.add_trace(go.Scatterpolar(
             r=values_close, theta=cats_close,
             fill="toself",
-            fillcolor="rgba(0,166,81,0.18)",
+            fillcolor=f"rgba(96,165,250,0.15)",
             line=dict(color=BLUE, width=2),
             marker=dict(size=8, color=BLUE),
             name="Score"
@@ -3987,7 +3903,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         # Add benchmark line at 7
         fig_radar.add_trace(go.Scatterpolar(
             r=[7,7,7,7,7], theta=cats_close,
-            line=dict(color="#4a8c6a", width=1.5, dash="dot"),
+            line=dict(color="#4a6fa5", width=1, dash="dot"),
             marker=dict(size=0),
             fill=None,
             name="Target (7/10)",
@@ -3999,12 +3915,12 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                 radialaxis=dict(
                     visible=True, range=[0,10],
                     tickfont=dict(color=WHITE, size=10),
-                    gridcolor="#1e4d35", linecolor="#1e4d35",
+                    gridcolor="#2a4a70", linecolor="#2a4a70",
                     tickvals=[2,4,6,8,10]
                 ),
                 angularaxis=dict(
                     tickfont=dict(color=WHITE, size=12),
-                    gridcolor="#1e4d35", linecolor="#1e4d35"
+                    gridcolor="#2a4a70", linecolor="#2a4a70"
                 )
             ),
             paper_bgcolor=BG,
