@@ -539,7 +539,7 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
     master_ctx = (
         f"Idea: {idea}\nQuadrant: {quadrant}\nIPI: {ipi}/10\nRecommendation: {synthesis.get('recommendation','')}\n\n"
         f"STAGE 02 — Market ({weights.get('market',35)}%): {scores.get('market',5)}/10\n"
-        f"Market: {market.get('market_name','')}  Size 2024: {(market.get('market_size_current') or {}).get('value','') or market.get('market_size_2024','')}  CAGR: {((market.get('cagr') or {}).get('value','') if isinstance(market.get('cagr'),dict) else str(market.get('cagr','')))}\n"
+        f"Market: {market.get('market_name','')}  Size 2024: {market.get('market_size_2024','')}  CAGR: {market.get('cagr','')}\n"
         f"Primary sectors: {', '.join(s2d.get('sectors',{}).get('primary_sectors',[]))}\n"
         f"Competition: {comp.get('competitive_intensity','')}  White space: {comp.get('white_space','')}\n\n"
         f"STAGE 03 — Patent ({weights.get('patent',25)}%): {scores.get('patent',5)}/10\n"
@@ -582,7 +582,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         enr = {
             "executive_summary": f"This innovation idea ({idea[:80]}) has been assessed across four dimensions of Schaeffler\'s Innovation Pipeline, yielding an Innovation Potential Index (IPI) of {ipi}/10. The recommendation is: {synthesis.get('recommendation','PROCEED WITH CONDITIONS')}. {synthesis.get('recommendation_rationale','')} The strongest signal is: {synthesis.get('strongest_signals',['market opportunity'])[0] if synthesis.get('strongest_signals') else 'market opportunity'}. The primary concern is: {synthesis.get('key_concerns',['technical maturity'])[0] if synthesis.get('key_concerns') else 'technical maturity'}.",
             "strategic_narrative": synthesis.get("narrative", f"The idea targets {market.get('market_name','a growing market')} and sits in Schaeffler\'s {quadrant} innovation quadrant. {synthesis.get('strategic_fit','')}"),
-            "market_highlights": f"Market size: {(market.get('market_size_current') or {}).get('value','') or market.get('market_size_2024','')} (2024), growing to {(market.get('market_size_forecast') or {}).get('value','') or market.get('market_size_2030','')} by 2030 at {((market.get('cagr') or {}).get('value','') if isinstance(market.get('cagr'),dict) else str(market.get('cagr','')))} CAGR. Primary sector fit: {', '.join(s2d.get('sectors',{}).get('primary_sectors',[]))}. Competitive intensity: {comp.get('competitive_intensity','')}.",
+            "market_highlights": f"Market size: {market.get('market_size_2024','')} (2024), growing to {market.get('market_size_2030','')} by 2030 at {market.get('cagr','')} CAGR. Primary sector fit: {', '.join(s2d.get('sectors',{}).get('primary_sectors',[]))}. Competitive intensity: {comp.get('competitive_intensity','')}.",
             "ip_highlights": f"Novelty signal: {ansoff_d.get('novelty_signal','Moderate')}. IP risk: {ansoff_d.get('ip_risk','Medium')}. White spaces: {'; '.join(landscape.get('white_spaces',[])[:2])}.",
             "feasibility_highlights": f"TRL {trl.get('trl_level',3)}: {trl.get('trl_label','')}. Existence: {existence.get('existence_verdict','')}. Time to production: {existence.get('time_to_readiness','')}.",
             "org_highlights": f"Org readiness: {scores.get('org',5)}/10. Strategy: {bop.get('recommendation','Co-develop')}. Critical gap: {people.get('competency_gap','')}.",
@@ -713,9 +713,9 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     body(doc, enr.get("market_highlights",""))
     doc.add_paragraph()
     kv(doc,"Market", market.get("market_name",""))
-    kv(doc,"Size (2024)", (market.get("market_size_current") or {}).get("value","") or market.get("market_size_2024",""))
-    kv(doc,"Projected (2030)", (market.get("market_size_forecast") or {}).get("value","") or market.get("market_size_2030",""))
-    kv(doc,"CAGR", ((market.get("cagr") or {}).get("value","") if isinstance(market.get("cagr"),dict) else str(market.get("cagr",""))))
+    kv(doc,"Size (2024)", market.get("market_size_2024",""))
+    kv(doc,"Projected (2030)", market.get("market_size_2030",""))
+    kv(doc,"CAGR", market.get("cagr",""))
     kv(doc,"Maturity", market.get("market_maturity",""))
     kv(doc,"Geography", market.get("geographic_focus",""))
     kv(doc,"Competitive intensity", comp.get("competitive_intensity",""))
@@ -1323,8 +1323,8 @@ def generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, 
     """Generate a formatted Word document market intelligence report."""
     mkt_ctx = (
         f"Idea: {idea}\nQuadrant: {quadrant}\nMarket: {market.get('market_name','')}\n"
-        f"Size 2024: {(market.get('market_size_current') or {}).get('value','') or market.get('market_size_2024','')}  Size 2030: {(market.get('market_size_forecast') or {}).get('value','') or market.get('market_size_2030','')}\n"
-        f"CAGR: {((market.get('cagr') or {}).get('value','') if isinstance(market.get('cagr'),dict) else str(market.get('cagr','')))}  Maturity: {market.get('market_maturity','')}\n"
+        f"Size 2024: {market.get('market_size_2024','')}  Size 2030: {market.get('market_size_2030','')}\n"
+        f"CAGR: {market.get('cagr','')}  Maturity: {market.get('market_maturity','')}\n"
         f"Geography: {market.get('geographic_focus','')}\n"
         f"Growth drivers: {chr(59).join(market.get('growth_drivers',[])[:4])}\n"
         f"Competitive intensity: {comp.get('competitive_intensity','')}  White space: {comp.get('white_space','')}\n"
@@ -1498,9 +1498,9 @@ Write substantive, specific content using the data provided. Return ONLY valid J
 
     # ── Market size ───────────────────────────────────────────
     h1(doc,"Market Size & Growth")
-    kv(doc,"Market size (2024)",(market.get("market_size_current") or {}).get("value","N/A") or market.get("market_size_2024","N/A"))
-    kv(doc,"Projected (2030)",(market.get("market_size_forecast") or {}).get("value","N/A") or market.get("market_size_2030","N/A"))
-    kv(doc,"CAGR",((market.get("cagr") or {}).get("value","N/A") if isinstance(market.get("cagr"),dict) else str(market.get("cagr","N/A"))))
+    kv(doc,"Market size (2024)",market.get("market_size_2024","N/A"))
+    kv(doc,"Projected (2030)",market.get("market_size_2030","N/A"))
+    kv(doc,"CAGR",market.get("cagr","N/A"))
     kv(doc,"Maturity",market.get("market_maturity","N/A"))
     kv(doc,"Geography",market.get("geographic_focus","N/A"))
     doc.add_paragraph()
@@ -1588,51 +1588,12 @@ Write substantive, specific content using the data provided. Return ONLY valid J
 def run_stage2(idea, quadrant, s1c):
     """Run Stage 02 Market Intelligence and store results in session state."""
     web_ctx = ""
-    system_market = """You are a senior market analyst with deep knowledge of published market research reports.
-
-IMPORTANT: Claude has been trained on actual market research reports and knows their real URLs. 
-For each source you cite, provide the REAL canonical URL to that specific report page as it appears on the publisher's website.
-Examples of correct URLs:
-- IEA reports: https://www.iea.org/reports/global-ev-outlook-2024
-- BloombergNEF: https://about.bnef.com/electric-vehicle-outlook/
-- McKinsey: https://www.mckinsey.com/industries/automotive-and-assembly/our-insights/...
-- Grand View Research: https://www.grandviewresearch.com/industry-analysis/[market]-market
-- MarketsandMarkets: https://www.marketsandmarkets.com/Market-Reports/[market]-market-[id].html
-- Mordor Intelligence: https://www.mordorintelligence.com/industry-reports/[market]-market
-
-Only cite sources whose real report URLs you are confident about from training data.
-If unsure of a specific URL, use the publisher's search page: e.g. https://www.grandviewresearch.com/industry-analysis/search?keyword=[topic]
-
-Return ONLY valid JSON — no markdown, no extra text:
-{
-  "market_name": "precise market segment name",
-  "market_size_current": {
-    "value": "e.g. $4.2 billion",
-    "year": "2024",
-    "sources": [
-      {"org": "Organisation name", "title": "Exact report title", "year": "2024", "url": "https://real-report-url"}
-    ]
-  },
-  "market_size_forecast": {
-    "value": "e.g. $12.8 billion",
-    "year": "2030",
-    "sources": [
-      {"org": "Organisation name", "title": "Exact report title", "year": "2024", "url": "https://real-report-url"}
-    ]
-  },
-  "cagr": {
-    "value": "e.g. 20.4%",
-    "period": "2024-2030",
-    "sources": [
-      {"org": "Organisation name", "title": "Exact report title", "year": "2024", "url": "https://real-report-url"}
-    ]
-  },
-  "growth_drivers": ["specific driver 1", "specific driver 2", "specific driver 3"],
-  "market_maturity": "Emerging/Growing/Mature/Declining",
-  "geographic_focus": "primary regions",
-  "market_score": 1-10,
-  "market_score_rationale": "2 sentences"
-}"""
+    system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
+RULES: Every data point MUST include [Source: Org, Year]. Use only credible sources (McKinsey, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, industry associations). If uncertain, give a range.
+Return ONLY valid JSON:
+{"market_name":"string","market_size_2024":"value [Source: X, Y]","market_size_2030":"value [Source: X, Y]",
+"cagr":"% [Source: X, Y]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
+"geographic_focus":"string","market_score":1-10,"market_score_rationale":"2 sentences"}"""
     raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1200)
     try:
         rc = raw.strip().replace("```json","").replace("```","").strip()
@@ -1640,7 +1601,7 @@ Return ONLY valid JSON — no markdown, no extra text:
         if fb >= 0: rc = rc[fb:lb]
         market = json.loads(rc)
     except:
-        market = {"market_name":"N/A","market_size_current":{"value":"N/A","year":"","sources":[]},"market_size_forecast":{"value":"N/A","year":"","sources":[]},"cagr":{"value":"N/A","period":"","sources":[]},"growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
+        market = {"market_name":"N/A","market_size_2024":"N/A","market_size_2030":"N/A","cagr":"N/A","growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
 
     system_comp = """You are a competitive intelligence analyst. Identify key competitors for this idea.
 Every company must have a source. Return ONLY valid JSON:
@@ -1699,13 +1660,20 @@ Return ONLY valid JSON:
     except:
         landscape = {"technology_keywords":[],"landscape_summary":"N/A","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","patent_landscape_score":5,"key_filers":[],"white_spaces":[]}
 
-    filers_context = json.dumps([f.get("company","") for f in landscape.get("key_filers",[])])
-    system_ansoff = """You are a Schaeffler patent strategist. Map filers onto Schaeffler's Ansoff matrix.
+    key_filers_run3 = landscape.get("key_filers", [])
+    filers_full_run3 = json.dumps([
+        {"company": f.get("company",""), "type": f.get("type",""), "focus": f.get("focus",""), "threat_level": f.get("threat_level","")}
+        for f in key_filers_run3
+    ])
+    system_ansoff = """You are a Schaeffler patent strategist. Map ALL listed filers onto Schaeffler's Ansoff matrix.
+IMPORTANT: Every filer in the input list MUST appear in filer_positions — do not skip any.
 Return ONLY valid JSON:
 {"filer_positions":[{"company":"name","matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"rationale":"one sentence"}],
 "schaeffler_position":{"matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"existing_ip":"one sentence","gap":"one sentence"},
 "idea_position":{"x_score":0-10,"y_score":0-10},"novelty_signal":"Strong/Moderate/Weak","novelty_rationale":"one sentence","ip_risk":"Low/Medium/High","ip_risk_rationale":"one sentence"}"""
-    raw2 = call_claude(system_ansoff, f"Idea: {idea}\nQuadrant: {quadrant}\nKey filers: {filers_context}", max_tokens=1000)
+    raw2 = call_claude(system_ansoff,
+        f"Idea: {idea}\nQuadrant: {quadrant}\nMap ALL {len(key_filers_run3)} filers: {filers_full_run3}",
+        max_tokens=max(1800, len(key_filers_run3) * 200 + 800))
     try:
         raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
         fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
@@ -1713,6 +1681,29 @@ Return ONLY valid JSON:
         ansoff_data = json.loads(raw2_c)
     except:
         ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
+
+    # Guarantee every key_filer has a position
+    positioned_run3 = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
+    type_defaults_run3 = {
+        "Competitor":          ("EXPLOIT", 3.0, 3.0),
+        "Customer":            ("EXTEND",  2.5, 6.5),
+        "Research Institution":("RADICAL", 7.0, 7.5),
+        "Adjacent Player":     ("EXTEND",  6.0, 4.0),
+        "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
+    }
+    for i, f in enumerate(key_filers_run3):
+        name = f.get("company","")
+        if name.lower() not in positioned_run3 and name:
+            quad, bx, by = type_defaults_run3.get(f.get("type","Adjacent Player"), ("EXPLOIT", 4.0, 4.0))
+            nudge_x = ((i * 0.7) % 2.0) - 1.0
+            nudge_y = ((i * 1.1) % 2.0) - 1.0
+            ansoff_data.setdefault("filer_positions", []).append({
+                "company": name, "type": f.get("type","Adjacent Player"),
+                "matrix_position": quad,
+                "x_score": round(min(9.5, max(0.5, bx + nudge_x)), 1),
+                "y_score": round(min(9.5, max(0.5, by + nudge_y)), 1),
+                "rationale": f.get("focus","Auto-placed based on filer type")
+            })
 
     landscape_score = float(landscape.get("patent_landscape_score",5))
     novelty_score = {"Strong":9,"Moderate":6,"Weak":3}.get(ansoff_data.get("novelty_signal","Moderate"),6)
@@ -2203,56 +2194,18 @@ elif st.session_state.active_stage == 2:
 
         status.markdown("📊 Analysing market size and growth...")
         progress.progress(35)
-        system_market = """You are a senior market analyst with deep knowledge of published market research reports.
-
-IMPORTANT: Claude has been trained on actual market research reports and knows their real URLs. 
-For each source you cite, provide the REAL canonical URL to that specific report page as it appears on the publisher's website.
-Examples of correct URLs:
-- IEA reports: https://www.iea.org/reports/global-ev-outlook-2024
-- BloombergNEF: https://about.bnef.com/electric-vehicle-outlook/
-- McKinsey: https://www.mckinsey.com/industries/automotive-and-assembly/our-insights/...
-- Grand View Research: https://www.grandviewresearch.com/industry-analysis/[market]-market
-- MarketsandMarkets: https://www.marketsandmarkets.com/Market-Reports/[market]-market-[id].html
-- Mordor Intelligence: https://www.mordorintelligence.com/industry-reports/[market]-market
-
-Only cite sources whose real report URLs you are confident about from training data.
-If unsure of a specific URL, use the publisher's search page: e.g. https://www.grandviewresearch.com/industry-analysis/search?keyword=[topic]
-
-Return ONLY valid JSON — no markdown, no extra text:
-{
-  "market_name": "precise market segment name",
-  "market_size_current": {
-    "value": "e.g. $4.2 billion",
-    "year": "2024",
-    "sources": [
-      {"org": "Organisation name", "title": "Exact report title", "year": "2024", "url": "https://real-report-url"}
-    ]
-  },
-  "market_size_forecast": {
-    "value": "e.g. $12.8 billion",
-    "year": "2030",
-    "sources": [
-      {"org": "Organisation name", "title": "Exact report title", "year": "2024", "url": "https://real-report-url"}
-    ]
-  },
-  "cagr": {
-    "value": "e.g. 20.4%",
-    "period": "2024-2030",
-    "sources": [
-      {"org": "Organisation name", "title": "Exact report title", "year": "2024", "url": "https://real-report-url"}
-    ]
-  },
-  "growth_drivers": ["specific driver 1", "specific driver 2", "specific driver 3"],
-  "market_maturity": "Emerging/Growing/Mature/Declining",
-  "geographic_focus": "primary regions",
-  "market_score": 1-10,
-  "market_score_rationale": "2 sentences"
-}"""
+        system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
+RULES: Every data point MUST include [Source: Org, Year]. Use only credible sources (McKinsey, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, industry associations). If uncertain, give a range.
+Return ONLY valid JSON:
+{"market_name":"string","market_size_2024":"value [Source: X, Y]","market_size_2030":"value [Source: X, Y]",
+"cagr":"% [Source: X, Y]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
+"geographic_focus":"string","market_score":integer 1-10 (9-10=large fast-growing >$10bn/>15%CAGR; 7-8=strong $2-10bn/8-15%; 5-6=moderate; 3-4=niche; 1-2=tiny or declining),"market_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}")
             market = json.loads(raw.strip().replace("```json","").replace("```","").strip())
         except:
-            market = {"market_name":"N/A","market_size_current":{"value":"N/A","year":"","sources":[]},"market_size_forecast":{"value":"N/A","year":"","sources":[]},"cagr":{"value":"N/A","period":"","sources":[]},"growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
+            market = {"market_name":"N/A","market_size_2024":"N/A","market_size_2030":"N/A","cagr":"N/A",
+                      "growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
 
         status.markdown("🏢 Mapping competitive landscape...")
         progress.progress(55)
@@ -2320,126 +2273,95 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         # ── Market size ───────────────────────────────────────
         st.markdown("#### 📊 Market")
 
-        def verify_and_render_sources(sources_list, market_name_hint=""):
-            """
-            For each source dict {org, title, year, url}:
-            1. Try a lightweight HEAD request on the URL Claude provided
-            2. If it resolves (2xx/3xx) → use Claude's real URL directly
-            3. If it 404s/errors → fall back to a Google search that finds the report
-            Each source ALWAYS gets its OWN unique link.
-            """
-            import re, urllib.parse
-
-            def google_fallback(org, title, year, mkt):
-                """Build a precise Google search for this specific report."""
-                parts = []
-                if org:   parts.append(f'"{org}"')
-                if title: parts.append(f'"{title}"')
-                if year:  parts.append(year)
-                if mkt:   parts.append(mkt[:35])
-                return "https://www.google.com/search?q=" + urllib.parse.quote(" ".join(parts))
-
-            results = []
-            for src in sources_list:
-                org   = src.get("org","").strip()
-                title = src.get("title","").strip()
-                year  = src.get("year","").strip()
-                url   = src.get("url","").strip().rstrip(") '\"")
-                display = f"{org} ({year})" if year else org
-
-                # Decide which URL to show
-                use_url = None
-                if url and url.startswith("http") and len(url) > 20:
-                    # Quick HEAD check — 3 second timeout, no redirects followed to avoid paywalls
-                    try:
-                        resp = requests.head(url, timeout=3, allow_redirects=True,
-                                             headers={"User-Agent":"Mozilla/5.0"})
-                        if resp.status_code < 400:
-                            use_url = url  # ✅ Real URL works
-                        else:
-                            use_url = google_fallback(org, title, year, market_name_hint)
-                    except Exception:
-                        use_url = google_fallback(org, title, year, market_name_hint)
-                else:
-                    use_url = google_fallback(org, title, year, market_name_hint)
-
-                results.append((display, use_url, bool(use_url == url and url)))
-
-            return results
-
-        def source_pills_html(verified_links):
-            """Render verified (label, url, is_direct) tuples as pills."""
-            if not verified_links:
-                return '<span style="color:#4a6fa5;font-size:11px;font-style:italic;">No source cited</span>'
-            pills = []
-            for label, url, is_direct in verified_links:
-                # Green dot = direct real URL; grey dot = Google search fallback
-                dot = "🔗" if is_direct else "🔍"
-                title_attr = "Opens report directly" if is_direct else "Opens Google search for this report"
-                pills.append(
-                    f'<a href="{url}" target="_blank" rel="noopener" title="{title_attr}" '
-                    f'style="display:inline-block;background:#1e3a5f;color:#93c5fd;'
-                    f'font-size:10px;padding:3px 10px;border-radius:10px;border:1px solid #2a4a70;'
-                    f'text-decoration:none;margin:2px 2px;white-space:nowrap;">'
-                    f'{dot} {label}</a>'
-                )
-            return "".join(pills)
-
-        # Helper: read new nested schema or fall back to old flat string schema
-        def mget(field, key="value"):
-            f = market.get(field, {})
-            if isinstance(f, dict): return f.get(key, "N/A") or "N/A"
-            # Legacy flat string — strip [Source:...] for display
-            flat = str(f) if f else "N/A"
-            return flat.split("[Source:")[0].strip().rstrip(",").strip() or "N/A"
-
-        def mget_sources(field):
-            f = market.get(field, {})
-            if isinstance(f, dict): return f.get("sources", [])
-            # Legacy flat string — parse inline [Source: X, Y] and build minimal dicts
-            import re
-            flat = str(f) if f else ""
+        def extract_value_and_sources(field_str):
+            """Return (display_value, [(source_name, url_or_none), ...])"""
+            if not field_str or field_str == "N/A":
+                return field_str, []
+            # Strip source annotation for display
+            val = field_str.split("[Source:")[0].strip().rstrip(",").strip()
             sources = []
-            for m in re.finditer(r'\[Source:\s*([^\]]+)\]', flat):
-                for part in re.split(r'[;|]', m.group(1)):
-                    part = part.strip()
-                    if part:
-                        yr_m = re.search(r'\b(20\d{2})\b', part)
-                        org  = re.sub(r',?\s*20\d{2}', '', part).strip()
-                        sources.append({"org": org, "title": "", "year": yr_m.group(1) if yr_m else "", "url": ""})
-            return sources
+            # Find all [Source: ...] blocks
+            import re
+            for m in re.finditer(r'\[Source:\s*([^\]]+)\]', field_str):
+                raw_src = m.group(1).strip()
+                sources.append(raw_src)
+            return val, sources
 
-        cur_val   = mget("market_size_current", "value")
-        cur_year  = mget("market_size_current", "year")
-        fore_val  = mget("market_size_forecast", "value")
-        fore_year = mget("market_size_forecast", "year")
-        cagr_val  = mget("cagr", "value")
-        cagr_per  = mget("cagr", "period")
-        mkt_hint  = market.get("market_name","")
+        def render_source_links(sources):
+            """Render sources as clickable links — map known orgs to their search pages, fallback to Google."""
+            if not sources:
+                return ""
+            import re, urllib.parse
+            # Known org → their site search URL template
+            ORG_SEARCH = {
+                "mckinsey":      "https://www.mckinsey.com/search?q={q}",
+                "gartner":       "https://www.gartner.com/en/search#/?term={q}",
+                "bloomberg":     "https://www.bloomberg.com/search?query={q}",
+                "bloombergnef":  "https://about.bnef.com/search/?q={q}",
+                "iea":           "https://www.iea.org/search?q={q}",
+                "statista":      "https://www.statista.com/search/#searchContent={q}",
+                "roland berger": "https://www.rolandberger.com/en/Insights/search/?q={q}",
+                "frost":         "https://www.frost.com/search/?q={q}",
+                "frost & sullivan": "https://www.frost.com/search/?q={q}",
+                "deloitte":      "https://www.deloitte.com/global/en/search.html?q={q}",
+                "pwc":           "https://www.pwc.com/gx/en/search.html?q={q}",
+                "ihs markit":    "https://ihsmarkit.com/index.html#q={q}",
+                "mordor":        "https://www.mordorintelligence.com/search?q={q}",
+                "grand view":    "https://www.grandviewresearch.com/industry-analysis/search?keyword={q}",
+                "allied market": "https://www.alliedmarketresearch.com/search?query={q}",
+            }
+            parts = []
+            for s in sources:
+                url_match = re.search(r'https?://\S+', s)
+                if url_match:
+                    url = url_match.group(0).rstrip(')')
+                    label = s[:s.find('http')].strip().rstrip(',').strip() or url
+                    parts.append(f"[{label}]({url})")
+                else:
+                    # Try to match against known org names
+                    s_lower = s.lower()
+                    search_url = None
+                    for org_key, url_tpl in ORG_SEARCH.items():
+                        if org_key in s_lower:
+                            q = urllib.parse.quote(idea[:50] + " " + s.strip())
+                            search_url = url_tpl.format(q=q)
+                            break
+                    if not search_url:
+                        # fallback: Google Scholar
+                        search_url = f"https://scholar.google.com/scholar?q={urllib.parse.quote(s.strip())}"
+                    parts.append(f"[{s.strip()}]({search_url})")
+            return "  ·  ".join(parts)
 
-        # Run URL verification (with spinner so user knows it's checking)
-        with st.spinner("Verifying source URLs…"):
-            vlinks_cur  = verify_and_render_sources(mget_sources("market_size_current"),  mkt_hint)
-            vlinks_fore = verify_and_render_sources(mget_sources("market_size_forecast"), mkt_hint)
-            vlinks_cagr = verify_and_render_sources(mget_sources("cagr"),                mkt_hint)
+        size_2024_raw = market.get("market_size_2024", "N/A")
+        size_2030_raw = market.get("market_size_2030", "N/A")
+        cagr_raw      = market.get("cagr", "N/A")
 
+        val_2024, src_2024 = extract_value_and_sources(size_2024_raw)
+        val_2030, src_2030 = extract_value_and_sources(size_2030_raw)
+        val_cagr,  src_cagr  = extract_value_and_sources(cagr_raw)
+
+        # Styled metric cards for market figures
         mc1, mc2, mc3 = st.columns(3)
-        for col, top_lbl, big_val, sub_lbl, vlinks in [
-            (mc1, "CURRENT MARKET SIZE",  cur_val,  cur_year,  vlinks_cur),
-            (mc2, "FORECAST MARKET SIZE", fore_val, fore_year, vlinks_fore),
-            (mc3, "CAGR",                 cagr_val, cagr_per,  vlinks_cagr),
-        ]:
-            pills = source_pills_html(vlinks)
+        for col, label, val in [(mc1,"Market Size (2024)",val_2024),(mc2,"Market Size (2030)",val_2030),(mc3,"CAGR",val_cagr)]:
             col.markdown(f"""
-<div style="background:#1a2d45;border-radius:8px;padding:16px 14px 12px 14px;text-align:center;">
-  <div style="color:#94a3b8;font-size:10px;letter-spacing:1.2px;font-weight:600;margin-bottom:6px;">{top_lbl}</div>
-  <div style="color:#60a5fa;font-size:30px;font-weight:800;line-height:1.1;margin-bottom:3px;">{big_val}</div>
-  <div style="color:#7a9ab5;font-size:11px;margin-bottom:8px;">{sub_lbl}</div>
-  <div style="line-height:1.8;">{pills}</div>
+<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;text-align:center;">
+  <div style="color:#94a3b8;font-size:11px;letter-spacing:1px;margin-bottom:6px;">{label.upper()}</div>
+  <div style="color:#60a5fa;font-size:20px;font-weight:700;line-height:1.2;">{val}</div>
 </div>""", unsafe_allow_html=True)
 
-        st.caption("🔗 = direct report link verified  ·  🔍 = Google search for report (use when report requires registration)")
-
+        # Render source links per field
+        link_lines = []
+        if src_2024:
+            link_lines.append(f"**2024 size** — {render_source_links(src_2024)}")
+        if src_2030:
+            link_lines.append(f"**2030 projection** — {render_source_links(src_2030)}")
+        if src_cagr:
+            link_lines.append(f"**CAGR** — {render_source_links(src_cagr)}")
+        if link_lines:
+            with st.expander("Sources for market figures"):
+                for line in link_lines:
+                    st.markdown(f"- {line}")
+                st.caption("Figures shown as ranges where multiple sources differ. Verify independently before investment decisions.")
         col_l,col_r = st.columns(2)
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
         col_r.markdown(f"**Geography** · {market.get('geographic_focus','')}")
@@ -2527,7 +2449,7 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
                 with st.spinner("Thinking..."):
                     ctx = f"""You are a senior market analyst discussing market intelligence results for a Schaeffler innovation idea.
 Idea: {idea} | Quadrant: {quadrant}
-Market: {market.get('market_name','')} | Size 2024: {(market.get('market_size_current') or {}).get('value','') or market.get('market_size_2024','')} | CAGR: {((market.get('cagr') or {}).get('value','') if isinstance(market.get('cagr'),dict) else str(market.get('cagr','')))}
+Market: {market.get('market_name','')} | Size 2024: {market.get('market_size_2024','')} | CAGR: {market.get('cagr','')}
 Competitive intensity: {comp.get('competitive_intensity','')} | White space: {comp.get('white_space','')}
 Primary sectors (Schaeffler's 10 clusters): {', '.join(primary)} | Final score: {final}/10
 Be specific, cite sources where possible, 3-4 sentences max."""
@@ -2685,10 +2607,18 @@ Return ONLY valid JSON:
   "ip_risk_rationale": "one sentence"
 }"""
 
-        filers_context = json.dumps([f.get("company","") for f in landscape.get("key_filers",[])])
+        # Pass FULL filer objects (not just names) so Claude can map every one
+        key_filers = landscape.get("key_filers", [])
+        filers_full_context = json.dumps([
+            {"company": f.get("company",""), "type": f.get("type",""), "focus": f.get("focus",""), "threat_level": f.get("threat_level","")}
+            for f in key_filers
+        ])
         try:
             raw2 = call_claude(system_ansoff,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nKey filers: {filers_context}\nTech keywords: {landscape.get('technology_keywords','')}", max_tokens=1200)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech keywords: {landscape.get('technology_keywords','')}\n"
+                f"IMPORTANT: You MUST map ALL {len(key_filers)} filers listed below. Do not skip any.\n"
+                f"Key filers (map every single one): {filers_full_context}",
+                max_tokens=max(1800, len(key_filers) * 200 + 800))
             raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
             fb2 = raw2_clean.find("{"); lb2 = raw2_clean.rfind("}") + 1
             if fb2 >= 0: raw2_clean = raw2_clean[fb2:lb2]
@@ -2696,6 +2626,34 @@ Return ONLY valid JSON:
         except Exception as e:
             ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},
                           "idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
+
+        # ── Guarantee every key_filer appears in filer_positions ──────────
+        # Build a lookup of which companies already have positions
+        positioned_companies = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
+        # Quadrant → default score ranges for auto-placement fallback
+        type_defaults = {
+            "Competitor":          ("EXPLOIT", 3.0, 3.0),
+            "Customer":            ("EXTEND",  2.5, 6.5),
+            "Research Institution":("RADICAL", 7.0, 7.5),
+            "Adjacent Player":     ("EXTEND",  6.0, 4.0),
+            "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
+        }
+        import random
+        for i, f in enumerate(key_filers):
+            name = f.get("company","")
+            if name.lower() not in positioned_companies and name:
+                quad, bx, by = type_defaults.get(f.get("type","Adjacent Player"), ("EXPLOIT", 4.0, 4.0))
+                # Small deterministic nudge so overlapping filers spread out
+                nudge_x = ((i * 0.7) % 2.0) - 1.0
+                nudge_y = ((i * 1.1) % 2.0) - 1.0
+                ansoff_data.setdefault("filer_positions", []).append({
+                    "company": name,
+                    "type": f.get("type","Adjacent Player"),
+                    "matrix_position": quad,
+                    "x_score": round(min(9.5, max(0.5, bx + nudge_x)), 1),
+                    "y_score": round(min(9.5, max(0.5, by + nudge_y)), 1),
+                    "rationale": f.get("focus","Auto-placed based on filer type")
+                })
 
         progress.progress(80)
         status.markdown("📊 Calculating patent intelligence score...")
@@ -2766,6 +2724,26 @@ Return ONLY valid JSON:
         filer_positions = ansoff_data.get("filer_positions", [])
         schaeffler_pos  = ansoff_data.get("schaeffler_position", {})
         idea_pos        = ansoff_data.get("idea_position", {"x_score":7,"y_score":7})
+
+        # Enrich filer_positions with 'type' from key_filers where missing
+        key_filers_lookup = {f.get("company","").lower(): f for f in landscape.get("key_filers",[])}
+        for fp in filer_positions:
+            if not fp.get("type"):
+                kf = key_filers_lookup.get(fp.get("company","").lower(), {})
+                fp["type"] = kf.get("type", "Adjacent Player")
+
+        # Nudge overlapping points apart so labels don't stack
+        used_positions = []
+        for fp in filer_positions:
+            x, y = fp.get("x_score", 5), fp.get("y_score", 5)
+            attempts = 0
+            while any(abs(x-ux) < 0.6 and abs(y-uy) < 0.6 for ux,uy in used_positions) and attempts < 8:
+                x = round(min(9.5, max(0.5, x + 0.4)), 1)
+                y = round(min(9.5, max(0.5, y + 0.3)), 1)
+                attempts += 1
+            fp["x_score"] = x
+            fp["y_score"] = y
+            used_positions.append((x, y))
 
         # Compute pattern stats for commentary
         if filer_positions:
