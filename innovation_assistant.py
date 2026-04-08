@@ -196,6 +196,23 @@ button[data-testid="baseButton-headerNoPadding"]::after {
     border-radius:3px; margin-left:6px;
     font-family: monospace;
 }
+
+/* ── Global font consistency — Arial/Helvetica Neue throughout ── */
+html, body, [class*="css"],
+.stApp, .stMarkdown, .stText,
+.stButton > button,
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stSelectbox > div > div,
+.stMetric, .stChatMessage,
+.stCaption, .stAlert,
+h1, h2, h3, h4, h5, h6, p, div, span, label, li {
+    font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif !important;
+}
+/* Keep monospace only for code blocks */
+code, pre, .stCode {
+    font-family: 'Courier New', Courier, monospace !important;
+}
 </style>
 
 <script>
@@ -347,11 +364,10 @@ with st.sidebar:
         if st.session_state.s1_classification:
             st.caption(f"**Quadrant:** {st.session_state.s1_classification.get('quadrant','')}")
 
-    # ── Ideas Log — Excel download ────────────────────────────
+    # ── Ideas Log — Excel download (bottom of sidebar) ───────
     st.markdown("---")
-    st.markdown('<div style="font-family:Arial,sans-serif;font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.65);font-weight:600;padding:0 4px 6px 4px;">IDEAS LOG</div>', unsafe_allow_html=True)
-    if st.button("⬇️ Download Ideas Log (.xlsx)", key="sidebar_xl", use_container_width=True):
-        with st.spinner("Building Excel..."):
+    if st.button("⬇️  Ideas Log (.xlsx)", key="sidebar_xl", use_container_width=True):
+        with st.spinner("Building..."):
             try:
                 xl_buf = generate_ideas_excel()
                 st.session_state["_sidebar_xl_buf"] = xl_buf
@@ -360,7 +376,7 @@ with st.sidebar:
                 st.error(f"Could not load ideas log: {e}")
     if st.session_state.get("_sidebar_xl_buf"):
         st.download_button(
-            label="📥 Click to save Ideas Log",
+            label="📥  Save Ideas Log",
             data=st.session_state["_sidebar_xl_buf"],
             file_name=f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
