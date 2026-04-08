@@ -11,6 +11,10 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import io
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment as XlAlign
 
 # Load API key — Streamlit secrets take priority, fallback to hardcoded for local dev
 TAVILY_KEY = ""  # optional
@@ -22,6 +26,112 @@ try:
     ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
 except Exception:
     ANTHROPIC_KEY = "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"
+
+# ── Google Sheets — Idea Log ──────────────────────────────────────────────────
+SHEET_ID = "1Ya-z55BtzRS7NYiKiM8U8E0-NChueTVprJovvUrvZ6s"
+
+_SA_INFO = {
+    "type": "service_account",
+    "project_id": "absolute-dahlia-450007-r8",
+    "private_key_id": "292e1cb7c9d249e34ad3f89ab2f180e865ea1576",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCbuv2KGVKo3RN+\nY2vvVAsjGRBFxu8j8p8tGYxrvaxc0g0wefRZq0hOJbh9zBZu+dL4JwWf5SAJQ+Yp\nLdqctTIl+M6vBJNL1J8iNZxtmOmKrQeGvI+O+CnkU/4ZVMLk+lhOUrSVyJ8rPXOl\nT4E5ar8j+ZpWtueKtODgdKVgYHpTX4kjYj+/ochlFG6DQfhSWmJDf52Gfd/nldZt\n13+n3/uHYmLI1wKNFEpVaq3Qd2r191bcVAY8/NrOtRaqtHsoINAP2Sn6rEuGthaa\niZECrIkYiMKkjTWk8E8XIv9Zv2JnBOWPErIHRbGGHV6WBz5p0Z0L1GLGDiuhvha8\nvq6AiVsXAgMBAAECggEAHCGClDQv1NYeo9mU0UY2vs/Tuy8M2ssEivKPBZVdMeU1\nwbh99ca1iHxS39KCiOhy/iWaZABRMatEw9KHJ4Cpvuc7eq0SaIPPfS//AmM5aLYJ\n4oJkUlisxJSRlYTUseUxF3DkMxxq+DYhEk8S0krgnUCE6z4eBFXZO2KGzyqOXknf\nCS0ThZ2ky0/ytuIoj8OeCkanuBQZXj219zH0Kiamqt7AWs7qSUoafnejkkQGJ5xR\nKrYr+Y0D4L9LFmZEbidlfoHZOcz7vrHvkx3RrL+RA2QJU7XolzR6sl7ecwzLGifs\nvsCxzD52+7pOvwNUp/hHpol/2bD8W0xkDcRpqCFrKQKBgQDKJ6V12ElUixKz9djx\n3X8SLpQTJihAqIts5gesaNp1mAG7/3nAq1cThprwKaYPukkPYbwGjN/IPXwZKfZr\nfyHxFBA/a5ooz2bJoEm4w4w8dIrqxbDd9K2HuqKSnW0ouU/Hustv7gE+zkyGFRIx\nJ08hJwQaMuAfulzt/7vhbOvjDwKBgQDFNcvjltsm8gw80jjCxh3+6r+UDFPncVDL\niL5P/q6pfCzulsdxFVZUfx9yh9mCrxGopbdZnmzQW86GuhfnPC+AQpYdltGTOUdx\n+calCeSAmtfoztI3P+CmR4DDiZ4c2rfPlqOwwHueJXo62u8984y7NsGBdCRCrBSG\njVzFWFBneQKBgHTF/BUbsBhPEam0rPHh0cJN96ksFHptIcTxB6O3GeJtwSq4w7rg\n/ra/vYZXeJ6DLCrfeP6Lp8UCh0n97GNiF9grj8siu/UxAR4dIhjBlKNjas99DNLZ\nwNeznq90kpbAnO4x38wzPrLp9lhJma2dGF99Kyh7FO4e+Ale/UeVZJlPAoGAB8N6\nZ1dFAV9+A9byzRgnjiWHrThfBTl8yMZ1V4jbL2joC+x7pYQFhgYLIuMeOPrTYyRC\n95A5EGrM0pj43+2KoS394uRRE86pdV8z5sNg738pCM07kVk+as1d0FTWmKQzoER5\n5TdupmcrTK3ZxUKVQ7mAHKyJ0OYdWL6v7ETxxWECgYA2RXMn67Pb0CtfX1Gs7ztB\n8N3PMOtYdz/TQbOK0u4waWrzbnFUCvsH39yoqiDofYdUDN/E/31IXoTzCi3N4F2U\ncvJ3oid6ZubsBA2gJrHTYvd/yljV+o8kuzUV4d2/fxTuphhh2TyoYa3BUD+W7alr\nDs4l7RfxIUIgMviRmVpAdw==\n-----END PRIVATE KEY-----\n",
+    "client_email": "schaeffler-capstone@absolute-dahlia-450007-r8.iam.gserviceaccount.com",
+    "client_id": "105367783720778854419",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/schaeffler-capstone%40absolute-dahlia-450007-r8.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+}
+
+SHEET_COLUMNS = [
+    "Date", "Submitter Name", "Position", "Department",
+    "Full Idea Description", "Clarifying Q&A",
+    "Quadrant", "Innovation Cluster", "Product Family",
+    "Market Score", "Patent Score", "Feasibility Score", "Org Readiness Score", "IPI Score",
+    "Recommendation", "Key Concerns", "Next Steps",
+    "Market Name", "Market Size 2024", "CAGR",
+    "TRL Level", "Build Strategy"
+]
+
+def _sheets_client():
+    scopes = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds = Credentials.from_service_account_info(_SA_INFO, scopes=scopes)
+    return gspread.authorize(creds)
+
+def load_past_ideas():
+    try:
+        ws = _sheets_client().open_by_key(SHEET_ID).sheet1
+        return ws.get_all_records()
+    except Exception:
+        return []
+
+def save_idea_to_sheets(row_data: dict):
+    try:
+        sh = _sheets_client().open_by_key(SHEET_ID)
+        ws = sh.sheet1
+        existing = ws.get_all_values()
+        if not existing:
+            ws.append_row(SHEET_COLUMNS)
+        row = [str(row_data.get(col, "")) for col in SHEET_COLUMNS]
+        ws.append_row(row)
+        return True
+    except Exception as e:
+        return False
+
+def check_similar_ideas(new_idea, past_ideas):
+    if not past_ideas:
+        return []
+    past_summaries = "\n".join([
+        f"- [{r.get('Date','')}] {r.get('Submitter Name','Unknown')} ({r.get('Department','')}): {str(r.get('Full Idea Description',''))[:200]}"
+        for r in past_ideas[:30]
+    ])
+    result = call_claude(
+        'You compare innovation ideas. Return ONLY valid JSON: {"similar": [{"date": "...", "submitter": "...", "department": "...", "idea_snippet": "...", "quadrant": "...", "ipi": "...", "recommendation": "...", "similarity": "High/Medium", "reason": "one sentence"}]}. Return empty similar array if nothing is genuinely similar.',
+        f"New idea: {new_idea}\n\nPast researched ideas:\n{past_summaries}",
+        max_tokens=600
+    )
+    try:
+        raw = result.strip().replace("```json","").replace("```","").strip()
+        fb = raw.find("{"); lb = raw.rfind("}") + 1
+        if fb >= 0: raw = raw[fb:lb]
+        return json.loads(raw).get("similar", [])
+    except Exception:
+        return []
+
+def generate_ideas_excel():
+    records = load_past_ideas()
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Innovation Ideas"
+    hdr_fill  = PatternFill("solid", fgColor="1F3864")
+    hdr_font  = Font(bold=True, color="FFFFFF", size=10)
+    alt_fill  = PatternFill("solid", fgColor="EAF1FB")
+    if not records:
+        ws.append(["No ideas recorded yet — complete a full pipeline assessment to populate this log."])
+        ws["A1"].font = Font(italic=True, color="555555")
+    else:
+        headers = list(records[0].keys())
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = hdr_font
+            cell.fill = hdr_fill
+            cell.alignment = XlAlign(horizontal="center", wrap_text=True)
+        for i, record in enumerate(records, start=2):
+            ws.append([record.get(h, "") for h in headers])
+            if i % 2 == 0:
+                for cell in ws[i]:
+                    cell.fill = alt_fill
+        for col in ws.columns:
+            max_len = max((len(str(cell.value or "")) for cell in col), default=10)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
 
 # ── Styling — sidebar identity + sidebar-toggle arrow fix ────
 st.markdown("""
@@ -172,6 +282,10 @@ def tavily_search(query):
 # ── Session state ─────────────────────────────────────────────
 defaults = {
     "active_stage": 1,
+    # User identity
+    "user_name": "",
+    "user_position": "",
+    "user_dept": "",
     # Stage 01
     "s1_step": 1,
     "s1_idea": "",
@@ -179,6 +293,7 @@ defaults = {
     "s1_answers": [],
     "s1_classification": {},
     "s1_chat": [],
+    "s1_similar_ideas": [],
     # Stage 02
     "s2_step": "intro",
     "s2_data": {},
@@ -231,6 +346,27 @@ with st.sidebar:
         st.caption(f"**Idea:** {st.session_state.s1_idea[:60]}...")
         if st.session_state.s1_classification:
             st.caption(f"**Quadrant:** {st.session_state.s1_classification.get('quadrant','')}")
+
+    # ── Ideas Log — Excel download ────────────────────────────
+    st.markdown("---")
+    st.markdown('<div style="font-family:Arial,sans-serif;font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.65);font-weight:600;padding:0 4px 6px 4px;">IDEAS LOG</div>', unsafe_allow_html=True)
+    if st.button("⬇️ Download Ideas Log (.xlsx)", key="sidebar_xl", use_container_width=True):
+        with st.spinner("Building Excel..."):
+            try:
+                xl_buf = generate_ideas_excel()
+                st.session_state["_sidebar_xl_buf"] = xl_buf
+                st.rerun()
+            except Exception as e:
+                st.error(f"Could not load ideas log: {e}")
+    if st.session_state.get("_sidebar_xl_buf"):
+        st.download_button(
+            label="📥 Click to save Ideas Log",
+            data=st.session_state["_sidebar_xl_buf"],
+            file_name=f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="sidebar_xl_dl",
+            use_container_width=True
+        )
 
 # ── Ansoff chart helper ───────────────────────────────────────
 def ansoff_chart(quadrant, tech_score, market_score):
@@ -1881,16 +2017,32 @@ if st.session_state.active_stage == 1:
 
     # Step 1 — Input
     if st.session_state.s1_step == 1:
-        st.subheader("Step 1 — Describe your idea")
+        st.subheader("Step 1 — Who are you & describe your idea")
+
+        ucol1, ucol2, ucol3 = st.columns(3)
+        with ucol1:
+            user_name = st.text_input("Your name *", value=st.session_state.user_name, placeholder="e.g. Anna Müller")
+        with ucol2:
+            user_position = st.text_input("Position / Role *", value=st.session_state.user_position, placeholder="e.g. Senior Engineer")
+        with ucol3:
+            user_dept = st.text_input("Department *", value=st.session_state.user_dept, placeholder="e.g. E-Mobility R&D")
+
+        st.markdown("---")
         idea = st.text_area("What is your innovation idea?", height=150,
             placeholder="e.g. A self-lubricating bearing system that uses micro-reservoirs embedded within the bearing material to release lubricant automatically based on temperature and load sensing...")
 
         if st.button("Submit idea", type="primary"):
-            if not idea.strip():
+            if not user_name.strip() or not user_position.strip() or not user_dept.strip():
+                st.warning("Please fill in your name, position, and department before continuing.")
+            elif not idea.strip():
                 st.warning("Please enter your idea first.")
             elif len(idea.split()) < 15:
                 st.warning("A bit brief — can you add more detail? What does it do, and for whom?")
             else:
+                # Save user identity
+                st.session_state.user_name     = user_name.strip()
+                st.session_state.user_position = user_position.strip()
+                st.session_state.user_dept     = user_dept.strip()
                 with st.spinner("Checking your idea..."):
                     check = call_claude(
                         'Check if this innovation idea has enough detail to classify. Reply ONLY with JSON: {"sufficient": true/false, "missing": "one short sentence or empty string"}',
@@ -1904,6 +2056,11 @@ if st.session_state.active_stage == 1:
                     st.warning(f"A bit more detail needed: {result.get('missing','')}")
                 else:
                     st.session_state.s1_idea = idea
+                    # Check for similar past ideas
+                    with st.spinner("Checking against past ideas..."):
+                        past = load_past_ideas()
+                        similar = check_similar_ideas(idea, past)
+                        st.session_state.s1_similar_ideas = similar
                     st.session_state.s1_step = 2
                     st.rerun()
 
@@ -1912,6 +2069,22 @@ if st.session_state.active_stage == 1:
         st.markdown("---")
         st.subheader("Step 2 — Three quick questions")
         st.info(f"**Your idea:** {st.session_state.s1_idea}")
+
+        # ── Similar ideas alert ───────────────────────────────
+        similar = st.session_state.get("s1_similar_ideas", [])
+        if similar:
+            st.warning(f"⚠️ **{len(similar)} similar idea(s) previously researched** — review before proceeding.")
+            for s in similar:
+                sim_col = "#f59e0b" if s.get("similarity") == "High" else "#60a5fa"
+                st.markdown(f"""
+<div style="background:#1a2d45;border-left:4px solid {sim_col};border-radius:4px;padding:12px 16px;margin:6px 0;">
+  <div style="color:{sim_col};font-size:11px;font-weight:600;letter-spacing:1px;">{s.get('similarity','').upper()} SIMILARITY — {s.get('date','')} · {s.get('submitter','')} ({s.get('department','')})</div>
+  <div style="color:#e2e8f0;font-size:13px;margin-top:4px;">{s.get('idea_snippet','')}</div>
+  <div style="color:#94a3b8;font-size:12px;margin-top:4px;">Quadrant: <b>{s.get('quadrant','')}</b> · IPI: <b>{s.get('ipi','')}</b> · Outcome: <b>{s.get('recommendation','')}</b></div>
+  <div style="color:#94a3b8;font-size:12px;margin-top:2px;">Similarity reason: {s.get('reason','')}</div>
+</div>
+""", unsafe_allow_html=True)
+            st.markdown("---")
         st.caption("These answers help refine the classification. The idea description itself drives the result — use these to add context, not to override what the idea clearly is.")
 
         # Q1 — Technology novelty
@@ -2148,8 +2321,8 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
                     st.session_state.s1_chat.append({"role":"assistant","content":reply})
 
         if st.button("← Start over", key="s1_startover"):
-            for k in ["s1_step","s1_idea","s1_questions","s1_answers","s1_classification","s1_chat"]:
-                st.session_state[k] = defaults[k]
+            for k in ["s1_step","s1_idea","s1_questions","s1_answers","s1_classification","s1_chat","s1_similar_ideas","user_name","user_position","user_dept"]:
+                st.session_state[k] = defaults.get(k, "" if k in ("user_name","user_position","user_dept") else defaults.get(k))
             st.rerun()
 
 # ════════════════════════════════════════════════════════════
@@ -4004,6 +4177,44 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         }
         rec_col = rec_colours.get(rec, "#f59e0b")
         ipi_col = "#22c55e" if ipi>=7 else "#f59e0b" if ipi>=4 else "#ef4444"
+
+        # ── Auto-save to Google Sheets (once per session) ─────
+        if not st.session_state.get("_s6_saved_to_sheets"):
+            s2d_sv = st.session_state.get("s2_data", {})
+            s3d_sv = st.session_state.get("s3_data", {})
+            s4d_sv = st.session_state.get("s4_data", {})
+            s5d_sv = st.session_state.get("s5_data", {})
+            qa_pairs = []
+            for q, a in zip(st.session_state.get("s1_questions",[]), st.session_state.get("s1_answers",[])):
+                qa_pairs.append(f"Q: {q} / A: {a}")
+            row = {
+                "Date":                  datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "Submitter Name":        st.session_state.get("user_name",""),
+                "Position":              st.session_state.get("user_position",""),
+                "Department":            st.session_state.get("user_dept",""),
+                "Full Idea Description": st.session_state.get("s1_idea",""),
+                "Clarifying Q&A":        " | ".join(qa_pairs),
+                "Quadrant":              quadrant,
+                "Innovation Cluster":    s1c.get("innovation_cluster",""),
+                "Product Family":        s1c.get("product_family",""),
+                "Market Score":          str(scores.get("market","")),
+                "Patent Score":          str(scores.get("patent","")),
+                "Feasibility Score":     str(scores.get("feasibility","")),
+                "Org Readiness Score":   str(scores.get("org","")),
+                "IPI Score":             str(ipi),
+                "Recommendation":        rec,
+                "Key Concerns":          " | ".join(synthesis.get("key_concerns",[])[:3]),
+                "Next Steps":            " | ".join(synthesis.get("next_steps",[])[:4]),
+                "Market Name":           s2d_sv.get("market",{}).get("market_name",""),
+                "Market Size 2024":      s2d_sv.get("market",{}).get("market_size_2024",""),
+                "CAGR":                  s2d_sv.get("market",{}).get("cagr",""),
+                "TRL Level":             str(s4d_sv.get("trl",{}).get("trl_level","")),
+                "Build Strategy":        s5d_sv.get("org_data",{}).get("build_or_partner",{}).get("recommendation",""),
+            }
+            saved = save_idea_to_sheets(row)
+            st.session_state["_s6_saved_to_sheets"] = True
+            if saved:
+                st.success("✅ Idea automatically saved to the Innovation Ideas Log.")
 
         # ── IPI banner ────────────────────────────────────────
         st.markdown(f"""
