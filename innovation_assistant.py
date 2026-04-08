@@ -15,7 +15,7 @@ from datetime import datetime
 # Load API key — Streamlit secrets take priority, fallback to hardcoded for local dev
 TAVILY_KEY = ""  # optional
 
-st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="⚙️", layout="centered")
+st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered")
 
 # ── API key — secrets for deployment, hardcoded fallback for local ────────────
 try:
@@ -23,22 +23,16 @@ try:
 except Exception:
     ANTHROPIC_KEY = "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"
 
-# ── Styling ───────────────────────────────────────────────────
+# ── Styling — sidebar identity + sidebar-toggle arrow fix ────
 st.markdown("""
 <style>
-/* ── Schaeffler brand font stack ── */
-html, body, [class*="css"], [data-testid] {
-    font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif !important;
-}
-
-/* ── Sidebar: Schaeffler green ── */
+/* ── Sidebar: Schaeffler green identity ── */
 section[data-testid="stSidebar"] {
     background-color: #007A3D !important;
     border-right: none !important;
 }
 section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
-    font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif !important;
 }
 section[data-testid="stSidebar"] .stButton > button {
     background: rgba(255,255,255,0.12) !important;
@@ -46,114 +40,85 @@ section[data-testid="stSidebar"] .stButton > button {
     border: 1px solid rgba(255,255,255,0.35) !important;
     border-radius: 4px !important;
     font-size: 12px !important;
-    font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif !important;
 }
 section[data-testid="stSidebar"] .stButton > button:hover {
     background: rgba(255,255,255,0.22) !important;
 }
 
-/* ── Main app: dark background ── */
-.main, .block-container, [data-testid="stAppViewContainer"] > .main {
-    background-color: #0f1e35 !important;
-}
-[data-testid="stAppViewContainer"] {
-    background-color: #0f1e35 !important;
-}
-
-/* ── Primary buttons: Schaeffler green ── */
-div[data-testid="stButton"] > button[kind="primary"] {
-    background-color: #007A3D !important;
-    color: #FFFFFF !important;
+/* ── Fix sidebar collapse/expand toggle button ── */
+/* Streamlit renders a Material icon name as text when the font isn't loaded.
+   We hide it and force a unicode double-arrow instead. */
+button[data-testid="baseButton-headerNoPadding"] {
+    overflow: hidden !important;
+    position: relative !important;
+    width: 32px !important;
+    height: 32px !important;
+    background: rgba(255,255,255,0.15) !important;
     border: none !important;
     border-radius: 4px !important;
-    font-weight: 600 !important;
-    font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif !important;
-    letter-spacing: 0.3px;
+    cursor: pointer !important;
 }
-div[data-testid="stButton"] > button[kind="primary"]:hover {
-    background-color: #005A2D !important;
+button[data-testid="baseButton-headerNoPadding"] svg,
+button[data-testid="baseButton-headerNoPadding"] span {
+    display: none !important;
 }
-
-/* ── Secondary buttons: green outline ── */
-div[data-testid="stButton"] > button[kind="secondary"] {
-    background-color: transparent !important;
-    color: #00C853 !important;
-    border: 1.5px solid #007A3D !important;
-    border-radius: 4px !important;
-    font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif !important;
+button[data-testid="baseButton-headerNoPadding"]::after {
+    content: "«";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    inset: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #FFFFFF;
+    font-family: Arial, sans-serif;
 }
-div[data-testid="stButton"] > button[kind="secondary"]:hover {
-    background-color: rgba(0,122,61,0.12) !important;
+/* When sidebar is collapsed, the control button flips */
+[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
+    content: "»";
 }
-
-/* ── Metric values: Schaeffler green ── */
-[data-testid="metric-container"] [data-testid="stMetricValue"] {
-    color: #00C853 !important;
-    font-weight: 700 !important;
-}
-[data-testid="metric-container"] [data-testid="stMetricLabel"] {
-    color: #a0bfaa !important;
-}
-[data-testid="metric-container"] [data-testid="stMetricDelta"] {
-    color: #4a8c6a !important;
-}
-
-/* ── Inputs and sliders ── */
-input, textarea, select {
-    background-color: #162d47 !important;
-    color: #f0faf4 !important;
-    border-color: #1e4d35 !important;
-}
-[data-testid="stSlider"] > div > div > div {
-    background-color: #007A3D !important;
-}
-
-/* ── Expander ── */
-[data-testid="stExpander"] {
-    border-color: #1e4d35 !important;
-    background-color: #162d47 !important;
-}
-[data-testid="stExpander"] summary {
-    color: #f0faf4 !important;
-}
-
-/* ── HR ── */
-hr { border-color: #1e4d35 !important; }
 
 /* ── Source tag pill ── */
 .source-tag {
-    background: #0a2d1a;
-    color: #00C853;
-    font-size: 11px; padding: 2px 8px;
-    border-radius: 3px; margin-left: 6px;
+    background:#1e3a5f; color:#93c5fd;
+    font-size:11px; padding:2px 8px;
+    border-radius:3px; margin-left:6px;
     font-family: monospace;
 }
-
-/* ── Radio buttons ── */
-[data-testid="stRadio"] label { color: #f0faf4 !important; }
-
-/* ── Captions ── */
-[data-testid="stCaptionContainer"] { color: #4a8c6a !important; }
-
-/* ── Streamlit alerts - tint dark ── */
-[data-testid="stAlert"] { border-radius: 4px !important; }
 </style>
+
+<script>
+// Inject favicon dynamically as an SVG data URI with Schaeffler S logo
+(function() {
+    var svgFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23007A3D'/%3E%3Ctext x='16' y='24' font-family='Arial,Helvetica,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E";
+    var existing = document.querySelector("link[rel*='icon']");
+    if (existing) {
+        existing.href = svgFavicon;
+    } else {
+        var link = document.createElement('link');
+        link.rel = 'icon';
+        link.type = 'image/svg+xml';
+        link.href = svgFavicon;
+        document.head.appendChild(link);
+    }
+    // Also set shortcut icon
+    var shortcut = document.querySelector("link[rel='shortcut icon']");
+    if (shortcut) shortcut.href = svgFavicon;
+})();
+</script>
 """, unsafe_allow_html=True)
 
 # ── Constants ─────────────────────────────────────────────────
 BG    = "#0f1e35"
-BLUE  = "#00A651"
-DIM   = "#4a8c6a"
-WHITE = "#f0faf4"
-NAVY  = "#003D20"
+BLUE  = "#60a5fa"
+DIM   = "#4a6fa5"
+WHITE = "#e2e8f0"
+NAVY  = "#1F3864"
 
 # ── Helpers ───────────────────────────────────────────────────
 def call_claude(system, user, max_tokens=2000):
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-    # Append language instruction so all outputs match the selected UI language
-    _lang = st.session_state.get("lang", "EN")
-    if _lang == "DE":
-        system = system + "\n\nWICHTIG: Antworte AUSSCHLIESSLICH auf Deutsch. Alle Texte, Beschriftungen, Erläuterungen und Empfehlungen müssen vollständig auf Deutsch sein. Eigennamen, Produktnamen und Zahlenformate bleiben unverändert."
     for attempt in range(3):
         try:
             msg = client.messages.create(
@@ -175,9 +140,6 @@ def call_claude(system, user, max_tokens=2000):
 
 def call_claude_chat(system, history, max_tokens=500):
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-    _lang = st.session_state.get("lang", "EN")
-    if _lang == "DE":
-        system = system + "\n\nWICHTIG: Antworte AUSSCHLIESSLICH auf Deutsch."
     for attempt in range(3):
         try:
             msg = client.messages.create(
@@ -192,6 +154,65 @@ def call_claude_chat(system, history, max_tokens=500):
                 time.sleep(3)
             else:
                 return "The API is briefly overloaded — please try again in a moment."
+
+def repair_and_parse_json(raw: str) -> dict:
+    """
+    Robustly extract and parse JSON from an LLM response.
+    Handles: markdown fences, literal newlines inside strings,
+    trailing commas, and truncated output.
+    """
+    import re
+    # 1. Strip markdown fences
+    text = raw.strip().replace("```json", "").replace("```", "").strip()
+    # 2. Extract the outermost {...} block
+    first = text.find("{")
+    last  = text.rfind("}")
+    if first == -1 or last == -1:
+        raise ValueError("No JSON object found in response")
+    text = text[first:last + 1]
+    # 3. First attempt — try as-is
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # 4. Replace literal newlines INSIDE quoted strings with \n escape
+    #    We do a character-by-character pass so we only touch inside strings.
+    result = []
+    in_string = False
+    escape_next = False
+    for ch in text:
+        if escape_next:
+            result.append(ch)
+            escape_next = False
+        elif ch == "\\":
+            result.append(ch)
+            escape_next = True
+        elif ch == '"' and not escape_next:
+            in_string = not in_string
+            result.append(ch)
+        elif in_string and ch == "\n":
+            result.append("\\n")
+        elif in_string and ch == "\r":
+            result.append("\\r")
+        elif in_string and ch == "\t":
+            result.append("\\t")
+        else:
+            result.append(ch)
+    cleaned = "".join(result)
+    # 5. Remove trailing commas before } or ]
+    cleaned = re.sub(r",\s*([}\]])", r"\1", cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        # 6. Last resort — try to truncate to last valid closing brace
+        last_valid = cleaned.rfind("}")
+        if last_valid > 0:
+            try:
+                return json.loads(cleaned[:last_valid + 1])
+            except Exception:
+                pass
+        raise e
+
 
 def tavily_search(query):
     if not TAVILY_KEY:
@@ -210,7 +231,6 @@ def tavily_search(query):
 # ── Session state ─────────────────────────────────────────────
 defaults = {
     "active_stage": 1,
-    "lang": "EN",   # EN or DE — controls UI and Claude output language
     # Stage 01
     "s1_step": 1,
     "s1_idea": "",
@@ -237,17 +257,6 @@ with st.sidebar:
   <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.65);font-weight:600;">INNOVATION PIPELINE</div>
 </div>
 """, unsafe_allow_html=True)
-
-    # Language toggle
-    _lang_cols = st.columns(2)
-    if _lang_cols[0].button("🇬🇧 EN", key="lang_en",
-                             use_container_width=True,
-                             type="primary" if st.session_state.lang=="EN" else "secondary"):
-        st.session_state.lang = "EN"; st.rerun()
-    if _lang_cols[1].button("🇩🇪 DE", key="lang_de",
-                             use_container_width=True,
-                             type="primary" if st.session_state.lang=="DE" else "secondary"):
-        st.session_state.lang = "DE"; st.rerun()
     stages = [
         (1, "01 · Quadrant Classifier"),
         (2, "02 · Market Intelligence"),
@@ -268,13 +277,13 @@ with st.sidebar:
     for num, label in stages:
         active = st.session_state.active_stage
         if num == active:
-            st.markdown(f"""<div style="font-family:Arial,sans-serif;background:rgba(255,255,255,0.15);border-radius:4px;padding:8px 12px;margin:3px 0;font-size:12px;font-weight:700;color:#FFFFFF;border-left:3px solid #FFFFFF;letter-spacing:0.3px;">▶ {label}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="font-family:Arial,sans-serif;background:rgba(255,255,255,0.15);border-radius:4px;padding:8px 12px;margin:3px 0;font-size:12px;font-weight:700;color:#FFFFFF;border-left:3px solid #FFFFFF;letter-spacing:0.3px;">&#9658; {label}</div>""", unsafe_allow_html=True)
         elif num in completed:
             if st.button(f"✓  {label}", key=f"nav_{num}", use_container_width=True):
                 st.session_state.active_stage = num
                 st.rerun()
         else:
-            st.markdown(f"""<div style="font-family:Arial,sans-serif;padding:8px 12px;margin:3px 0;font-size:12px;color:rgba(255,255,255,0.45);">○  {label}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="font-family:Arial,sans-serif;padding:8px 12px;margin:3px 0;font-size:12px;color:rgba(255,255,255,0.45);">&#9675; {label}</div>""", unsafe_allow_html=True)
 
     if st.session_state.s1_idea:
         st.markdown("---")
@@ -284,8 +293,8 @@ with st.sidebar:
 
 # ── Ansoff chart helper ───────────────────────────────────────
 def ansoff_chart(quadrant, tech_score, market_score):
-    q_cols = {"EXPLOIT":"#0d1f14","EXTEND":"#0a2419","RADICAL":"#003D20","DISRUPT":"#002915","DISRUPTIVE":"#002915"}
-    text_col = "#f0faf4"; dim_col = "#4a8c6a"; grid_col = "#1e4d35"
+    q_cols = {"EXPLOIT":"#1a2d45","EXTEND":"#1e3a5f","RADICAL":"#1F3864","DISRUPT":"#0d2137","DISRUPTIVE":"#0d2137"}
+    text_col = "#e2e8f0"; dim_col = "#4a6fa5"; grid_col = "#2a4a70"
 
     fig = go.Figure()
     # Schaeffler convention: X=Technology (left=Established, right=New)
@@ -314,7 +323,7 @@ def ansoff_chart(quadrant, tech_score, market_score):
         ))
         fig.add_annotation(x=q["lx"], y=q["ly"], text=f"<b>{q['name']}</b>",
             showarrow=False,
-            font=dict(size=14, color="#00C853" if q["name"] in ("RADICAL","DISRUPT","DISRUPTIVE") else ("#00A651" if q["name"]==quadrant else "#4a8c6a")))
+            font=dict(size=14, color=BLUE if q["name"]==quadrant else dim_col))
 
     fig.add_shape(type="line",x0=5,x1=5,y0=0,y1=10,line=dict(color=grid_col,width=1.5,dash="dot"))
     fig.add_shape(type="line",x0=0,x1=10,y0=5,y1=5,line=dict(color=grid_col,width=1.5,dash="dot"))
@@ -423,11 +432,8 @@ Return ONLY valid JSON, no markdown backticks:
         org_ctx,
         max_tokens=3500
     )
-    raw_e = extended.strip().replace("```json","").replace("```","").strip()
-    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
-    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(raw_e)
+        ext = repair_and_parse_json(extended)
     except:
         ext = {
             "executive_summary": f"Schaeffler\'s organisational readiness for this idea scores {s5d.get('final_score',5)}/10. The P3 assessment shows Portfolio fit at {s5d.get('p_portfolio',5)}/10, People readiness at {s5d.get('p_people',5)}/10, and Process readiness at {s5d.get('p_process',5)}/10. Recommended build strategy: {bop.get('recommendation','Co-develop')}. {bop.get('rationale','')}",
@@ -623,11 +629,8 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
 }''',
         master_ctx, max_tokens=4000
     )
-    raw_e = enriched.strip().replace("```json","").replace("```","").strip()
-    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
-    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        enr = json.loads(raw_e)
+        enr = repair_and_parse_json(enriched)
     except:
         enr = {
             "executive_summary": f"This innovation idea ({idea[:80]}) has been assessed across four dimensions of Schaeffler\'s Innovation Pipeline, yielding an Innovation Potential Index (IPI) of {ipi}/10. The recommendation is: {synthesis.get('recommendation','PROCEED WITH CONDITIONS')}. {synthesis.get('recommendation_rationale','')} The strongest signal is: {synthesis.get('strongest_signals',['market opportunity'])[0] if synthesis.get('strongest_signals') else 'market opportunity'}. The primary concern is: {synthesis.get('key_concerns',['technical maturity'])[0] if synthesis.get('key_concerns') else 'technical maturity'}.",
@@ -998,11 +1001,8 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         feas_ctx,
         max_tokens=3500
     )
-    raw_e = extended.strip().replace("```json","").replace("```","").strip()
-    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
-    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(raw_e)
+        ext = repair_and_parse_json(extended)
     except:
         ext = {
             "executive_summary": f"This innovation idea is assessed at TRL {trl.get('trl_level',3)} — {trl.get('trl_label','')}. Existence verdict: {existence.get('existence_verdict','Research Stage')}. {existence.get('existence_summary','')} Schaeffler entry readiness: {trl.get('schaeffler_entry_readiness','Ready for Innovation')}. Estimated time to production readiness: {existence.get('time_to_readiness','3-5 years')}.",
@@ -1218,11 +1218,8 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         pat_ctx,
         max_tokens=3500
     )
-    raw_e = extended.strip().replace("```json","").replace("```","").strip()
-    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
-    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(raw_e)
+        ext = repair_and_parse_json(extended)
     except:
         sp = ansoff_data.get('schaeffler_position',{})
         ext = {
@@ -1397,11 +1394,8 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         mkt_ctx,
         max_tokens=3500
     )
-    raw_e = extended.strip().replace("```json","").replace("```","").strip()
-    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
-    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(raw_e)
+        ext = repair_and_parse_json(extended)
     except:
         ext = {
             "executive_summary": f"The {market.get('market_name','target market')} represents a {market.get('market_maturity','growing')} opportunity. Market size is estimated at {market.get('market_size_2024','significant')} in 2024, projected to reach {market.get('market_size_2030','substantial')} by 2030 at a CAGR of {market.get('cagr','strong growth')}. Competitive intensity is {comp.get('competitive_intensity','moderate')}, with white space identified: {comp.get('white_space','see analysis')}.",
@@ -1703,27 +1697,51 @@ Return ONLY valid JSON:
 "white_spaces":["white space 1","white space 2","white space 3"]}"""
     raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1500)
     try:
-        raw_c = raw.strip().replace("```json","").replace("```","").strip()
-        fb = raw_c.find("{"); lb = raw_c.rfind("}") + 1
-        if fb >= 0: raw_c = raw_c[fb:lb]
-        landscape = json.loads(raw_c)
+        landscape = repair_and_parse_json(raw)
     except:
         landscape = {"technology_keywords":[],"landscape_summary":"N/A","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","patent_landscape_score":5,"key_filers":[],"white_spaces":[]}
 
-    filers_context = json.dumps([f.get("company","") for f in landscape.get("key_filers",[])])
-    system_ansoff = """You are a Schaeffler patent strategist. Map filers onto Schaeffler's Ansoff matrix.
+    key_filers_run3 = landscape.get("key_filers", [])
+    filers_full_run3 = json.dumps([
+        {"company": f.get("company",""), "type": f.get("type",""), "focus": f.get("focus",""), "threat_level": f.get("threat_level","")}
+        for f in key_filers_run3
+    ])
+    system_ansoff = """You are a Schaeffler patent strategist. Map ALL listed filers onto Schaeffler's Ansoff matrix.
+IMPORTANT: Every filer in the input list MUST appear in filer_positions — do not skip any.
 Return ONLY valid JSON:
 {"filer_positions":[{"company":"name","matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"rationale":"one sentence"}],
 "schaeffler_position":{"matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"existing_ip":"one sentence","gap":"one sentence"},
 "idea_position":{"x_score":0-10,"y_score":0-10},"novelty_signal":"Strong/Moderate/Weak","novelty_rationale":"one sentence","ip_risk":"Low/Medium/High","ip_risk_rationale":"one sentence"}"""
-    raw2 = call_claude(system_ansoff, f"Idea: {idea}\nQuadrant: {quadrant}\nKey filers: {filers_context}", max_tokens=1000)
+    raw2 = call_claude(system_ansoff,
+        f"Idea: {idea}\nQuadrant: {quadrant}\nMap ALL {len(key_filers_run3)} filers: {filers_full_run3}",
+        max_tokens=max(1800, len(key_filers_run3) * 200 + 800))
     try:
-        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
-        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
-        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
-        ansoff_data = json.loads(raw2_c)
+        ansoff_data = repair_and_parse_json(raw2)
     except:
         ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
+
+    # Guarantee every key_filer has a position
+    positioned_run3 = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
+    type_defaults_run3 = {
+        "Competitor":          ("EXPLOIT", 3.0, 3.0),
+        "Customer":            ("EXTEND",  2.5, 6.5),
+        "Research Institution":("RADICAL", 7.0, 7.5),
+        "Adjacent Player":     ("EXTEND",  6.0, 4.0),
+        "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
+    }
+    for i, f in enumerate(key_filers_run3):
+        name = f.get("company","")
+        if name.lower() not in positioned_run3 and name:
+            quad, bx, by = type_defaults_run3.get(f.get("type","Adjacent Player"), ("EXPLOIT", 4.0, 4.0))
+            nudge_x = ((i * 0.7) % 2.0) - 1.0
+            nudge_y = ((i * 1.1) % 2.0) - 1.0
+            ansoff_data.setdefault("filer_positions", []).append({
+                "company": name, "type": f.get("type","Adjacent Player"),
+                "matrix_position": quad,
+                "x_score": round(min(9.5, max(0.5, bx + nudge_x)), 1),
+                "y_score": round(min(9.5, max(0.5, by + nudge_y)), 1),
+                "rationale": f.get("focus","Auto-placed based on filer type")
+            })
 
     landscape_score = float(landscape.get("patent_landscape_score",5))
     novelty_score = {"Strong":9,"Moderate":6,"Weak":3}.get(ansoff_data.get("novelty_signal","Moderate"),6)
@@ -1747,10 +1765,7 @@ Return ONLY valid JSON:
 "technology_gaps":["gap 1","gap 2","gap 3"],"time_to_readiness":"e.g. 3-5 years","keywords":["6-10 key technical terms from this domain"]}"""
     raw = call_claude(system_existence, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
     try:
-        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-        if fb >= 0: raw_clean = raw_clean[fb:lb]
-        existence = json.loads(raw_clean)
+        existence = repair_and_parse_json(raw)
     except:
         existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"N/A","evidence":[],"technology_gaps":[],"time_to_readiness":"Not yet estimated","keywords":[]}
 
@@ -1763,10 +1778,7 @@ Return ONLY valid JSON:
 "trl_score":1-10}"""
     raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps','')}", max_tokens=1200)
     try:
-        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
-        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
-        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
-        trl = json.loads(raw2_c)
+        trl = repair_and_parse_json(raw2)
     except:
         trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":3}
 
@@ -1814,10 +1826,7 @@ Return ONLY valid JSON:
 
     raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=2500)
     try:
-        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-        if fb >= 0: raw_clean = raw_clean[fb:lb]
-        org_data = json.loads(raw_clean)
+        org_data = repair_and_parse_json(raw)
     except:
         org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"org_readiness_score":5}
 
@@ -1869,11 +1878,8 @@ Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partn
 "next_steps":["action 1","action 2","action 3","action 4"]}"""
 
     raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
-    raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
-    fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
-    if fb >= 0: raw1_clean = raw1_clean[fb:lb]
     try:
-        synthesis_structured = json.loads(raw1_clean)
+        synthesis_structured = repair_and_parse_json(raw1)
     except:
         synthesis_structured = {"headline":f"IPI {ipi}/10","recommendation":"PROCEED WITH CONDITIONS" if ipi>=5 else "DEFER","recommendation_rationale":"Based on pipeline analysis.","strongest_signals":[],"key_concerns":[],"conditions":[],"strategic_fit":"","risks":[],"next_steps":[]}
 
@@ -1891,11 +1897,11 @@ Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partn
 
 
 if st.session_state.active_stage == 1:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 01</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Quadrant Classifier</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
+    st.markdown("## Stage 01 · Quadrant Classifier")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
 <div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Maps your idea onto Schaeffler's modified Ansoff matrix — Exploit, Extend, Radical, or Disrupt. Ideas in Radical and Disrupt proceed through the full pipeline. Others are redirected to the right Schaeffler product division.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Quadrant classification · Schaeffler Motion product family fit · Strategic trend alignment · Innovation pathway (Start-Up Mode vs Innovation Factory)</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Quadrant classification · Schaeffler Motion product family fit · Strategic trend alignment · Innovation pathway (Start-Up Mode vs Innovation Factory)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2048,10 +2054,7 @@ Return ONLY valid JSON:
                     f"Q: {q[0]} A: {a[0]}\n"
                     f"Q: {q[1]} A: {a[1]}\n"
                     f"Q: {q[2]} A: {a[2]}")
-                raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-                fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-                if fb >= 0: raw_clean = raw_clean[fb:lb]
-                classification = json.loads(raw_clean)
+                classification = repair_and_parse_json(raw)
                 # Hard-code proceed based on quadrant — never trust Claude's value here
                 # EXPLOIT and EXTEND must always redirect; RADICAL and DISRUPTIVE always proceed
                 q_result = classification.get("quadrant","").upper()
@@ -2077,13 +2080,13 @@ Return ONLY valid JSON:
             st.warning(f"**{quadrant}** — {c.get('redirect_message','')}")
             st.markdown(f"→ Suggested home: **{division}**")
             st.markdown(f"""
-<div style="background:#0d2419;border-radius:8px;padding:14px 18px;margin-top:12px;border-left:3px solid #f59e0b;">
+<div style="background:#1a2d45;border-radius:8px;padding:14px 18px;margin-top:12px;border-left:3px solid #f59e0b;">
 <div style="color:#f59e0b;font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:6px;">WHY THIS IDEA DOESN'T ENTER THE INNOVATION PIPELINE</div>
 <div style="color:#e2e8f0;font-size:13px;">
 <b>EXPLOIT</b> and <b>EXTEND</b> ideas use established or adjacent technology — they belong in Schaeffler's Product Development divisions, not the Innovation Pipeline, because the core technology risk has already been resolved.<br><br>
 The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakthrough tech, existing market) and <b>DISRUPTIVE</b> (breakthrough tech, new market) ideas where the technology itself is genuinely novel and unproven.
 </div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;">Technology level: <b>{c.get('technology_level','')}</b> · Market level: <b>{c.get('market_level','')}</b></div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;">Technology level: <b>{c.get('technology_level','')}</b> · Market level: <b>{c.get('market_level','')}</b></div>
 </div>
 """, unsafe_allow_html=True)
         else:
@@ -2097,16 +2100,16 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
         # ── 4-level axis labels ───────────────────────────────
         if proceed:
             col_t, col_m = st.columns(2)
-            col_t.markdown(f'<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#4a8c6a;font-size:11px;letter-spacing:1px;">TECHNOLOGY LEVEL</div><div style="color:#00C853;font-size:14px;font-weight:600;">{c.get("technology_level","")}</div></div>', unsafe_allow_html=True)
-            col_m.markdown(f'<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#4a8c6a;font-size:11px;letter-spacing:1px;">MARKET LEVEL</div><div style="color:#00C853;font-size:14px;font-weight:600;">{c.get("market_level","")}</div></div>', unsafe_allow_html=True)
+            col_t.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#94a3b8;font-size:11px;letter-spacing:1px;">TECHNOLOGY LEVEL</div><div style="color:#60a5fa;font-size:14px;font-weight:600;">{c.get("technology_level","")}</div></div>', unsafe_allow_html=True)
+            col_m.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;"><div style="color:#94a3b8;font-size:11px;letter-spacing:1px;">MARKET LEVEL</div><div style="color:#60a5fa;font-size:14px;font-weight:600;">{c.get("market_level","")}</div></div>', unsafe_allow_html=True)
             col_a, col_b, col_c = st.columns(3)
-            col_a.markdown(f'<div style="background:#0d2419;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#4a8c6a;font-size:10px;letter-spacing:1px;">INNOVATION CLUSTER</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("innovation_cluster","")}</div></div>', unsafe_allow_html=True)
-            col_b.markdown(f'<div style="background:#0d2419;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#4a8c6a;font-size:10px;letter-spacing:1px;">PRODUCT FAMILY</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("product_family","")}</div></div>', unsafe_allow_html=True)
-            col_c.markdown(f'<div style="background:#0d2419;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#4a8c6a;font-size:10px;letter-spacing:1px;">TREND ALIGNMENT</div><div style="color:#e2e8f0;font-size:12px;margin-top:2px;">{", ".join(c.get("trend_alignment",[]))}</div></div>', unsafe_allow_html=True)
+            col_a.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">INNOVATION CLUSTER</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("innovation_cluster","")}</div></div>', unsafe_allow_html=True)
+            col_b.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">PRODUCT FAMILY</div><div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:2px;">{c.get("product_family","")}</div></div>', unsafe_allow_html=True)
+            col_c.markdown(f'<div style="background:#1a2d45;border-radius:6px;padding:8px 12px;margin:4px 0;"><div style="color:#94a3b8;font-size:10px;letter-spacing:1px;">TREND ALIGNMENT</div><div style="color:#e2e8f0;font-size:12px;margin-top:2px;">{", ".join(c.get("trend_alignment",[]))}</div></div>', unsafe_allow_html=True)
             pipeline = c.get("pipeline_route","")
             if pipeline:
-                route_col = "#22c55e" if "Integrated" in pipeline else "#00C853"
-                st.markdown(f'<div style="background:#0a2419;border:1px solid {route_col}55;border-radius:6px;padding:8px 14px;margin:8px 0;"><span style="color:{route_col};font-size:12px;font-weight:600;">🔀 Pipeline route: {pipeline}</span></div>', unsafe_allow_html=True)
+                route_col = "#22c55e" if "Integrated" in pipeline else "#60a5fa"
+                st.markdown(f'<div style="background:#0f1e35;border:1px solid {route_col}44;border-radius:6px;padding:8px 14px;margin:8px 0;"><span style="color:{route_col};font-size:12px;font-weight:600;">🔀 Pipeline route: {pipeline}</span></div>', unsafe_allow_html=True)
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Technology novelty", f"{tech_score} / 10")
@@ -2176,11 +2179,11 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
 # STAGE 02 — MARKET INTELLIGENCE
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 2:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 02</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Market Intelligence</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
+    st.markdown("## Stage 02 · Market Intelligence")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
 <div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Analyses the commercial opportunity behind your idea — how big the market is, how fast it is growing, who the competitors are, and how well the idea fits across Schaeffler's 10 customer sector clusters.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Market size & CAGR with sources · Sector cluster fit chart · Competitor landscape · Market Intelligence Score (0–10)</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Market size & CAGR with sources · Sector cluster fit chart · Competitor landscape · Market Intelligence Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2222,7 +2225,7 @@ Return ONLY valid JSON:
 "geographic_focus":"string","market_score":integer 1-10 (9-10=large fast-growing >$10bn/>15%CAGR; 7-8=strong $2-10bn/8-15%; 5-6=moderate; 3-4=niche; 1-2=tiny or declining),"market_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}")
-            market = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+            market = repair_and_parse_json(raw)
         except:
             market = {"market_name":"N/A","market_size_2024":"N/A","market_size_2030":"N/A","cagr":"N/A",
                       "growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
@@ -2236,7 +2239,7 @@ Every company must have a source. Return ONLY valid JSON:
 "competition_score":integer 1-10 openness (9-10=very open/few players; 7-8=some room; 5-6=moderate; 3-4=crowded; 1-2=saturated),"competition_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}{web_ctx}")
-            comp = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+            comp = repair_and_parse_json(raw)
         except:
             comp = {"competitors":[],"competitive_intensity":"N/A","white_space":"N/A",
                     "schaeffler_advantage":"N/A","competition_score":5,"competition_score_rationale":""}
@@ -2252,7 +2255,7 @@ Return ONLY valid JSON:
 Sector fit score rubric: Average the top 3 sector scores. If primary sector scores 9-10 = sector_fit 9-10; if 7-8 = 7-8; etc."""
         try:
             raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}")
-            sectors = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+            sectors = repair_and_parse_json(raw)
         except:
             sectors = {"sector_scores":{},"primary_sectors":[],"sector_fit_score":5,"sector_fit_rationale":""}
 
@@ -2281,7 +2284,7 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
 
         # ── Score banner ──────────────────────────────────────
         score_col = "#22c55e" if final>=7 else "#f59e0b" if final>=4 else "#ef4444"
-        banner = f"""<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #1e4d35;"><div style="color:{WHITE};font-size:11px;letter-spacing:1.5px;opacity:0.5;margin-bottom:4px;">MARKET INTELLIGENCE SCORE</div><div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#4a8c6a;"> / 10</span></div><div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{market.get('market_name','')}</div></div>"""
+        banner = f"""<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #2a4a70;"><div style="color:{WHITE};font-size:11px;letter-spacing:1.5px;opacity:0.5;margin-bottom:4px;">MARKET INTELLIGENCE SCORE</div><div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#94a3b8;"> / 10</span></div><div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{market.get('market_name','')}</div></div>"""
         st.markdown(banner, unsafe_allow_html=True)
 
         # ── Score breakdown ───────────────────────────────────
@@ -2364,9 +2367,9 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         mc1, mc2, mc3 = st.columns(3)
         for col, label, val in [(mc1,"Market Size (2024)",val_2024),(mc2,"Market Size (2030)",val_2030),(mc3,"CAGR",val_cagr)]:
             col.markdown(f"""
-<div style="background:#0d2419;border-radius:8px;padding:14px 16px;text-align:center;">
-  <div style="color:#4a8c6a;font-size:11px;letter-spacing:1px;margin-bottom:6px;">{label.upper()}</div>
-  <div style="color:#00C853;font-size:20px;font-weight:700;line-height:1.2;">{val}</div>
+<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;text-align:center;">
+  <div style="color:#94a3b8;font-size:11px;letter-spacing:1px;margin-bottom:6px;">{label.upper()}</div>
+  <div style="color:#60a5fa;font-size:20px;font-weight:700;line-height:1.2;">{val}</div>
 </div>""", unsafe_allow_html=True)
 
         # Render source links per field
@@ -2400,11 +2403,11 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         if sector_scores:
             names  = list(sector_scores.keys())
             vals   = [sector_scores[s]["score"] for s in names]
-            colors = ["#007A3D" if s in primary else "#1e4d35" for s in names]
+            colors = [BLUE if s in primary else DIM for s in names]
             fig_bar = go.Figure(go.Bar(
                 x=vals, y=names, orientation="h", marker_color=colors,
                 text=[f"{v}/10" for v in vals], textposition="outside",
-                textfont=dict(color="#f0faf4",size=11),
+                textfont=dict(color=WHITE,size=11),
                 hovertemplate="<b>%{y}</b><br>%{x}/10<extra></extra>"
             ))
             fig_bar.update_layout(
@@ -2435,27 +2438,22 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
             st.session_state.s2_report_buf = None
 
         if st.session_state.s2_report_buf is None:
-            if st.button("⬇️ Download Market Intelligence Report", type="primary", key="s2_report_btn"):
-                _prog = st.progress(0, text="Preparing report…")
-                _prog.progress(15, text="Building document structure…")
-                try:
-                    st.session_state.s2_report_buf = generate_market_report(
-                        idea, quadrant, s1c, market, comp, sectors, weights, final
-                    )
-                    _prog.progress(75, text="Formatting pages…")
-                    _prog.progress(100, text="Ready — starting download…")
-                    _prog.empty()
-                except Exception as e:
-                    _prog.empty()
-                    st.error(f"Report generation error: {e}")
-        if st.session_state.s2_report_buf is not None:
+            if st.button("⬇️ Download Market Intelligence Report", type="primary"):
+                with st.spinner("Generating your report — this takes about 20 seconds..."):
+                    try:
+                        st.session_state.s2_report_buf = generate_market_report(
+                            idea, quadrant, s1c, market, comp, sectors, weights, final
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report generation error: {e}")
+        else:
             st.download_button(
-                label="⬇️ Click to save — Market Intelligence Report",
+                label="⬇️ Download Market Intelligence Report",
                 data=st.session_state.s2_report_buf,
                 file_name=f"Schaeffler_Market_Intelligence_{datetime.now().strftime('%Y%m%d')}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                type="primary",
-                key="s2_report_dl"
+                type="primary"
             )
 
         # ── Chat ──────────────────────────────────────────────
@@ -2505,11 +2503,11 @@ Be specific, cite sources where possible, 3-4 sentences max."""
 # STAGE 03 — PATENT INTELLIGENCE
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 3:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 03</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Patent Intelligence</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
+    st.markdown("## Stage 03 · Patent Intelligence")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
 <div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Maps the patent landscape for your idea's core technology — who is filing, whether they are competitors or potential customers, where the IP white spaces are, and how Schaeffler's existing patent portfolio relates to the idea.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Patent Ansoff map with all key filers plotted · IP white spaces · Schaeffler IP gap analysis · Patent Intelligence Score (0–10)</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Patent Ansoff map with all key filers plotted · IP white spaces · Schaeffler IP gap analysis · Patent Intelligence Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2571,11 +2569,8 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_landscape,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2000)
-            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-            if fb >= 0: raw_clean = raw_clean[fb:lb]
-            landscape = json.loads(raw_clean)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2500)
+            landscape = repair_and_parse_json(raw)
         except Exception as e:
             landscape = {"technology_keywords":[],"landscape_summary":"Analysis unavailable.",
                         "activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"",
@@ -2632,17 +2627,50 @@ Return ONLY valid JSON:
   "ip_risk_rationale": "one sentence"
 }"""
 
-        filers_context = json.dumps([f.get("company","") for f in landscape.get("key_filers",[])])
+        # Pass FULL filer objects (not just names) so Claude can map every one
+        key_filers = landscape.get("key_filers", [])
+        filers_full_context = json.dumps([
+            {"company": f.get("company",""), "type": f.get("type",""), "focus": f.get("focus",""), "threat_level": f.get("threat_level","")}
+            for f in key_filers
+        ])
         try:
             raw2 = call_claude(system_ansoff,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nKey filers: {filers_context}\nTech keywords: {landscape.get('technology_keywords','')}", max_tokens=1200)
-            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
-            fb2 = raw2_clean.find("{"); lb2 = raw2_clean.rfind("}") + 1
-            if fb2 >= 0: raw2_clean = raw2_clean[fb2:lb2]
-            ansoff_data = json.loads(raw2_clean)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech keywords: {landscape.get('technology_keywords','')}\n"
+                f"IMPORTANT: You MUST map ALL {len(key_filers)} filers listed below. Do not skip any.\n"
+                f"Key filers (map every single one): {filers_full_context}",
+                max_tokens=max(1800, len(key_filers) * 200 + 800))
+            ansoff_data = repair_and_parse_json(raw2)
         except Exception as e:
             ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},
                           "idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
+
+        # ── Guarantee every key_filer appears in filer_positions ──────────
+        # Build a lookup of which companies already have positions
+        positioned_companies = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
+        # Quadrant → default score ranges for auto-placement fallback
+        type_defaults = {
+            "Competitor":          ("EXPLOIT", 3.0, 3.0),
+            "Customer":            ("EXTEND",  2.5, 6.5),
+            "Research Institution":("RADICAL", 7.0, 7.5),
+            "Adjacent Player":     ("EXTEND",  6.0, 4.0),
+            "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
+        }
+        import random
+        for i, f in enumerate(key_filers):
+            name = f.get("company","")
+            if name.lower() not in positioned_companies and name:
+                quad, bx, by = type_defaults.get(f.get("type","Adjacent Player"), ("EXPLOIT", 4.0, 4.0))
+                # Small deterministic nudge so overlapping filers spread out
+                nudge_x = ((i * 0.7) % 2.0) - 1.0
+                nudge_y = ((i * 1.1) % 2.0) - 1.0
+                ansoff_data.setdefault("filer_positions", []).append({
+                    "company": name,
+                    "type": f.get("type","Adjacent Player"),
+                    "matrix_position": quad,
+                    "x_score": round(min(9.5, max(0.5, bx + nudge_x)), 1),
+                    "y_score": round(min(9.5, max(0.5, by + nudge_y)), 1),
+                    "rationale": f.get("focus","Auto-placed based on filer type")
+                })
 
         progress.progress(80)
         status.markdown("📊 Calculating patent intelligence score...")
@@ -2680,9 +2708,9 @@ Return ONLY valid JSON:
         # Score banner
         score_col = "#22c55e" if final>=7 else "#f59e0b" if final>=4 else "#ef4444"
         st.markdown(f"""
-<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #1e4d35;">
-  <div style="color:#4a8c6a;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">PATENT INTELLIGENCE SCORE</div>
-  <div style="color:{score_col};font-size:42px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#4a8c6a;"> / 10</span></div>
+<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #2a4a70;">
+  <div style="color:#94a3b8;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">PATENT INTELLIGENCE SCORE</div>
+  <div style="color:{score_col};font-size:42px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#94a3b8;"> / 10</span></div>
   <div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{landscape.get("landscape_summary","")}</div>
 </div>
 """, unsafe_allow_html=True)
@@ -2713,6 +2741,26 @@ Return ONLY valid JSON:
         filer_positions = ansoff_data.get("filer_positions", [])
         schaeffler_pos  = ansoff_data.get("schaeffler_position", {})
         idea_pos        = ansoff_data.get("idea_position", {"x_score":7,"y_score":7})
+
+        # Enrich filer_positions with 'type' from key_filers where missing
+        key_filers_lookup = {f.get("company","").lower(): f for f in landscape.get("key_filers",[])}
+        for fp in filer_positions:
+            if not fp.get("type"):
+                kf = key_filers_lookup.get(fp.get("company","").lower(), {})
+                fp["type"] = kf.get("type", "Adjacent Player")
+
+        # Nudge overlapping points apart so labels don't stack
+        used_positions = []
+        for fp in filer_positions:
+            x, y = fp.get("x_score", 5), fp.get("y_score", 5)
+            attempts = 0
+            while any(abs(x-ux) < 0.6 and abs(y-uy) < 0.6 for ux,uy in used_positions) and attempts < 8:
+                x = round(min(9.5, max(0.5, x + 0.4)), 1)
+                y = round(min(9.5, max(0.5, y + 0.3)), 1)
+                attempts += 1
+            fp["x_score"] = x
+            fp["y_score"] = y
+            used_positions.append((x, y))
 
         # Compute pattern stats for commentary
         if filer_positions:
@@ -2764,8 +2812,8 @@ Return ONLY valid JSON:
                 return _re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
             bullets_html = "".join(f'<div style="margin:5px 0;color:#e2e8f0;font-size:13px;">› {md_bold_to_html(p)}</div>' for p in pointers)
             st.markdown(f"""
-<div style="background:#0a2419;border-left:3px solid #007A3D;border-radius:4px;padding:12px 16px;margin-bottom:14px;">
-<div style="color:#00C853;font-size:11px;letter-spacing:1px;font-weight:600;margin-bottom:8px;">PATTERN NOTES</div>
+<div style="background:#1a2d45;border-left:3px solid #2E75B6;border-radius:4px;padding:12px 16px;margin-bottom:14px;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;margin-bottom:8px;">PATTERN NOTES</div>
 {bullets_html}
 </div>
 """, unsafe_allow_html=True)
@@ -2776,10 +2824,10 @@ Return ONLY valid JSON:
 
         # Quadrant shading
         q_fills = [
-            dict(x=[0,5,5,0],   y=[0,0,5,5],   name="EXPLOIT", fill="#0d1f14", lx=2.5,ly=2.5),
-            dict(x=[5,10,10,5], y=[0,0,5,5],   name="EXTEND",  fill="#0a2419", lx=7.5,ly=2.5),
-            dict(x=[0,5,5,0],   y=[5,5,10,10], name="RADICAL", fill="#003D20", lx=2.5,ly=7.5),
-            dict(x=[5,10,10,5], y=[5,5,10,10], name="DISRUPT", fill="#002915", lx=7.5,ly=7.5),
+            dict(x=[0,5,5,0],   y=[0,0,5,5],   name="EXPLOIT", fill="#1a2d45", lx=2.5,ly=2.5),
+            dict(x=[5,10,10,5], y=[0,0,5,5],   name="EXTEND",  fill="#1e3a5f", lx=7.5,ly=2.5),
+            dict(x=[0,5,5,0],   y=[5,5,10,10], name="RADICAL", fill="#1F3864", lx=2.5,ly=7.5),
+            dict(x=[5,10,10,5], y=[5,5,10,10], name="DISRUPT", fill="#0d2137", lx=7.5,ly=7.5),
         ]
         for q in q_fills:
             fig.add_trace(go.Scatter(
@@ -2789,7 +2837,7 @@ Return ONLY valid JSON:
                 mode="lines", showlegend=False, hoverinfo="skip"
             ))
             fig.add_annotation(x=q["lx"],y=q["ly"],text=f"<b>{q['name']}</b>",
-                showarrow=False, font=dict(size=12,color="#00C853" if q["fill"] in ("#003D20","#002915") else "#4a8c6a"))
+                showarrow=False, font=dict(size=12,color="#4a6fa5"))
 
         # Grid lines
         fig.add_shape(type="line",x0=5,x1=5,y0=0,y1=10,line=dict(color="#2a4a70",width=1.5,dash="dot"))
@@ -2798,7 +2846,7 @@ Return ONLY valid JSON:
         # Competitor/filer points
         type_colours = {
             "Competitor":         "#ef4444",
-            "Customer":           "#00A651",
+            "Customer":           "#60a5fa",
             "Research Institution":"#a78bfa",
             "Adjacent Player":    "#f59e0b",
             "Patent Troll":       "#6b7280",
@@ -2880,11 +2928,11 @@ Return ONLY valid JSON:
                 threat_col = {"High":"#ef4444","Medium":"#f59e0b","Low":"#22c55e"}.get(fi.get("threat_level","Medium"),"#6b7280")
                 type_col   = type_colours.get(fi.get("type","Adjacent Player"),"#6b7280")
                 st.markdown(f"""
-<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:center;gap:12px;">
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:center;gap:12px;">
   <div style="min-width:130px;color:{WHITE};font-weight:600;font-size:13px;">{fi.get('company','')}</div>
   <div style="background:{type_col}22;color:{type_col};font-size:11px;padding:2px 8px;border-radius:10px;min-width:120px;text-align:center;">{fi.get('type','')}</div>
   <div style="background:{threat_col}22;color:{threat_col};font-size:11px;padding:2px 8px;border-radius:10px;min-width:80px;text-align:center;">⚡ {fi.get('threat_level','')} threat</div>
-  <div style="color:#4a8c6a;font-size:12px;flex:1;">{fi.get('focus','')}</div>
+  <div style="color:#94a3b8;font-size:12px;flex:1;">{fi.get('focus','')}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -2914,27 +2962,22 @@ Return ONLY valid JSON:
             st.session_state.s3_report_buf = None
 
         if st.session_state.s3_report_buf is None:
-            if st.button("⬇️ Download Patent Intelligence Report", type="primary", key="s3_report_btn"):
-                _prog = st.progress(0, text="Preparing report…")
-                _prog.progress(15, text="Building document structure…")
-                try:
-                    st.session_state.s3_report_buf = generate_patent_report(
-                        idea, quadrant, s1c, landscape, ansoff_data, d
-                    )
-                    _prog.progress(75, text="Formatting pages…")
-                    _prog.progress(100, text="Ready — starting download…")
-                    _prog.empty()
-                except Exception as e:
-                    _prog.empty()
-                    st.error(f"Report error: {e}")
-        if st.session_state.s3_report_buf is not None:
+            if st.button("⬇️ Download Patent Intelligence Report", type="primary"):
+                with st.spinner("Generating report..."):
+                    try:
+                        st.session_state.s3_report_buf = generate_patent_report(
+                            idea, quadrant, s1c, landscape, ansoff_data, d
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report error: {e}")
+        else:
             st.download_button(
-                label="⬇️ Click to save — Patent Intelligence Report",
+                label="⬇️ Download Patent Intelligence Report",
                 data=st.session_state.s3_report_buf,
                 file_name=f"Schaeffler_Patent_Intelligence_{datetime.now().strftime('%Y%m%d')}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                type="primary",
-                key="s3_report_dl"
+                type="primary"
             )
 
         # ── Chat ──────────────────────────────────────────────
@@ -2983,11 +3026,11 @@ Be specific and concise — 2-4 sentences."""
 # STAGE 04 — TECHNICAL FEASIBILITY
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 4:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 04</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Technical Feasibility</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
+    st.markdown("## Stage 04 · Technical Feasibility")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
 <div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Checks whether the core technology has actually been demonstrated anywhere — in labs, startups, pilots, or adjacent industries. Rates maturity using a Schaeffler-adapted version of NASA's TRL scale (1–9) and identifies the key technical risks to address.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> TRL rating with rationale · Evidence from research & industry · Technology keyword map · Risk register · Feasibility Score (0–10)</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> TRL rating with rationale · Evidence from research & industry · Technology keyword map · Risk register · Feasibility Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3050,15 +3093,8 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_existence,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
-            # Strip everything before first { and after last }
-            raw_clean = raw.strip()
-            raw_clean = raw_clean.replace("```json","").replace("```","").strip()
-            first_brace = raw_clean.find("{")
-            last_brace  = raw_clean.rfind("}") + 1
-            if first_brace >= 0:
-                raw_clean = raw_clean[first_brace:last_brace]
-            existence = json.loads(raw_clean)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=3000)
+            existence = repair_and_parse_json(raw)
         except Exception as e:
             st.warning(f"Evidence parsing issue: {e} — using fallback")
             existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"",
@@ -3106,12 +3142,7 @@ Return ONLY valid JSON:
             raw2 = call_claude(system_trl,
                 f"Idea: {idea}\nExistence verdict: {existence.get('existence_verdict','')}\nEvidence: {json.dumps(existence.get('evidence',[])[:3])}\nGaps: {existence.get('technology_gaps',[])}",
                 max_tokens=1500)
-            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
-            first_brace = raw2_clean.find("{")
-            last_brace  = raw2_clean.rfind("}") + 1
-            if first_brace >= 0:
-                raw2_clean = raw2_clean[first_brace:last_brace]
-            trl = json.loads(raw2_clean)
+            trl = repair_and_parse_json(raw2)
         except Exception as e:
             st.warning(f"TRL parsing issue: {e} — using fallback")
             trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept",
@@ -3157,14 +3188,14 @@ Return ONLY valid JSON:
         trl_level = trl.get("trl_level", 3)
         trl_pct   = int((trl_level / 9) * 100)
         entry_col = {"Too Early":"#ef4444","Ready for Innovation":"#22c55e",
-                     "Ready for Product Development":"#00A651"}.get(
+                     "Ready for Product Development":"#60a5fa"}.get(
                      trl.get("schaeffler_entry_readiness",""), "#f59e0b")
 
         st.markdown(f"""
-<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #1e4d35;">
-  <div style="color:#4a8c6a;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">TECHNICAL FEASIBILITY SCORE</div>
+<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #2a4a70;">
+  <div style="color:#94a3b8;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">TECHNICAL FEASIBILITY SCORE</div>
   <div style="display:flex;align-items:flex-end;gap:24px;">
-    <div style="color:{score_col};font-size:42px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#4a8c6a;"> / 10</span></div>
+    <div style="color:{score_col};font-size:42px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#94a3b8;"> / 10</span></div>
     <div>
       <div style="color:{entry_col};font-size:14px;font-weight:600;">{trl.get("schaeffler_entry_readiness","")}</div>
       <div style="color:{WHITE};font-size:12px;opacity:0.7;">{existence.get("existence_verdict","")}</div>
@@ -3196,7 +3227,7 @@ Return ONLY valid JSON:
     <span style="color:{WHITE};font-weight:600;font-size:15px;">{trl.get("trl_label","")}</span>
     <span style="color:{trl_col};font-weight:700;font-size:18px;">TRL {trl_level}/9</span>
   </div>
-  <div style="background:#0d2419;border-radius:6px;height:14px;overflow:hidden;">
+  <div style="background:#1a2d45;border-radius:6px;height:14px;overflow:hidden;">
     <div style="background:{trl_col};height:100%;width:{trl_pct}%;border-radius:6px;transition:width 0.3s;"></div>
   </div>
   <div style="display:flex;justify-content:space-between;margin-top:4px;">
@@ -3228,7 +3259,7 @@ Return ONLY valid JSON:
             for lvl, label, desc in trl_descriptions:
                 is_current = (lvl == trl_level)
                 bg_col = "#1F3864" if is_current else "#1a2d45"
-                text_col_inner = "#00C853" if is_current else "#4a8c6a"
+                text_col_inner = "#60a5fa" if is_current else "#94a3b8"
                 st.markdown(f"""
 <div style="background:{bg_col};border-radius:4px;padding:6px 12px;margin:3px 0;display:flex;gap:12px;align-items:center;">
   <div style="color:{trl_colours.get(lvl,'#f59e0b')};font-weight:700;min-width:40px;">TRL {lvl}</div>
@@ -3249,7 +3280,7 @@ Return ONLY valid JSON:
                 "Academic Paper":"📄","Startup":"🚀","Pilot":"🔧",
                 "Government Programme":"🏛️","Industry Deployment":"🏭"
             }
-            rel_cols = {"Direct":"#22c55e","Adjacent":"#00A651","Analogous":"#f59e0b"}
+            rel_cols = {"Direct":"#22c55e","Adjacent":"#60a5fa","Analogous":"#f59e0b"}
             conf_cols = {"High":"#22c55e","Medium":"#f59e0b","Low":"#ef4444"}
             # Sort: Direct > Adjacent > Analogous, then High > Medium > Low confidence
             rel_order  = {"Direct":0,"Adjacent":1,"Analogous":2}
@@ -3262,10 +3293,10 @@ Return ONLY valid JSON:
                 st.caption(f"Showing top 5 of {len(evidence_items)} evidence items by relevance. Full list in the downloaded report.")
             for ev in top_ev:
                 icon = type_icons.get(ev.get("type",""), "📌")
-                rel_col  = rel_cols.get(ev.get("relevance","Adjacent"), "#00A651")
+                rel_col  = rel_cols.get(ev.get("relevance","Adjacent"), "#60a5fa")
                 conf_col = conf_cols.get(ev.get("confidence","Medium"), "#f59e0b")
                 st.markdown(f"""
-<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:5px 0;">
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
     <span style="font-size:14px;">{icon}</span>
     <span style="color:{WHITE};font-weight:600;font-size:13px;">{ev.get("title","")}</span>
@@ -3284,14 +3315,14 @@ Return ONLY valid JSON:
         if keywords:
             # Size keywords by estimated relevance (first = most relevant)
             sizes = [28, 24, 22, 20, 18, 16, 15, 14, 13, 12]
-            colours_kw = ["#007A3D","#00A651","#00C853","#4a8c6a","#005A2D",
-                          "#007A3D","#00A651","#00C853","#4a8c6a","#005A2D"]
+            colours_kw = ["#60a5fa","#34d399","#a78bfa","#f59e0b","#f472b6",
+                          "#60a5fa","#34d399","#a78bfa","#f59e0b","#f472b6"]
             badges = ""
             for i, kw in enumerate(keywords[:10]):
                 sz  = sizes[i] if i < len(sizes) else 12
                 col = colours_kw[i % len(colours_kw)]
                 badges += f'<span style="background:{col}22;color:{col};font-size:{sz}px;padding:6px 14px;border-radius:20px;margin:4px;display:inline-block;font-weight:600;">{kw}</span>'
-            st.markdown(f'<div style="background:#0f1e35;border-radius:8px;padding:16px;line-height:2.2;border:1px solid #1e4d35;">{badges}</div>',
+            st.markdown(f'<div style="background:#0f1e35;border-radius:8px;padding:16px;line-height:2.2;border:1px solid #2a4a70;">{badges}</div>',
                         unsafe_allow_html=True)
         st.markdown("---")
 
@@ -3305,12 +3336,12 @@ Return ONLY valid JSON:
             for risk in top_risks:
                 sev_col = {"High":"#ef4444","Medium":"#f59e0b","Low":"#22c55e"}.get(risk.get("severity","Medium"),"#f59e0b")
                 st.markdown(f"""
-<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:5px 0;border-left:3px solid {sev_col};">
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;border-left:3px solid {sev_col};">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
     <span style="background:{sev_col}22;color:{sev_col};font-size:10px;padding:2px 8px;border-radius:8px;">{risk.get("severity","")} severity</span>
     <span style="color:{WHITE};font-size:13px;">{risk.get("risk","")}</span>
   </div>
-  <div style="color:#4a8c6a;font-size:12px;">↳ Mitigation: {risk.get("mitigation","")}</div>
+  <div style="color:#94a3b8;font-size:12px;">↳ Mitigation: {risk.get("mitigation","")}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -3330,27 +3361,22 @@ Return ONLY valid JSON:
             st.session_state.s4_report_buf = None
 
         if st.session_state.s4_report_buf is None:
-            if st.button("⬇️ Download Technical Feasibility Report", type="primary", key="s4_report_btn"):
-                _prog = st.progress(0, text="Preparing report…")
-                _prog.progress(15, text="Building document structure…")
-                try:
-                    st.session_state.s4_report_buf = generate_feasibility_report(
-                        idea, quadrant, s1c, existence, trl, d
-                    )
-                    _prog.progress(75, text="Formatting pages…")
-                    _prog.progress(100, text="Ready — starting download…")
-                    _prog.empty()
-                except Exception as e:
-                    _prog.empty()
-                    st.error(f"Report error: {e}")
-        if st.session_state.s4_report_buf is not None:
+            if st.button("⬇️ Download Technical Feasibility Report", type="primary"):
+                with st.spinner("Generating report..."):
+                    try:
+                        st.session_state.s4_report_buf = generate_feasibility_report(
+                            idea, quadrant, s1c, existence, trl, d
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report error: {e}")
+        else:
             st.download_button(
-                label="⬇️ Click to save — Technical Feasibility Report",
+                label="⬇️ Download Technical Feasibility Report",
                 data=st.session_state.s4_report_buf,
                 file_name=f"Schaeffler_Technical_Feasibility_{datetime.now().strftime('%Y%m%d')}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                type="primary",
-                key="s4_report_dl"
+                type="primary"
             )
 
         # ── Chat ──────────────────────────────────────────────
@@ -3400,11 +3426,11 @@ Be specific, reference evidence where relevant, keep to 3-4 sentences."""
 # STAGE 05 — ORGANISATIONAL READINESS
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 5:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 05</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Organisational Readiness</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Assesses whether Schaeffler is organisationally ready to pursue this idea — grounded in Schaeffler's own P³ formula: <b style="color:#00C853;">Performance = Portfolio × People × Process</b>. The market may be real and the technology proven, but if the internal capabilities, assets, and partnerships are not in place, the idea will stall before it reaches the Innovation pipeline.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Competency fit · Asset leverage · Partnership readiness · Org gap register · Build-or-partner recommendation · Organisational Readiness Score (0–10)</div>
+    st.markdown("## Stage 05 · Organisational Readiness")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Assesses whether Schaeffler is organisationally ready to pursue this idea — grounded in Schaeffler's own P³ formula: <b style="color:#60a5fa;">Performance = Portfolio × People × Process</b>. The market may be real and the technology proven, but if the internal capabilities, assets, and partnerships are not in place, the idea will stall before it reaches the Innovation pipeline.</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Competency fit · Asset leverage · Partnership readiness · Org gap register · Build-or-partner recommendation · Organisational Readiness Score (0–10)</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3519,10 +3545,7 @@ Return ONLY valid JSON:
             raw = call_claude(system_readiness,
                 f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL level: {trl_level}",
                 max_tokens=2500)
-            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-            if fb >= 0: raw_clean = raw_clean[fb:lb]
-            org_data = json.loads(raw_clean)
+            org_data = repair_and_parse_json(raw)
         except Exception as e:
             org_data = {
                 "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
@@ -3566,9 +3589,9 @@ Return ONLY valid JSON:
         score_col = "#22c55e" if final>=7 else "#f59e0b" if final>=4 else "#ef4444"
         bop_rec = org_data.get("build_or_partner",{}).get("recommendation","Co-develop")
         st.markdown(f"""
-<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #1e4d35;">
-  <div style="color:#4a8c6a;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">ORGANISATIONAL READINESS SCORE</div>
-  <div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#4a8c6a;"> / 10</span></div>
+<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #2a4a70;">
+  <div style="color:#94a3b8;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">ORGANISATIONAL READINESS SCORE</div>
+  <div style="color:{score_col};font-size:44px;font-weight:700;line-height:1;">{final}<span style="font-size:18px;color:#94a3b8;"> / 10</span></div>
   <div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">Build strategy: <b>{bop_rec}</b></div>
 </div>
 """, unsafe_allow_html=True)
@@ -3585,53 +3608,53 @@ Return ONLY valid JSON:
         # ── Portfolio dimension ───────────────────────────────
         port = org_data.get("p3_portfolio",{})
         st.markdown("#### Portfolio — Strategic fit")
-        st.markdown(f"<div style='background:#0d2419;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#4a8c6a;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{port.get('rationale','')}</div><div style='color:#4a8c6a;font-size:11px;margin-top:8px;'>CLUSTER FIT</div><div style='color:#00C853;font-size:13px;margin-top:4px;'>{port.get('cluster_fit','')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#1a2d45;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{port.get('rationale','')}</div><div style='color:#94a3b8;font-size:11px;margin-top:8px;'>CLUSTER FIT</div><div style='color:#60a5fa;font-size:13px;margin-top:4px;'>{port.get('cluster_fit','')}</div></div>", unsafe_allow_html=True)
         if port.get("strengths"):
             cols_ps = st.columns(len(port["strengths"][:3]))
             for i, s in enumerate(port["strengths"][:3]):
-                cols_ps[i].markdown(f'<div style="background:#0a2010;border:1px solid #007A3D55;border-radius:6px;padding:8px 12px;font-size:12px;color:#22c55e;">✓ {s}</div>', unsafe_allow_html=True)
+                cols_ps[i].markdown(f'<div style="background:#0a2010;border:1px solid #60a5fa33;border-radius:6px;padding:8px 12px;font-size:12px;color:#22c55e;">✓ {s}</div>', unsafe_allow_html=True)
         if port.get("gaps"):
             for g in port["gaps"][:2]:
-                st.markdown(f'<div style="background:#1a0808;border:1px solid #ef444444;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;color:#ef4444;">✗ Gap: {g}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background:#1a0f0f;border:1px solid #ef444433;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;color:#ef4444;">✗ Gap: {g}</div>', unsafe_allow_html=True)
         st.markdown("---")
 
         # ── People dimension ──────────────────────────────────
         peop = org_data.get("p3_people",{})
         st.markdown("#### People — Competency & skills")
-        st.markdown(f"<div style='background:#0d2419;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#4a8c6a;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{peop.get('rationale','')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#1a2d45;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{peop.get('rationale','')}</div></div>", unsafe_allow_html=True)
         if peop.get("matched_competencies"):
             st.markdown("**Matched Schaeffler competencies**")
             comp_cols = st.columns(min(3,len(peop["matched_competencies"])))
             for i, c in enumerate(peop["matched_competencies"][:3]):
-                comp_cols[i].markdown(f'<div style="background:#0a2419;border:1px solid #007A3D55;border-radius:4px;padding:8px;font-size:12px;color:#00C853;text-align:center;">{c}</div>', unsafe_allow_html=True)
+                comp_cols[i].markdown(f'<div style="background:#0a2419;border:1px solid #60a5fa33;border-radius:4px;padding:8px;font-size:12px;color:#60a5fa;text-align:center;">{c}</div>', unsafe_allow_html=True)
         if peop.get("competency_gap"):
-            st.markdown(f'<div style="background:#150d1f;border:1px solid #a78bfa55;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#a78bfa;">⚠️ Critical gap: {peop["competency_gap"]}<br><span style="color:#4a8c6a;font-size:12px;">Closure route: {peop.get("sourcing_route","")}</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#1a1020;border:1px solid #a78bfa44;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#a78bfa;">⚠️ Critical gap: {peop["competency_gap"]}<br><span style="color:#94a3b8;font-size:12px;">Closure route: {peop.get("sourcing_route","")}</span></div>', unsafe_allow_html=True)
         st.markdown("---")
 
         # ── Process dimension ─────────────────────────────────
         proc = org_data.get("p3_process",{})
         st.markdown("#### Process — Infrastructure & assets")
-        st.markdown(f"<div style='background:#0d2419;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#4a8c6a;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{proc.get('rationale','')}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#1a2d45;border-radius:6px;padding:12px 16px;margin-bottom:10px;'><div style='color:#94a3b8;font-size:11px;'>RATIONALE</div><div style='color:#e2e8f0;font-size:13px;margin-top:4px;'>{proc.get('rationale','')}</div></div>", unsafe_allow_html=True)
         if proc.get("applicable_assets"):
             st.markdown("**Applicable assets / processes**")
             for a in proc["applicable_assets"][:3]:
                 st.markdown(f"- {a}")
         if proc.get("investment_required"):
-            st.markdown(f'<div style="background:#1a1200;border:1px solid #f59e0b55;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#f59e0b;">🔧 Investment required: {proc["investment_required"]}<br><span style="color:#4a8c6a;font-size:12px;">Estimated time to close: {proc.get("time_to_close","")}</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#1a1a0f;border:1px solid #f59e0b44;border-radius:6px;padding:10px 14px;margin-top:8px;font-size:13px;color:#f59e0b;">🔧 Investment required: {proc["investment_required"]}<br><span style="color:#94a3b8;font-size:12px;">Estimated time to close: {proc.get("time_to_close","")}</span></div>', unsafe_allow_html=True)
         st.markdown("---")
 
         # ── Partnership candidates ────────────────────────────
         partners = org_data.get("partnership_candidates",[])
         if partners:
             st.markdown("#### Partnership candidates")
-            route_cols = {"Co-develop":"#007A3D","Acquire":"#f59e0b","License":"#a78bfa","JDA":"#22c55e"}
+            route_cols = {"Co-develop":"#60a5fa","Acquire":"#f59e0b","License":"#a78bfa","JDA":"#22c55e"}
             for p in partners[:4]:
-                rc = route_cols.get(p.get("route","Co-develop"),"#007A3D")
+                rc = route_cols.get(p.get("route","Co-develop"),"#60a5fa")
                 st.markdown(f"""
-<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
     <div style="color:{WHITE};font-weight:600;font-size:13px;">{p.get('name','')}</div>
-    <div style="color:#4a8c6a;font-size:12px;margin-top:3px;">{p.get('type','')} · {p.get('rationale','')}</div>
+    <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{p.get('type','')} · {p.get('rationale','')}</div>
   </div>
   <div style="background:{rc}22;color:{rc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{p.get('route','')}</div>
 </div>""", unsafe_allow_html=True)
@@ -3645,10 +3668,10 @@ Return ONLY valid JSON:
             for g in gaps[:4]:
                 sc = sev_col.get(g.get("severity","Medium"),"#f59e0b")
                 st.markdown(f"""
-<div style="background:#0d2419;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
     <div style="color:{WHITE};font-weight:600;font-size:13px;">{g.get('gap','')}</div>
-    <div style="color:#4a8c6a;font-size:12px;margin-top:3px;">{g.get('closure_route','')} · Est. {g.get('timeline','')}</div>
+    <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{g.get('closure_route','')} · Est. {g.get('timeline','')}</div>
   </div>
   <div style="background:{sc}22;color:{sc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{g.get('severity','')} severity</div>
 </div>""", unsafe_allow_html=True)
@@ -3658,8 +3681,8 @@ Return ONLY valid JSON:
         bop = org_data.get("build_or_partner",{})
         st.markdown("#### Build or partner?")
         bop_c1, bop_c2 = st.columns(2)
-        bop_c1.markdown(f'<div style="background:#0d2419;border-radius:8px;padding:14px 16px;"><div style="color:#4a8c6a;font-size:11px;margin-bottom:4px;">RECOMMENDATION</div><div style="color:#00C853;font-size:16px;font-weight:600;">{bop.get("recommendation","")}</div><div style="color:#e2e8f0;font-size:12px;margin-top:6px;">{bop.get("rationale","")}</div></div>', unsafe_allow_html=True)
-        bop_c2.markdown(f'<div style="background:#0d2419;border-radius:8px;padding:14px 16px;"><div style="color:#4a8c6a;font-size:11px;margin-bottom:4px;">TIME TO TRL 6</div><div style="color:#e2e8f0;font-size:13px;"><b>Internal:</b> {bop.get("time_to_trl6_internal","")}<br><b>With partner:</b> {bop.get("time_to_trl6_partner","")}</div></div>', unsafe_allow_html=True)
+        bop_c1.markdown(f'<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;"><div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">RECOMMENDATION</div><div style="color:#60a5fa;font-size:16px;font-weight:600;">{bop.get("recommendation","")}</div><div style="color:#e2e8f0;font-size:12px;margin-top:6px;">{bop.get("rationale","")}</div></div>', unsafe_allow_html=True)
+        bop_c2.markdown(f'<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;"><div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">TIME TO TRL 6</div><div style="color:#e2e8f0;font-size:13px;"><b>Internal:</b> {bop.get("time_to_trl6_internal","")}<br><b>With partner:</b> {bop.get("time_to_trl6_partner","")}</div></div>', unsafe_allow_html=True)
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
@@ -3691,25 +3714,20 @@ Be specific to Schaeffler's context (Vitesco integration, E-Mobility shift, OEM 
         if "s5_report_buf" not in st.session_state:
             st.session_state.s5_report_buf = None
         if st.session_state.s5_report_buf is None:
-            if st.button("⬇️ Download Organisational Readiness Report", type="primary", key="s5_report_btn"):
-                _prog = st.progress(0, text="Preparing report…")
-                _prog.progress(15, text="Building document structure…")
-                try:
-                    st.session_state.s5_report_buf = generate_org_report(idea, quadrant, s1c, d)
-                    _prog.progress(75, text="Formatting pages…")
-                    _prog.progress(100, text="Ready — starting download…")
-                    _prog.empty()
-                except Exception as e:
-                    _prog.empty()
-                    st.error(f"Report error: {e}")
-        if st.session_state.s5_report_buf is not None:
+            if st.button("⬇️ Download Organisational Readiness Report", type="primary", key="s5_dl"):
+                with st.spinner("Generating report — this takes about 20 seconds..."):
+                    try:
+                        st.session_state.s5_report_buf = generate_org_report(idea, quadrant, s1c, d)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report error: {e}")
+        else:
             st.download_button(
-                label="⬇️ Click to save — Organisational Readiness Report",
+                label="⬇️ Download Organisational Readiness Report",
                 data=st.session_state.s5_report_buf,
                 file_name=f"Schaeffler_Org_Readiness_{datetime.now().strftime('%Y%m%d')}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                type="primary",
-                key="s5_report_dl"
+                type="primary"
             )
         st.markdown("---")
         st.success(f"✓ Organisational Readiness complete. Score: **{final}/10**")
@@ -3729,11 +3747,11 @@ Be specific to Schaeffler's context (Vitesco integration, E-Mobility shift, OEM 
 # STAGE 06 — SCORING & SYNTHESIS
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 6:
-    st.markdown('''<div style="border-left:4px solid #007A3D;padding-left:14px;margin-bottom:4px;"><div style="font-family:Arial,sans-serif;color:#00C853;font-size:9px;letter-spacing:2.5px;font-weight:700;">STAGE 06</div><div style="font-family:Arial,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.3px;">Scoring &amp; Synthesis</div></div>''', unsafe_allow_html=True)
-    st.markdown("""<div style="background:#0a2419;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #007A3D;">
-<div style="color:#00C853;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;">WHAT THIS STAGE DOES</div>
+    st.markdown("## Stage 06 · Scoring & Synthesis")
+    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
 <div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Combines scores from Stages 02, 03, 04, and 05 into a single Innovation Potential Index (IPI). You set the weights. The assistant generates a final recommendation, strategic synthesis, and a downloadable master report covering the full pipeline analysis.</div>
-<div style="color:#4a8c6a;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Weighted IPI score · Radar chart · PROCEED / DEFER / REJECT recommendation · Strongest signals & concerns · Next steps · Full Innovation Assessment Report</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Weighted IPI score · Radar chart · PROCEED / DEFER / REJECT recommendation · Strongest signals & concerns · Next steps · Full Innovation Assessment Report</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3908,11 +3926,8 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
   "next_steps": ["concrete Schaeffler-specific action step 1", "concrete action step 2", "concrete action step 3", "concrete action step 4"]
 }"""
         raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
-        raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
-        fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
-        if fb >= 0: raw1_clean = raw1_clean[fb:lb]
         try:
-            synthesis_structured = json.loads(raw1_clean)
+            synthesis_structured = repair_and_parse_json(raw1)
         except:
             synthesis_structured = {
                 "headline": f"IPI score of {ipi}/10 — {'strong' if ipi>=7 else 'moderate' if ipi>=4 else 'weak'} opportunity in {s2d.get('market',{}).get('market_name','this market')}.",
@@ -3991,11 +4006,11 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
 
         # ── IPI banner ────────────────────────────────────────
         st.markdown(f"""
-<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #1e4d35;">
+<div style="background:#0f1e35;border-radius:8px;padding:20px 24px;margin-bottom:20px;border:1px solid #2a4a70;">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;">
     <div>
-      <div style="color:#4a8c6a;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">INNOVATION POTENTIAL INDEX</div>
-      <div style="color:{ipi_col};font-size:48px;font-weight:700;line-height:1;">{ipi}<span style="font-size:20px;color:#4a8c6a;"> / 10</span></div>
+      <div style="color:#94a3b8;font-size:9px;letter-spacing:2px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">INNOVATION POTENTIAL INDEX</div>
+      <div style="color:{ipi_col};font-size:48px;font-weight:700;line-height:1;">{ipi}<span style="font-size:20px;color:#94a3b8;"> / 10</span></div>
       <div style="color:{WHITE};font-size:13px;margin-top:6px;opacity:0.8;">{synthesis.get('headline','')}</div>
     </div>
     <div style="text-align:right;">
@@ -4018,7 +4033,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         fig_radar.add_trace(go.Scatterpolar(
             r=values_close, theta=cats_close,
             fill="toself",
-            fillcolor="rgba(0,166,81,0.18)",
+            fillcolor=f"rgba(96,165,250,0.15)",
             line=dict(color=BLUE, width=2),
             marker=dict(size=8, color=BLUE),
             name="Score"
@@ -4026,7 +4041,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         # Add benchmark line at 7
         fig_radar.add_trace(go.Scatterpolar(
             r=[7,7,7,7,7], theta=cats_close,
-            line=dict(color="#4a8c6a", width=1.5, dash="dot"),
+            line=dict(color="#4a6fa5", width=1, dash="dot"),
             marker=dict(size=0),
             fill=None,
             name="Target (7/10)",
@@ -4038,12 +4053,12 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                 radialaxis=dict(
                     visible=True, range=[0,10],
                     tickfont=dict(color=WHITE, size=10),
-                    gridcolor="#1e4d35", linecolor="#1e4d35",
+                    gridcolor="#2a4a70", linecolor="#2a4a70",
                     tickvals=[2,4,6,8,10]
                 ),
                 angularaxis=dict(
                     tickfont=dict(color=WHITE, size=12),
-                    gridcolor="#1e4d35", linecolor="#1e4d35"
+                    gridcolor="#2a4a70", linecolor="#2a4a70"
                 )
             ),
             paper_bgcolor=BG,
@@ -4157,36 +4172,31 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
 
         # ── Master report download ────────────────────────────
         st.markdown("---")
-        if "s6_report_buf" not in st.session_state:
+        if "s5_report_buf" not in st.session_state:
             st.session_state.s6_report_buf = None
 
         if st.session_state.s6_report_buf is None:
-            if st.button("⬇️ Download Full Innovation Assessment Report", type="primary", key="s6_report_btn"):
-                _prog = st.progress(0, text="Preparing master report…")
-                _prog.progress(10, text="Compiling Stage 02 — Market Intelligence…")
-                try:
-                    st.session_state.s6_report_buf = generate_master_report(
-                        idea, quadrant, s1c,
-                        st.session_state.s2_data,
-                        st.session_state.s3_data,
-                        st.session_state.s4_data,
-                        st.session_state.s5_data,
-                        d
-                    )
-                    _prog.progress(80, text="Compiling all stages…")
-                    _prog.progress(100, text="Ready — starting download…")
-                    _prog.empty()
-                except Exception as e:
-                    _prog.empty()
-                    st.error(f"Report error: {e}")
-        if st.session_state.s6_report_buf is not None:
+            if st.button("⬇️ Download Full Innovation Assessment Report", type="primary"):
+                with st.spinner("Generating master report — this covers all 5 stages..."):
+                    try:
+                        st.session_state.s6_report_buf = generate_master_report(
+                            idea, quadrant, s1c,
+                            st.session_state.s2_data,
+                            st.session_state.s3_data,
+                            st.session_state.s4_data,
+                            st.session_state.s5_data,
+                            d
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report error: {e}")
+        else:
             st.download_button(
-                label="⬇️ Click to save — Full Innovation Assessment Report",
+                label="⬇️ Download Full Innovation Assessment Report",
                 data=st.session_state.s6_report_buf,
                 file_name=f"Schaeffler_Innovation_Assessment_{datetime.now().strftime('%Y%m%d')}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                type="primary",
-                key="s6_report_dl"
+                type="primary"
             )
             st.caption("Covers all 5 stages: Market Intelligence · Patent Intelligence · Technical Feasibility · Organisational Readiness · Innovation Potential Index")
 
