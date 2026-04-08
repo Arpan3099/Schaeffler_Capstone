@@ -171,23 +171,22 @@ button[data-testid="baseButton-headerNoPadding"] {
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
-    color: transparent !important;
-    font-size: 0 !important;
 }
-button[data-testid="baseButton-headerNoPadding"] * {
-    color: transparent !important;
-    font-size: 0 !important;
+button[data-testid="baseButton-headerNoPadding"] svg,
+button[data-testid="baseButton-headerNoPadding"] span,
+button[data-testid="baseButton-headerNoPadding"] p {
+    display: none !important;
 }
 button[data-testid="baseButton-headerNoPadding"]::after {
     content: "«";
-    position: absolute;
-    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px !important;
+    position: absolute;
+    inset: 0;
+    font-size: 16px;
     font-weight: 700;
-    color: #FFFFFF !important;
+    color: #FFFFFF;
     font-family: Arial, sans-serif;
 }
 [data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
@@ -251,24 +250,6 @@ code, pre, .stCode {
 </style>
 
 <script>
-// Fix sidebar collapse arrow — replaces Material icon text with a unicode arrow
-(function() {
-    function fixArrow() {
-        var btns = document.querySelectorAll('button[data-testid="baseButton-headerNoPadding"]');
-        btns.forEach(function(btn) {
-            // Clear all child nodes so the icon text disappears
-            while (btn.firstChild) { btn.removeChild(btn.firstChild); }
-        });
-    }
-    // Run immediately, after delays, and on any DOM change
-    fixArrow();
-    setTimeout(fixArrow, 300);
-    setTimeout(fixArrow, 800);
-    setTimeout(fixArrow, 1500);
-    var obs = new MutationObserver(function() { fixArrow(); });
-    obs.observe(document.body, { childList: true, subtree: true });
-})();
-
 // Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
     var svgFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23007A3D'/%3E%3Ctext x='16' y='24' font-family='Arial,Helvetica,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E";
