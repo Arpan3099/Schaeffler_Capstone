@@ -11,10 +11,6 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import io
 from datetime import datetime
-import gspread
-from google.oauth2.service_account import Credentials
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment as XlAlign
 
 # Load API key — Streamlit secrets take priority, fallback to hardcoded for local dev
 TAVILY_KEY = ""  # optional
@@ -26,112 +22,6 @@ try:
     ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
 except Exception:
     ANTHROPIC_KEY = "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"
-
-# ── Google Sheets — Idea Log ──────────────────────────────────────────────────
-SHEET_ID = "1Ya-z55BtzRS7NYiKiM8U8E0-NChueTVprJovvUrvZ6s"
-
-_SA_INFO = {
-    "type": "service_account",
-    "project_id": "absolute-dahlia-450007-r8",
-    "private_key_id": "292e1cb7c9d249e34ad3f89ab2f180e865ea1576",
-    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCbuv2KGVKo3RN+\nY2vvVAsjGRBFxu8j8p8tGYxrvaxc0g0wefRZq0hOJbh9zBZu+dL4JwWf5SAJQ+Yp\nLdqctTIl+M6vBJNL1J8iNZxtmOmKrQeGvI+O+CnkU/4ZVMLk+lhOUrSVyJ8rPXOl\nT4E5ar8j+ZpWtueKtODgdKVgYHpTX4kjYj+/ochlFG6DQfhSWmJDf52Gfd/nldZt\n13+n3/uHYmLI1wKNFEpVaq3Qd2r191bcVAY8/NrOtRaqtHsoINAP2Sn6rEuGthaa\niZECrIkYiMKkjTWk8E8XIv9Zv2JnBOWPErIHRbGGHV6WBz5p0Z0L1GLGDiuhvha8\nvq6AiVsXAgMBAAECggEAHCGClDQv1NYeo9mU0UY2vs/Tuy8M2ssEivKPBZVdMeU1\nwbh99ca1iHxS39KCiOhy/iWaZABRMatEw9KHJ4Cpvuc7eq0SaIPPfS//AmM5aLYJ\n4oJkUlisxJSRlYTUseUxF3DkMxxq+DYhEk8S0krgnUCE6z4eBFXZO2KGzyqOXknf\nCS0ThZ2ky0/ytuIoj8OeCkanuBQZXj219zH0Kiamqt7AWs7qSUoafnejkkQGJ5xR\nKrYr+Y0D4L9LFmZEbidlfoHZOcz7vrHvkx3RrL+RA2QJU7XolzR6sl7ecwzLGifs\nvsCxzD52+7pOvwNUp/hHpol/2bD8W0xkDcRpqCFrKQKBgQDKJ6V12ElUixKz9djx\n3X8SLpQTJihAqIts5gesaNp1mAG7/3nAq1cThprwKaYPukkPYbwGjN/IPXwZKfZr\nfyHxFBA/a5ooz2bJoEm4w4w8dIrqxbDd9K2HuqKSnW0ouU/Hustv7gE+zkyGFRIx\nJ08hJwQaMuAfulzt/7vhbOvjDwKBgQDFNcvjltsm8gw80jjCxh3+6r+UDFPncVDL\niL5P/q6pfCzulsdxFVZUfx9yh9mCrxGopbdZnmzQW86GuhfnPC+AQpYdltGTOUdx\n+calCeSAmtfoztI3P+CmR4DDiZ4c2rfPlqOwwHueJXo62u8984y7NsGBdCRCrBSG\njVzFWFBneQKBgHTF/BUbsBhPEam0rPHh0cJN96ksFHptIcTxB6O3GeJtwSq4w7rg\n/ra/vYZXeJ6DLCrfeP6Lp8UCh0n97GNiF9grj8siu/UxAR4dIhjBlKNjas99DNLZ\nwNeznq90kpbAnO4x38wzPrLp9lhJma2dGF99Kyh7FO4e+Ale/UeVZJlPAoGAB8N6\nZ1dFAV9+A9byzRgnjiWHrThfBTl8yMZ1V4jbL2joC+x7pYQFhgYLIuMeOPrTYyRC\n95A5EGrM0pj43+2KoS394uRRE86pdV8z5sNg738pCM07kVk+as1d0FTWmKQzoER5\n5TdupmcrTK3ZxUKVQ7mAHKyJ0OYdWL6v7ETxxWECgYA2RXMn67Pb0CtfX1Gs7ztB\n8N3PMOtYdz/TQbOK0u4waWrzbnFUCvsH39yoqiDofYdUDN/E/31IXoTzCi3N4F2U\ncvJ3oid6ZubsBA2gJrHTYvd/yljV+o8kuzUV4d2/fxTuphhh2TyoYa3BUD+W7alr\nDs4l7RfxIUIgMviRmVpAdw==\n-----END PRIVATE KEY-----\n",
-    "client_email": "schaeffler-capstone@absolute-dahlia-450007-r8.iam.gserviceaccount.com",
-    "client_id": "105367783720778854419",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/schaeffler-capstone%40absolute-dahlia-450007-r8.iam.gserviceaccount.com",
-    "universe_domain": "googleapis.com"
-}
-
-SHEET_COLUMNS = [
-    "Date", "Submitter Name", "Position", "Department",
-    "Full Idea Description", "Clarifying Q&A",
-    "Quadrant", "Innovation Cluster", "Product Family",
-    "Market Score", "Patent Score", "Feasibility Score", "Org Readiness Score", "IPI Score",
-    "Recommendation", "Key Concerns", "Next Steps",
-    "Market Name", "Market Size 2024", "CAGR",
-    "TRL Level", "Build Strategy"
-]
-
-def _sheets_client():
-    scopes = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive"
-    ]
-    creds = Credentials.from_service_account_info(_SA_INFO, scopes=scopes)
-    return gspread.authorize(creds)
-
-def load_past_ideas():
-    try:
-        ws = _sheets_client().open_by_key(SHEET_ID).sheet1
-        return ws.get_all_records()
-    except Exception:
-        return []
-
-def save_idea_to_sheets(row_data: dict):
-    try:
-        sh = _sheets_client().open_by_key(SHEET_ID)
-        ws = sh.sheet1
-        existing = ws.get_all_values()
-        if not existing:
-            ws.append_row(SHEET_COLUMNS)
-        row = [str(row_data.get(col, "")) for col in SHEET_COLUMNS]
-        ws.append_row(row)
-        return True
-    except Exception as e:
-        return False
-
-def check_similar_ideas(new_idea, past_ideas):
-    if not past_ideas:
-        return []
-    past_summaries = "\n".join([
-        f"- [{r.get('Date','')}] {r.get('Submitter Name','Unknown')} ({r.get('Department','')}): {str(r.get('Full Idea Description',''))[:200]}"
-        for r in past_ideas[:30]
-    ])
-    result = call_claude(
-        'You compare innovation ideas. Return ONLY valid JSON: {"similar": [{"date": "...", "submitter": "...", "department": "...", "idea_snippet": "...", "quadrant": "...", "ipi": "...", "recommendation": "...", "similarity": "High/Medium", "reason": "one sentence"}]}. Return empty similar array if nothing is genuinely similar.',
-        f"New idea: {new_idea}\n\nPast researched ideas:\n{past_summaries}",
-        max_tokens=600
-    )
-    try:
-        raw = result.strip().replace("```json","").replace("```","").strip()
-        fb = raw.find("{"); lb = raw.rfind("}") + 1
-        if fb >= 0: raw = raw[fb:lb]
-        return json.loads(raw).get("similar", [])
-    except Exception:
-        return []
-
-def generate_ideas_excel():
-    records = load_past_ideas()
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Innovation Ideas"
-    hdr_fill  = PatternFill("solid", fgColor="1F3864")
-    hdr_font  = Font(bold=True, color="FFFFFF", size=10)
-    alt_fill  = PatternFill("solid", fgColor="EAF1FB")
-    if not records:
-        ws.append(["No ideas recorded yet — complete a full pipeline assessment to populate this log."])
-        ws["A1"].font = Font(italic=True, color="555555")
-    else:
-        headers = list(records[0].keys())
-        ws.append(headers)
-        for cell in ws[1]:
-            cell.font = hdr_font
-            cell.fill = hdr_fill
-            cell.alignment = XlAlign(horizontal="center", wrap_text=True)
-        for i, record in enumerate(records, start=2):
-            ws.append([record.get(h, "") for h in headers])
-            if i % 2 == 0:
-                for cell in ws[i]:
-                    cell.fill = alt_fill
-        for col in ws.columns:
-            max_len = max((len(str(cell.value or "")) for cell in col), default=10)
-            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return buf
 
 # ── Styling — sidebar identity + sidebar-toggle arrow fix ────
 st.markdown("""
@@ -145,24 +35,19 @@ section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
 }
 section[data-testid="stSidebar"] .stButton > button {
-    background: transparent !important;
-    color: rgba(255,255,255,0.75) !important;
-    border: none !important;
-    border-radius: 4px !important;
-    font-size: 12px !important;
-    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
-    font-weight: 400 !important;
-    letter-spacing: 0.3px !important;
-    padding: 8px 12px !important;
-    text-align: left !important;
-}
-section[data-testid="stSidebar"] .stButton > button:hover {
     background: rgba(255,255,255,0.12) !important;
     color: #FFFFFF !important;
+    border: 1px solid rgba(255,255,255,0.35) !important;
+    border-radius: 4px !important;
+    font-size: 12px !important;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: rgba(255,255,255,0.22) !important;
 }
 
 /* ── Fix sidebar collapse/expand toggle button ── */
-/* Suppress Material icon text with every available technique */
+/* Streamlit renders a Material icon name as text when the font isn't loaded.
+   We hide it and force a unicode double-arrow instead. */
 button[data-testid="baseButton-headerNoPadding"] {
     overflow: hidden !important;
     position: relative !important;
@@ -172,19 +57,10 @@ button[data-testid="baseButton-headerNoPadding"] {
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
-    color: transparent !important;
-    font-size: 0px !important;
-    line-height: 0 !important;
 }
-button[data-testid="baseButton-headerNoPadding"] *,
 button[data-testid="baseButton-headerNoPadding"] svg,
-button[data-testid="baseButton-headerNoPadding"] span,
-button[data-testid="baseButton-headerNoPadding"] p {
+button[data-testid="baseButton-headerNoPadding"] span {
     display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    font-size: 0px !important;
-    color: transparent !important;
 }
 button[data-testid="baseButton-headerNoPadding"]::after {
     content: "«";
@@ -193,11 +69,9 @@ button[data-testid="baseButton-headerNoPadding"]::after {
     justify-content: center;
     position: absolute;
     inset: 0;
-    font-size: 16px !important;
+    font-size: 16px;
     font-weight: 700;
-    color: #FFFFFF !important;
-    visibility: visible !important;
-    opacity: 1 !important;
+    color: #FFFFFF;
     font-family: Arial, sans-serif;
 }
 /* When sidebar is collapsed, the control button flips */
@@ -211,23 +85,6 @@ button[data-testid="baseButton-headerNoPadding"]::after {
     font-size:11px; padding:2px 8px;
     border-radius:3px; margin-left:6px;
     font-family: monospace;
-}
-
-/* ── Global font consistency — Arial/Helvetica Neue throughout ── */
-html, body, [class*="css"],
-.stApp, .stMarkdown, .stText,
-.stButton > button,
-.stTextInput > div > div > input,
-.stTextArea > div > div > textarea,
-.stSelectbox > div > div,
-.stMetric, .stChatMessage,
-.stCaption, .stAlert,
-h1, h2, h3, h4, h5, h6, p, div, span, label, li {
-    font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif !important;
-}
-/* Keep monospace only for code blocks */
-code, pre, .stCode {
-    font-family: 'Courier New', Courier, monospace !important;
 }
 </style>
 
@@ -298,6 +155,65 @@ def call_claude_chat(system, history, max_tokens=500):
             else:
                 return "The API is briefly overloaded — please try again in a moment."
 
+def repair_and_parse_json(raw: str) -> dict:
+    """
+    Robustly extract and parse JSON from an LLM response.
+    Handles: markdown fences, literal newlines inside strings,
+    trailing commas, and truncated output.
+    """
+    import re
+    # 1. Strip markdown fences
+    text = raw.strip().replace("```json", "").replace("```", "").strip()
+    # 2. Extract the outermost {...} block
+    first = text.find("{")
+    last  = text.rfind("}")
+    if first == -1 or last == -1:
+        raise ValueError("No JSON object found in response")
+    text = text[first:last + 1]
+    # 3. First attempt — try as-is
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # 4. Replace literal newlines INSIDE quoted strings with \n escape
+    #    We do a character-by-character pass so we only touch inside strings.
+    result = []
+    in_string = False
+    escape_next = False
+    for ch in text:
+        if escape_next:
+            result.append(ch)
+            escape_next = False
+        elif ch == "\\":
+            result.append(ch)
+            escape_next = True
+        elif ch == '"' and not escape_next:
+            in_string = not in_string
+            result.append(ch)
+        elif in_string and ch == "\n":
+            result.append("\\n")
+        elif in_string and ch == "\r":
+            result.append("\\r")
+        elif in_string and ch == "\t":
+            result.append("\\t")
+        else:
+            result.append(ch)
+    cleaned = "".join(result)
+    # 5. Remove trailing commas before } or ]
+    cleaned = re.sub(r",\s*([}\]])", r"\1", cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        # 6. Last resort — try to truncate to last valid closing brace
+        last_valid = cleaned.rfind("}")
+        if last_valid > 0:
+            try:
+                return json.loads(cleaned[:last_valid + 1])
+            except Exception:
+                pass
+        raise e
+
+
 def tavily_search(query):
     if not TAVILY_KEY:
         return []
@@ -315,10 +231,6 @@ def tavily_search(query):
 # ── Session state ─────────────────────────────────────────────
 defaults = {
     "active_stage": 1,
-    # User identity
-    "user_name": "",
-    "user_position": "",
-    "user_dept": "",
     # Stage 01
     "s1_step": 1,
     "s1_idea": "",
@@ -326,7 +238,6 @@ defaults = {
     "s1_answers": [],
     "s1_classification": {},
     "s1_chat": [],
-    "s1_similar_ideas": [],
     # Stage 02
     "s2_step": "intro",
     "s2_data": {},
@@ -379,26 +290,6 @@ with st.sidebar:
         st.caption(f"**Idea:** {st.session_state.s1_idea[:60]}...")
         if st.session_state.s1_classification:
             st.caption(f"**Quadrant:** {st.session_state.s1_classification.get('quadrant','')}")
-
-    # ── Ideas Log — Excel download (bottom of sidebar) ───────
-    st.markdown("---")
-    if st.button("↓  Download Ideas Log", key="sidebar_xl", use_container_width=True):
-        with st.spinner("Building..."):
-            try:
-                xl_buf = generate_ideas_excel()
-                st.session_state["_sidebar_xl_buf"] = xl_buf
-                st.rerun()
-            except Exception as e:
-                st.error(f"Could not load ideas log: {e}")
-    if st.session_state.get("_sidebar_xl_buf"):
-        st.download_button(
-            label="↓  Save Ideas Log (.xlsx)",
-            data=st.session_state["_sidebar_xl_buf"],
-            file_name=f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="sidebar_xl_dl",
-            use_container_width=True
-        )
 
 # ── Ansoff chart helper ───────────────────────────────────────
 def ansoff_chart(quadrant, tech_score, market_score):
@@ -541,11 +432,8 @@ Return ONLY valid JSON, no markdown backticks:
         org_ctx,
         max_tokens=3500
     )
-    raw_e = extended.strip().replace("```json","").replace("```","").strip()
-    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
-    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(raw_e)
+        ext = repair_and_parse_json(extended)
     except:
         ext = {
             "executive_summary": f"Schaeffler\'s organisational readiness for this idea scores {s5d.get('final_score',5)}/10. The P3 assessment shows Portfolio fit at {s5d.get('p_portfolio',5)}/10, People readiness at {s5d.get('p_people',5)}/10, and Process readiness at {s5d.get('p_process',5)}/10. Recommended build strategy: {bop.get('recommendation','Co-develop')}. {bop.get('rationale','')}",
@@ -741,11 +629,8 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
 }''',
         master_ctx, max_tokens=4000
     )
-    raw_e = enriched.strip().replace("```json","").replace("```","").strip()
-    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
-    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        enr = json.loads(raw_e)
+        enr = repair_and_parse_json(enriched)
     except:
         enr = {
             "executive_summary": f"This innovation idea ({idea[:80]}) has been assessed across four dimensions of Schaeffler\'s Innovation Pipeline, yielding an Innovation Potential Index (IPI) of {ipi}/10. The recommendation is: {synthesis.get('recommendation','PROCEED WITH CONDITIONS')}. {synthesis.get('recommendation_rationale','')} The strongest signal is: {synthesis.get('strongest_signals',['market opportunity'])[0] if synthesis.get('strongest_signals') else 'market opportunity'}. The primary concern is: {synthesis.get('key_concerns',['technical maturity'])[0] if synthesis.get('key_concerns') else 'technical maturity'}.",
@@ -1116,11 +1001,8 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         feas_ctx,
         max_tokens=3500
     )
-    raw_e = extended.strip().replace("```json","").replace("```","").strip()
-    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
-    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(raw_e)
+        ext = repair_and_parse_json(extended)
     except:
         ext = {
             "executive_summary": f"This innovation idea is assessed at TRL {trl.get('trl_level',3)} — {trl.get('trl_label','')}. Existence verdict: {existence.get('existence_verdict','Research Stage')}. {existence.get('existence_summary','')} Schaeffler entry readiness: {trl.get('schaeffler_entry_readiness','Ready for Innovation')}. Estimated time to production readiness: {existence.get('time_to_readiness','3-5 years')}.",
@@ -1336,11 +1218,8 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         pat_ctx,
         max_tokens=3500
     )
-    raw_e = extended.strip().replace("```json","").replace("```","").strip()
-    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
-    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(raw_e)
+        ext = repair_and_parse_json(extended)
     except:
         sp = ansoff_data.get('schaeffler_position',{})
         ext = {
@@ -1515,11 +1394,8 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         mkt_ctx,
         max_tokens=3500
     )
-    raw_e = extended.strip().replace("```json","").replace("```","").strip()
-    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
-    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = json.loads(raw_e)
+        ext = repair_and_parse_json(extended)
     except:
         ext = {
             "executive_summary": f"The {market.get('market_name','target market')} represents a {market.get('market_maturity','growing')} opportunity. Market size is estimated at {market.get('market_size_2024','significant')} in 2024, projected to reach {market.get('market_size_2030','substantial')} by 2030 at a CAGR of {market.get('cagr','strong growth')}. Competitive intensity is {comp.get('competitive_intensity','moderate')}, with white space identified: {comp.get('white_space','see analysis')}.",
@@ -1821,10 +1697,7 @@ Return ONLY valid JSON:
 "white_spaces":["white space 1","white space 2","white space 3"]}"""
     raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1500)
     try:
-        raw_c = raw.strip().replace("```json","").replace("```","").strip()
-        fb = raw_c.find("{"); lb = raw_c.rfind("}") + 1
-        if fb >= 0: raw_c = raw_c[fb:lb]
-        landscape = json.loads(raw_c)
+        landscape = repair_and_parse_json(raw)
     except:
         landscape = {"technology_keywords":[],"landscape_summary":"N/A","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","patent_landscape_score":5,"key_filers":[],"white_spaces":[]}
 
@@ -1843,10 +1716,7 @@ Return ONLY valid JSON:
         f"Idea: {idea}\nQuadrant: {quadrant}\nMap ALL {len(key_filers_run3)} filers: {filers_full_run3}",
         max_tokens=max(1800, len(key_filers_run3) * 200 + 800))
     try:
-        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
-        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
-        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
-        ansoff_data = json.loads(raw2_c)
+        ansoff_data = repair_and_parse_json(raw2)
     except:
         ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
 
@@ -1895,10 +1765,7 @@ Return ONLY valid JSON:
 "technology_gaps":["gap 1","gap 2","gap 3"],"time_to_readiness":"e.g. 3-5 years","keywords":["6-10 key technical terms from this domain"]}"""
     raw = call_claude(system_existence, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
     try:
-        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-        if fb >= 0: raw_clean = raw_clean[fb:lb]
-        existence = json.loads(raw_clean)
+        existence = repair_and_parse_json(raw)
     except:
         existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"N/A","evidence":[],"technology_gaps":[],"time_to_readiness":"Not yet estimated","keywords":[]}
 
@@ -1911,10 +1778,7 @@ Return ONLY valid JSON:
 "trl_score":1-10}"""
     raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps','')}", max_tokens=1200)
     try:
-        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
-        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
-        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
-        trl = json.loads(raw2_c)
+        trl = repair_and_parse_json(raw2)
     except:
         trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":3}
 
@@ -1962,10 +1826,7 @@ Return ONLY valid JSON:
 
     raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=2500)
     try:
-        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-        if fb >= 0: raw_clean = raw_clean[fb:lb]
-        org_data = json.loads(raw_clean)
+        org_data = repair_and_parse_json(raw)
     except:
         org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"org_readiness_score":5}
 
@@ -2017,11 +1878,8 @@ Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partn
 "next_steps":["action 1","action 2","action 3","action 4"]}"""
 
     raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
-    raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
-    fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
-    if fb >= 0: raw1_clean = raw1_clean[fb:lb]
     try:
-        synthesis_structured = json.loads(raw1_clean)
+        synthesis_structured = repair_and_parse_json(raw1)
     except:
         synthesis_structured = {"headline":f"IPI {ipi}/10","recommendation":"PROCEED WITH CONDITIONS" if ipi>=5 else "DEFER","recommendation_rationale":"Based on pipeline analysis.","strongest_signals":[],"key_concerns":[],"conditions":[],"strategic_fit":"","risks":[],"next_steps":[]}
 
@@ -2049,32 +1907,16 @@ if st.session_state.active_stage == 1:
 
     # Step 1 — Input
     if st.session_state.s1_step == 1:
-        st.subheader("Step 1 — Who are you & describe your idea")
-
-        ucol1, ucol2, ucol3 = st.columns(3)
-        with ucol1:
-            user_name = st.text_input("Your name *", value=st.session_state.user_name, placeholder="e.g. Anna Müller")
-        with ucol2:
-            user_position = st.text_input("Position / Role *", value=st.session_state.user_position, placeholder="e.g. Senior Engineer")
-        with ucol3:
-            user_dept = st.text_input("Department *", value=st.session_state.user_dept, placeholder="e.g. E-Mobility R&D")
-
-        st.markdown("---")
+        st.subheader("Step 1 — Describe your idea")
         idea = st.text_area("What is your innovation idea?", height=150,
             placeholder="e.g. A self-lubricating bearing system that uses micro-reservoirs embedded within the bearing material to release lubricant automatically based on temperature and load sensing...")
 
         if st.button("Submit idea", type="primary"):
-            if not user_name.strip() or not user_position.strip() or not user_dept.strip():
-                st.warning("Please fill in your name, position, and department before continuing.")
-            elif not idea.strip():
+            if not idea.strip():
                 st.warning("Please enter your idea first.")
             elif len(idea.split()) < 15:
                 st.warning("A bit brief — can you add more detail? What does it do, and for whom?")
             else:
-                # Save user identity
-                st.session_state.user_name     = user_name.strip()
-                st.session_state.user_position = user_position.strip()
-                st.session_state.user_dept     = user_dept.strip()
                 with st.spinner("Checking your idea..."):
                     check = call_claude(
                         'Check if this innovation idea has enough detail to classify. Reply ONLY with JSON: {"sufficient": true/false, "missing": "one short sentence or empty string"}',
@@ -2088,11 +1930,6 @@ if st.session_state.active_stage == 1:
                     st.warning(f"A bit more detail needed: {result.get('missing','')}")
                 else:
                     st.session_state.s1_idea = idea
-                    # Check for similar past ideas
-                    with st.spinner("Checking against past ideas..."):
-                        past = load_past_ideas()
-                        similar = check_similar_ideas(idea, past)
-                        st.session_state.s1_similar_ideas = similar
                     st.session_state.s1_step = 2
                     st.rerun()
 
@@ -2101,22 +1938,6 @@ if st.session_state.active_stage == 1:
         st.markdown("---")
         st.subheader("Step 2 — Three quick questions")
         st.info(f"**Your idea:** {st.session_state.s1_idea}")
-
-        # ── Similar ideas alert ───────────────────────────────
-        similar = st.session_state.get("s1_similar_ideas", [])
-        if similar:
-            st.warning(f"⚠️ **{len(similar)} similar idea(s) previously researched** — review before proceeding.")
-            for s in similar:
-                sim_col = "#f59e0b" if s.get("similarity") == "High" else "#60a5fa"
-                st.markdown(f"""
-<div style="background:#1a2d45;border-left:4px solid {sim_col};border-radius:4px;padding:12px 16px;margin:6px 0;">
-  <div style="color:{sim_col};font-size:11px;font-weight:600;letter-spacing:1px;">{s.get('similarity','').upper()} SIMILARITY — {s.get('date','')} · {s.get('submitter','')} ({s.get('department','')})</div>
-  <div style="color:#e2e8f0;font-size:13px;margin-top:4px;">{s.get('idea_snippet','')}</div>
-  <div style="color:#94a3b8;font-size:12px;margin-top:4px;">Quadrant: <b>{s.get('quadrant','')}</b> · IPI: <b>{s.get('ipi','')}</b> · Outcome: <b>{s.get('recommendation','')}</b></div>
-  <div style="color:#94a3b8;font-size:12px;margin-top:2px;">Similarity reason: {s.get('reason','')}</div>
-</div>
-""", unsafe_allow_html=True)
-            st.markdown("---")
         st.caption("These answers help refine the classification. The idea description itself drives the result — use these to add context, not to override what the idea clearly is.")
 
         # Q1 — Technology novelty
@@ -2233,10 +2054,7 @@ Return ONLY valid JSON:
                     f"Q: {q[0]} A: {a[0]}\n"
                     f"Q: {q[1]} A: {a[1]}\n"
                     f"Q: {q[2]} A: {a[2]}")
-                raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-                fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-                if fb >= 0: raw_clean = raw_clean[fb:lb]
-                classification = json.loads(raw_clean)
+                classification = repair_and_parse_json(raw)
                 # Hard-code proceed based on quadrant — never trust Claude's value here
                 # EXPLOIT and EXTEND must always redirect; RADICAL and DISRUPTIVE always proceed
                 q_result = classification.get("quadrant","").upper()
@@ -2353,8 +2171,8 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
                     st.session_state.s1_chat.append({"role":"assistant","content":reply})
 
         if st.button("← Start over", key="s1_startover"):
-            for k in ["s1_step","s1_idea","s1_questions","s1_answers","s1_classification","s1_chat","s1_similar_ideas","user_name","user_position","user_dept"]:
-                st.session_state[k] = defaults.get(k, "" if k in ("user_name","user_position","user_dept") else defaults.get(k))
+            for k in ["s1_step","s1_idea","s1_questions","s1_answers","s1_classification","s1_chat"]:
+                st.session_state[k] = defaults[k]
             st.rerun()
 
 # ════════════════════════════════════════════════════════════
@@ -2407,7 +2225,7 @@ Return ONLY valid JSON:
 "geographic_focus":"string","market_score":integer 1-10 (9-10=large fast-growing >$10bn/>15%CAGR; 7-8=strong $2-10bn/8-15%; 5-6=moderate; 3-4=niche; 1-2=tiny or declining),"market_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}")
-            market = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+            market = repair_and_parse_json(raw)
         except:
             market = {"market_name":"N/A","market_size_2024":"N/A","market_size_2030":"N/A","cagr":"N/A",
                       "growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
@@ -2421,7 +2239,7 @@ Every company must have a source. Return ONLY valid JSON:
 "competition_score":integer 1-10 openness (9-10=very open/few players; 7-8=some room; 5-6=moderate; 3-4=crowded; 1-2=saturated),"competition_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}{web_ctx}")
-            comp = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+            comp = repair_and_parse_json(raw)
         except:
             comp = {"competitors":[],"competitive_intensity":"N/A","white_space":"N/A",
                     "schaeffler_advantage":"N/A","competition_score":5,"competition_score_rationale":""}
@@ -2437,7 +2255,7 @@ Return ONLY valid JSON:
 Sector fit score rubric: Average the top 3 sector scores. If primary sector scores 9-10 = sector_fit 9-10; if 7-8 = 7-8; etc."""
         try:
             raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}")
-            sectors = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+            sectors = repair_and_parse_json(raw)
         except:
             sectors = {"sector_scores":{},"primary_sectors":[],"sector_fit_score":5,"sector_fit_rationale":""}
 
@@ -2751,11 +2569,8 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_landscape,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2000)
-            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-            if fb >= 0: raw_clean = raw_clean[fb:lb]
-            landscape = json.loads(raw_clean)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2500)
+            landscape = repair_and_parse_json(raw)
         except Exception as e:
             landscape = {"technology_keywords":[],"landscape_summary":"Analysis unavailable.",
                         "activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"",
@@ -2824,10 +2639,7 @@ Return ONLY valid JSON:
                 f"IMPORTANT: You MUST map ALL {len(key_filers)} filers listed below. Do not skip any.\n"
                 f"Key filers (map every single one): {filers_full_context}",
                 max_tokens=max(1800, len(key_filers) * 200 + 800))
-            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
-            fb2 = raw2_clean.find("{"); lb2 = raw2_clean.rfind("}") + 1
-            if fb2 >= 0: raw2_clean = raw2_clean[fb2:lb2]
-            ansoff_data = json.loads(raw2_clean)
+            ansoff_data = repair_and_parse_json(raw2)
         except Exception as e:
             ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},
                           "idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
@@ -3281,15 +3093,8 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_existence,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
-            # Strip everything before first { and after last }
-            raw_clean = raw.strip()
-            raw_clean = raw_clean.replace("```json","").replace("```","").strip()
-            first_brace = raw_clean.find("{")
-            last_brace  = raw_clean.rfind("}") + 1
-            if first_brace >= 0:
-                raw_clean = raw_clean[first_brace:last_brace]
-            existence = json.loads(raw_clean)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=3000)
+            existence = repair_and_parse_json(raw)
         except Exception as e:
             st.warning(f"Evidence parsing issue: {e} — using fallback")
             existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"",
@@ -3337,12 +3142,7 @@ Return ONLY valid JSON:
             raw2 = call_claude(system_trl,
                 f"Idea: {idea}\nExistence verdict: {existence.get('existence_verdict','')}\nEvidence: {json.dumps(existence.get('evidence',[])[:3])}\nGaps: {existence.get('technology_gaps',[])}",
                 max_tokens=1500)
-            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
-            first_brace = raw2_clean.find("{")
-            last_brace  = raw2_clean.rfind("}") + 1
-            if first_brace >= 0:
-                raw2_clean = raw2_clean[first_brace:last_brace]
-            trl = json.loads(raw2_clean)
+            trl = repair_and_parse_json(raw2)
         except Exception as e:
             st.warning(f"TRL parsing issue: {e} — using fallback")
             trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept",
@@ -3745,10 +3545,7 @@ Return ONLY valid JSON:
             raw = call_claude(system_readiness,
                 f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL level: {trl_level}",
                 max_tokens=2500)
-            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-            if fb >= 0: raw_clean = raw_clean[fb:lb]
-            org_data = json.loads(raw_clean)
+            org_data = repair_and_parse_json(raw)
         except Exception as e:
             org_data = {
                 "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
@@ -4129,11 +3926,8 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
   "next_steps": ["concrete Schaeffler-specific action step 1", "concrete action step 2", "concrete action step 3", "concrete action step 4"]
 }"""
         raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
-        raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
-        fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
-        if fb >= 0: raw1_clean = raw1_clean[fb:lb]
         try:
-            synthesis_structured = json.loads(raw1_clean)
+            synthesis_structured = repair_and_parse_json(raw1)
         except:
             synthesis_structured = {
                 "headline": f"IPI score of {ipi}/10 — {'strong' if ipi>=7 else 'moderate' if ipi>=4 else 'weak'} opportunity in {s2d.get('market',{}).get('market_name','this market')}.",
@@ -4209,44 +4003,6 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         }
         rec_col = rec_colours.get(rec, "#f59e0b")
         ipi_col = "#22c55e" if ipi>=7 else "#f59e0b" if ipi>=4 else "#ef4444"
-
-        # ── Auto-save to Google Sheets (once per session) ─────
-        if not st.session_state.get("_s6_saved_to_sheets"):
-            s2d_sv = st.session_state.get("s2_data", {})
-            s3d_sv = st.session_state.get("s3_data", {})
-            s4d_sv = st.session_state.get("s4_data", {})
-            s5d_sv = st.session_state.get("s5_data", {})
-            qa_pairs = []
-            for q, a in zip(st.session_state.get("s1_questions",[]), st.session_state.get("s1_answers",[])):
-                qa_pairs.append(f"Q: {q} / A: {a}")
-            row = {
-                "Date":                  datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "Submitter Name":        st.session_state.get("user_name",""),
-                "Position":              st.session_state.get("user_position",""),
-                "Department":            st.session_state.get("user_dept",""),
-                "Full Idea Description": st.session_state.get("s1_idea",""),
-                "Clarifying Q&A":        " | ".join(qa_pairs),
-                "Quadrant":              quadrant,
-                "Innovation Cluster":    s1c.get("innovation_cluster",""),
-                "Product Family":        s1c.get("product_family",""),
-                "Market Score":          str(scores.get("market","")),
-                "Patent Score":          str(scores.get("patent","")),
-                "Feasibility Score":     str(scores.get("feasibility","")),
-                "Org Readiness Score":   str(scores.get("org","")),
-                "IPI Score":             str(ipi),
-                "Recommendation":        rec,
-                "Key Concerns":          " | ".join(synthesis.get("key_concerns",[])[:3]),
-                "Next Steps":            " | ".join(synthesis.get("next_steps",[])[:4]),
-                "Market Name":           s2d_sv.get("market",{}).get("market_name",""),
-                "Market Size 2024":      s2d_sv.get("market",{}).get("market_size_2024",""),
-                "CAGR":                  s2d_sv.get("market",{}).get("cagr",""),
-                "TRL Level":             str(s4d_sv.get("trl",{}).get("trl_level","")),
-                "Build Strategy":        s5d_sv.get("org_data",{}).get("build_or_partner",{}).get("recommendation",""),
-            }
-            saved = save_idea_to_sheets(row)
-            st.session_state["_s6_saved_to_sheets"] = True
-            if saved:
-                st.success("✅ Idea automatically saved to the Innovation Ideas Log.")
 
         # ── IPI banner ────────────────────────────────────────
         st.markdown(f"""
