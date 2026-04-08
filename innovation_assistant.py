@@ -162,6 +162,7 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 }
 
 /* ── Fix sidebar collapse/expand toggle button ── */
+/* Suppress Material icon text with every available technique */
 button[data-testid="baseButton-headerNoPadding"] {
     overflow: hidden !important;
     position: relative !important;
@@ -171,11 +172,19 @@ button[data-testid="baseButton-headerNoPadding"] {
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
+    color: transparent !important;
+    font-size: 0px !important;
+    line-height: 0 !important;
 }
+button[data-testid="baseButton-headerNoPadding"] *,
 button[data-testid="baseButton-headerNoPadding"] svg,
 button[data-testid="baseButton-headerNoPadding"] span,
 button[data-testid="baseButton-headerNoPadding"] p {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    font-size: 0px !important;
+    color: transparent !important;
 }
 button[data-testid="baseButton-headerNoPadding"]::after {
     content: "«";
@@ -184,43 +193,16 @@ button[data-testid="baseButton-headerNoPadding"]::after {
     justify-content: center;
     position: absolute;
     inset: 0;
-    font-size: 16px;
+    font-size: 16px !important;
     font-weight: 700;
-    color: #FFFFFF;
+    color: #FFFFFF !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     font-family: Arial, sans-serif;
 }
+/* When sidebar is collapsed, the control button flips */
 [data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
     content: "»";
-}
-
-/* ── Ideas Log fixed at bottom of sidebar ── */
-.ideas-log-fixed {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: 244px !important;
-    background: #007A3D !important;
-    border-top: 1px solid rgba(255,255,255,0.15) !important;
-    padding: 10px 12px 16px 12px !important;
-    z-index: 999 !important;
-}
-.ideas-log-fixed .stButton > button,
-.ideas-log-fixed .stDownloadButton > button {
-    background: transparent !important;
-    border: none !important;
-    color: rgba(255,255,255,0.65) !important;
-    font-size: 12px !important;
-    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
-    font-weight: 400 !important;
-    letter-spacing: 0.3px !important;
-    padding: 6px 0 !important;
-    text-align: left !important;
-    width: 100% !important;
-}
-.ideas-log-fixed .stButton > button:hover,
-.ideas-log-fixed .stDownloadButton > button:hover {
-    color: #FFFFFF !important;
-    background: transparent !important;
 }
 
 /* ── Source tag pill ── */
@@ -398,26 +380,25 @@ with st.sidebar:
         if st.session_state.s1_classification:
             st.caption(f"**Quadrant:** {st.session_state.s1_classification.get('quadrant','')}")
 
-    # ── Ideas Log — fixed at very bottom of sidebar ──────────
-    st.markdown('<div class="ideas-log-fixed">', unsafe_allow_html=True)
-    if not st.session_state.get("_sidebar_xl_buf"):
-        if st.button("↓  Download Ideas Log", key="sidebar_xl", use_container_width=True):
-            with st.spinner(""):
-                try:
-                    st.session_state["_sidebar_xl_buf"] = generate_ideas_excel()
-                    st.rerun()
-                except Exception as e:
-                    st.error(str(e))
-    else:
+    # ── Ideas Log — Excel download (bottom of sidebar) ───────
+    st.markdown("---")
+    if st.button("↓  Download Ideas Log", key="sidebar_xl", use_container_width=True):
+        with st.spinner("Building..."):
+            try:
+                xl_buf = generate_ideas_excel()
+                st.session_state["_sidebar_xl_buf"] = xl_buf
+                st.rerun()
+            except Exception as e:
+                st.error(f"Could not load ideas log: {e}")
+    if st.session_state.get("_sidebar_xl_buf"):
         st.download_button(
-            label="↓  Download Ideas Log",
+            label="↓  Save Ideas Log (.xlsx)",
             data=st.session_state["_sidebar_xl_buf"],
             file_name=f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key="sidebar_xl_dl",
             use_container_width=True
         )
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Ansoff chart helper ───────────────────────────────────────
 def ansoff_chart(quadrant, tech_score, market_score):
