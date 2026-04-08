@@ -155,65 +155,6 @@ def call_claude_chat(system, history, max_tokens=500):
             else:
                 return "The API is briefly overloaded — please try again in a moment."
 
-def repair_and_parse_json(raw: str) -> dict:
-    """
-    Robustly extract and parse JSON from an LLM response.
-    Handles: markdown fences, literal newlines inside strings,
-    trailing commas, and truncated output.
-    """
-    import re
-    # 1. Strip markdown fences
-    text = raw.strip().replace("```json", "").replace("```", "").strip()
-    # 2. Extract the outermost {...} block
-    first = text.find("{")
-    last  = text.rfind("}")
-    if first == -1 or last == -1:
-        raise ValueError("No JSON object found in response")
-    text = text[first:last + 1]
-    # 3. First attempt — try as-is
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-    # 4. Replace literal newlines INSIDE quoted strings with \n escape
-    #    We do a character-by-character pass so we only touch inside strings.
-    result = []
-    in_string = False
-    escape_next = False
-    for ch in text:
-        if escape_next:
-            result.append(ch)
-            escape_next = False
-        elif ch == "\\":
-            result.append(ch)
-            escape_next = True
-        elif ch == '"' and not escape_next:
-            in_string = not in_string
-            result.append(ch)
-        elif in_string and ch == "\n":
-            result.append("\\n")
-        elif in_string and ch == "\r":
-            result.append("\\r")
-        elif in_string and ch == "\t":
-            result.append("\\t")
-        else:
-            result.append(ch)
-    cleaned = "".join(result)
-    # 5. Remove trailing commas before } or ]
-    cleaned = re.sub(r",\s*([}\]])", r"\1", cleaned)
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        # 6. Last resort — try to truncate to last valid closing brace
-        last_valid = cleaned.rfind("}")
-        if last_valid > 0:
-            try:
-                return json.loads(cleaned[:last_valid + 1])
-            except Exception:
-                pass
-        raise e
-
-
 def tavily_search(query):
     if not TAVILY_KEY:
         return []
@@ -432,8 +373,11 @@ Return ONLY valid JSON, no markdown backticks:
         org_ctx,
         max_tokens=3500
     )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = repair_and_parse_json(extended)
+        ext = json.loads(raw_e)
     except:
         ext = {
             "executive_summary": f"Schaeffler\'s organisational readiness for this idea scores {s5d.get('final_score',5)}/10. The P3 assessment shows Portfolio fit at {s5d.get('p_portfolio',5)}/10, People readiness at {s5d.get('p_people',5)}/10, and Process readiness at {s5d.get('p_process',5)}/10. Recommended build strategy: {bop.get('recommendation','Co-develop')}. {bop.get('rationale','')}",
@@ -629,8 +573,11 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
 }''',
         master_ctx, max_tokens=4000
     )
+    raw_e = enriched.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        enr = repair_and_parse_json(enriched)
+        enr = json.loads(raw_e)
     except:
         enr = {
             "executive_summary": f"This innovation idea ({idea[:80]}) has been assessed across four dimensions of Schaeffler\'s Innovation Pipeline, yielding an Innovation Potential Index (IPI) of {ipi}/10. The recommendation is: {synthesis.get('recommendation','PROCEED WITH CONDITIONS')}. {synthesis.get('recommendation_rationale','')} The strongest signal is: {synthesis.get('strongest_signals',['market opportunity'])[0] if synthesis.get('strongest_signals') else 'market opportunity'}. The primary concern is: {synthesis.get('key_concerns',['technical maturity'])[0] if synthesis.get('key_concerns') else 'technical maturity'}.",
@@ -1001,8 +948,11 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         feas_ctx,
         max_tokens=3500
     )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = repair_and_parse_json(extended)
+        ext = json.loads(raw_e)
     except:
         ext = {
             "executive_summary": f"This innovation idea is assessed at TRL {trl.get('trl_level',3)} — {trl.get('trl_label','')}. Existence verdict: {existence.get('existence_verdict','Research Stage')}. {existence.get('existence_summary','')} Schaeffler entry readiness: {trl.get('schaeffler_entry_readiness','Ready for Innovation')}. Estimated time to production readiness: {existence.get('time_to_readiness','3-5 years')}.",
@@ -1218,8 +1168,11 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         pat_ctx,
         max_tokens=3500
     )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = repair_and_parse_json(extended)
+        ext = json.loads(raw_e)
     except:
         sp = ansoff_data.get('schaeffler_position',{})
         ext = {
@@ -1394,8 +1347,11 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         mkt_ctx,
         max_tokens=3500
     )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = repair_and_parse_json(extended)
+        ext = json.loads(raw_e)
     except:
         ext = {
             "executive_summary": f"The {market.get('market_name','target market')} represents a {market.get('market_maturity','growing')} opportunity. Market size is estimated at {market.get('market_size_2024','significant')} in 2024, projected to reach {market.get('market_size_2030','substantial')} by 2030 at a CAGR of {market.get('cagr','strong growth')}. Competitive intensity is {comp.get('competitive_intensity','moderate')}, with white space identified: {comp.get('white_space','see analysis')}.",
@@ -1697,7 +1653,10 @@ Return ONLY valid JSON:
 "white_spaces":["white space 1","white space 2","white space 3"]}"""
     raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1500)
     try:
-        landscape = repair_and_parse_json(raw)
+        raw_c = raw.strip().replace("```json","").replace("```","").strip()
+        fb = raw_c.find("{"); lb = raw_c.rfind("}") + 1
+        if fb >= 0: raw_c = raw_c[fb:lb]
+        landscape = json.loads(raw_c)
     except:
         landscape = {"technology_keywords":[],"landscape_summary":"N/A","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","patent_landscape_score":5,"key_filers":[],"white_spaces":[]}
 
@@ -1716,7 +1675,10 @@ Return ONLY valid JSON:
         f"Idea: {idea}\nQuadrant: {quadrant}\nMap ALL {len(key_filers_run3)} filers: {filers_full_run3}",
         max_tokens=max(1800, len(key_filers_run3) * 200 + 800))
     try:
-        ansoff_data = repair_and_parse_json(raw2)
+        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
+        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
+        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
+        ansoff_data = json.loads(raw2_c)
     except:
         ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
 
@@ -1765,7 +1727,10 @@ Return ONLY valid JSON:
 "technology_gaps":["gap 1","gap 2","gap 3"],"time_to_readiness":"e.g. 3-5 years","keywords":["6-10 key technical terms from this domain"]}"""
     raw = call_claude(system_existence, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
     try:
-        existence = repair_and_parse_json(raw)
+        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+        if fb >= 0: raw_clean = raw_clean[fb:lb]
+        existence = json.loads(raw_clean)
     except:
         existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"N/A","evidence":[],"technology_gaps":[],"time_to_readiness":"Not yet estimated","keywords":[]}
 
@@ -1778,7 +1743,10 @@ Return ONLY valid JSON:
 "trl_score":1-10}"""
     raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps','')}", max_tokens=1200)
     try:
-        trl = repair_and_parse_json(raw2)
+        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
+        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
+        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
+        trl = json.loads(raw2_c)
     except:
         trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":3}
 
@@ -1826,7 +1794,10 @@ Return ONLY valid JSON:
 
     raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=2500)
     try:
-        org_data = repair_and_parse_json(raw)
+        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+        if fb >= 0: raw_clean = raw_clean[fb:lb]
+        org_data = json.loads(raw_clean)
     except:
         org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"org_readiness_score":5}
 
@@ -1878,8 +1849,11 @@ Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partn
 "next_steps":["action 1","action 2","action 3","action 4"]}"""
 
     raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
+    raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
+    fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
+    if fb >= 0: raw1_clean = raw1_clean[fb:lb]
     try:
-        synthesis_structured = repair_and_parse_json(raw1)
+        synthesis_structured = json.loads(raw1_clean)
     except:
         synthesis_structured = {"headline":f"IPI {ipi}/10","recommendation":"PROCEED WITH CONDITIONS" if ipi>=5 else "DEFER","recommendation_rationale":"Based on pipeline analysis.","strongest_signals":[],"key_concerns":[],"conditions":[],"strategic_fit":"","risks":[],"next_steps":[]}
 
@@ -2054,7 +2028,10 @@ Return ONLY valid JSON:
                     f"Q: {q[0]} A: {a[0]}\n"
                     f"Q: {q[1]} A: {a[1]}\n"
                     f"Q: {q[2]} A: {a[2]}")
-                classification = repair_and_parse_json(raw)
+                raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+                fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+                if fb >= 0: raw_clean = raw_clean[fb:lb]
+                classification = json.loads(raw_clean)
                 # Hard-code proceed based on quadrant — never trust Claude's value here
                 # EXPLOIT and EXTEND must always redirect; RADICAL and DISRUPTIVE always proceed
                 q_result = classification.get("quadrant","").upper()
@@ -2225,7 +2202,7 @@ Return ONLY valid JSON:
 "geographic_focus":"string","market_score":integer 1-10 (9-10=large fast-growing >$10bn/>15%CAGR; 7-8=strong $2-10bn/8-15%; 5-6=moderate; 3-4=niche; 1-2=tiny or declining),"market_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}")
-            market = repair_and_parse_json(raw)
+            market = json.loads(raw.strip().replace("```json","").replace("```","").strip())
         except:
             market = {"market_name":"N/A","market_size_2024":"N/A","market_size_2030":"N/A","cagr":"N/A",
                       "growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
@@ -2239,7 +2216,7 @@ Every company must have a source. Return ONLY valid JSON:
 "competition_score":integer 1-10 openness (9-10=very open/few players; 7-8=some room; 5-6=moderate; 3-4=crowded; 1-2=saturated),"competition_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}{web_ctx}")
-            comp = repair_and_parse_json(raw)
+            comp = json.loads(raw.strip().replace("```json","").replace("```","").strip())
         except:
             comp = {"competitors":[],"competitive_intensity":"N/A","white_space":"N/A",
                     "schaeffler_advantage":"N/A","competition_score":5,"competition_score_rationale":""}
@@ -2255,7 +2232,7 @@ Return ONLY valid JSON:
 Sector fit score rubric: Average the top 3 sector scores. If primary sector scores 9-10 = sector_fit 9-10; if 7-8 = 7-8; etc."""
         try:
             raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}")
-            sectors = repair_and_parse_json(raw)
+            sectors = json.loads(raw.strip().replace("```json","").replace("```","").strip())
         except:
             sectors = {"sector_scores":{},"primary_sectors":[],"sector_fit_score":5,"sector_fit_rationale":""}
 
@@ -2569,8 +2546,11 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_landscape,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2500)
-            landscape = repair_and_parse_json(raw)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2000)
+            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+            if fb >= 0: raw_clean = raw_clean[fb:lb]
+            landscape = json.loads(raw_clean)
         except Exception as e:
             landscape = {"technology_keywords":[],"landscape_summary":"Analysis unavailable.",
                         "activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"",
@@ -2639,7 +2619,10 @@ Return ONLY valid JSON:
                 f"IMPORTANT: You MUST map ALL {len(key_filers)} filers listed below. Do not skip any.\n"
                 f"Key filers (map every single one): {filers_full_context}",
                 max_tokens=max(1800, len(key_filers) * 200 + 800))
-            ansoff_data = repair_and_parse_json(raw2)
+            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
+            fb2 = raw2_clean.find("{"); lb2 = raw2_clean.rfind("}") + 1
+            if fb2 >= 0: raw2_clean = raw2_clean[fb2:lb2]
+            ansoff_data = json.loads(raw2_clean)
         except Exception as e:
             ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},
                           "idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
@@ -3093,8 +3076,15 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_existence,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=3000)
-            existence = repair_and_parse_json(raw)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
+            # Strip everything before first { and after last }
+            raw_clean = raw.strip()
+            raw_clean = raw_clean.replace("```json","").replace("```","").strip()
+            first_brace = raw_clean.find("{")
+            last_brace  = raw_clean.rfind("}") + 1
+            if first_brace >= 0:
+                raw_clean = raw_clean[first_brace:last_brace]
+            existence = json.loads(raw_clean)
         except Exception as e:
             st.warning(f"Evidence parsing issue: {e} — using fallback")
             existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"",
@@ -3142,7 +3132,12 @@ Return ONLY valid JSON:
             raw2 = call_claude(system_trl,
                 f"Idea: {idea}\nExistence verdict: {existence.get('existence_verdict','')}\nEvidence: {json.dumps(existence.get('evidence',[])[:3])}\nGaps: {existence.get('technology_gaps',[])}",
                 max_tokens=1500)
-            trl = repair_and_parse_json(raw2)
+            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
+            first_brace = raw2_clean.find("{")
+            last_brace  = raw2_clean.rfind("}") + 1
+            if first_brace >= 0:
+                raw2_clean = raw2_clean[first_brace:last_brace]
+            trl = json.loads(raw2_clean)
         except Exception as e:
             st.warning(f"TRL parsing issue: {e} — using fallback")
             trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept",
@@ -3545,7 +3540,10 @@ Return ONLY valid JSON:
             raw = call_claude(system_readiness,
                 f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL level: {trl_level}",
                 max_tokens=2500)
-            org_data = repair_and_parse_json(raw)
+            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+            if fb >= 0: raw_clean = raw_clean[fb:lb]
+            org_data = json.loads(raw_clean)
         except Exception as e:
             org_data = {
                 "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
@@ -3926,8 +3924,11 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
   "next_steps": ["concrete Schaeffler-specific action step 1", "concrete action step 2", "concrete action step 3", "concrete action step 4"]
 }"""
         raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
+        raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
+        fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
+        if fb >= 0: raw1_clean = raw1_clean[fb:lb]
         try:
-            synthesis_structured = repair_and_parse_json(raw1)
+            synthesis_structured = json.loads(raw1_clean)
         except:
             synthesis_structured = {
                 "headline": f"IPI score of {ipi}/10 — {'strong' if ipi>=7 else 'moderate' if ipi>=4 else 'weak'} opportunity in {s2d.get('market',{}).get('market_name','this market')}.",
