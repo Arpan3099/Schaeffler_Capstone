@@ -145,19 +145,24 @@ section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
 }
 section[data-testid="stSidebar"] .stButton > button {
-    background: rgba(255,255,255,0.12) !important;
-    color: #FFFFFF !important;
-    border: 1px solid rgba(255,255,255,0.35) !important;
+    background: transparent !important;
+    color: rgba(255,255,255,0.75) !important;
+    border: none !important;
     border-radius: 4px !important;
     font-size: 12px !important;
+    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
+    font-weight: 400 !important;
+    letter-spacing: 0.3px !important;
+    padding: 8px 12px !important;
+    text-align: left !important;
 }
 section[data-testid="stSidebar"] .stButton > button:hover {
-    background: rgba(255,255,255,0.22) !important;
+    background: rgba(255,255,255,0.12) !important;
+    color: #FFFFFF !important;
 }
 
 /* ── Fix sidebar collapse/expand toggle button ── */
-/* Streamlit renders a Material icon name as text when the font isn't loaded.
-   We hide it and force a unicode double-arrow instead. */
+/* Suppress Material icon text with every available technique */
 button[data-testid="baseButton-headerNoPadding"] {
     overflow: hidden !important;
     position: relative !important;
@@ -167,10 +172,19 @@ button[data-testid="baseButton-headerNoPadding"] {
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
+    color: transparent !important;
+    font-size: 0px !important;
+    line-height: 0 !important;
 }
+button[data-testid="baseButton-headerNoPadding"] *,
 button[data-testid="baseButton-headerNoPadding"] svg,
-button[data-testid="baseButton-headerNoPadding"] span {
+button[data-testid="baseButton-headerNoPadding"] span,
+button[data-testid="baseButton-headerNoPadding"] p {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    font-size: 0px !important;
+    color: transparent !important;
 }
 button[data-testid="baseButton-headerNoPadding"]::after {
     content: "«";
@@ -179,9 +193,11 @@ button[data-testid="baseButton-headerNoPadding"]::after {
     justify-content: center;
     position: absolute;
     inset: 0;
-    font-size: 16px;
+    font-size: 16px !important;
     font-weight: 700;
-    color: #FFFFFF;
+    color: #FFFFFF !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     font-family: Arial, sans-serif;
 }
 /* When sidebar is collapsed, the control button flips */
@@ -366,7 +382,7 @@ with st.sidebar:
 
     # ── Ideas Log — Excel download (bottom of sidebar) ───────
     st.markdown("---")
-    if st.button("⬇️  Ideas Log (.xlsx)", key="sidebar_xl", use_container_width=True):
+    if st.button("↓  Download Ideas Log", key="sidebar_xl", use_container_width=True):
         with st.spinner("Building..."):
             try:
                 xl_buf = generate_ideas_excel()
@@ -376,7 +392,7 @@ with st.sidebar:
                 st.error(f"Could not load ideas log: {e}")
     if st.session_state.get("_sidebar_xl_buf"):
         st.download_button(
-            label="📥  Save Ideas Log",
+            label="↓  Save Ideas Log (.xlsx)",
             data=st.session_state["_sidebar_xl_buf"],
             file_name=f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
