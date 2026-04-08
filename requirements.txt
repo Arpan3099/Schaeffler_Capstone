@@ -3,3 +3,6 @@ streamlit
 plotly
 requests
 python-docx
+gspread
+google-auth
+openpyxl
