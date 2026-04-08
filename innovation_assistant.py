@@ -171,28 +171,26 @@ button[data-testid="baseButton-headerNoPadding"] {
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
-    font-size: 0 !important;
 }
-button[data-testid="baseButton-headerNoPadding"] * {
+button[data-testid="baseButton-headerNoPadding"] svg,
+button[data-testid="baseButton-headerNoPadding"] span,
+button[data-testid="baseButton-headerNoPadding"] p {
     display: none !important;
-    font-size: 0 !important;
-    visibility: hidden !important;
 }
 button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "\00AB";
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    position: absolute !important;
-    inset: 0 !important;
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    color: #FFFFFF !important;
-    font-family: Arial, sans-serif !important;
-    visibility: visible !important;
+    content: "«";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    inset: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #FFFFFF;
+    font-family: Arial, sans-serif;
 }
 [data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "\00BB" !important;
+    content: "»";
 }
 
 /* ── Ideas Log fixed at bottom of sidebar ── */
@@ -200,13 +198,11 @@ button[data-testid="baseButton-headerNoPadding"]::after {
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
-    width: var(--sidebar-width, 246px) !important;
-    max-width: 260px !important;
+    width: 244px !important;
     background: #007A3D !important;
-    border-top: 1px solid rgba(255,255,255,0.18) !important;
-    padding: 10px 14px 18px 14px !important;
-    z-index: 9999 !important;
-    box-sizing: border-box !important;
+    border-top: 1px solid rgba(255,255,255,0.15) !important;
+    padding: 10px 12px 16px 12px !important;
+    z-index: 999 !important;
 }
 .ideas-log-fixed .stButton > button,
 .ideas-log-fixed .stDownloadButton > button {
@@ -281,109 +277,15 @@ DIM   = "#4a6fa5"
 WHITE = "#e2e8f0"
 NAVY  = "#1F3864"
 
-# ── Language system ────────────────────────────────────────────
-_LANG = {
-    "en": {
-        "pipeline":  "INNOVATION PIPELINE",
-        "idea_cap":  "Idea",
-        "quad_cap":  "Quadrant",
-        "lang_label":"Language / Sprache",
-        "stages": [
-            (1,"01 · Quadrant Classifier"),
-            (2,"02 · Market Intelligence"),
-            (3,"03 · Patent Intelligence"),
-            (4,"04 · Technical Feasibility"),
-            (5,"05 · Organisational Readiness"),
-            (6,"06 · Scoring & Synthesis"),
-        ],
-        "dl_market":  "⬇️  Download Market Intelligence Report",
-        "dl_patent":  "⬇️  Download Patent Intelligence Report",
-        "dl_feasib":  "⬇️  Download Technical Feasibility Report",
-        "dl_org":     "⬇️  Download Organisational Readiness Report",
-        "dl_master":  "⬇️  Download Full Innovation Assessment Report",
-        "dl_ideas":   "↓  Download Ideas Log",
-        "dl_spinner": "Generating report — please wait…",
-        "dl_caption": "Covers all 5 stages: Market · Patent · Feasibility · Org Readiness · IPI",
-        "claude_suffix": "",
-    },
-    "de": {
-        "pipeline":  "INNOVATIONS-PIPELINE",
-        "idea_cap":  "Idee",
-        "quad_cap":  "Quadrant",
-        "lang_label":"Language / Sprache",
-        "stages": [
-            (1,"01 · Quadrant-Klassifikator"),
-            (2,"02 · Marktintelligenz"),
-            (3,"03 · Patentintelligenz"),
-            (4,"04 · Technische Machbarkeit"),
-            (5,"05 · Organisatorische Bereitschaft"),
-            (6,"06 · Bewertung & Synthese"),
-        ],
-        "dl_market":  "⬇️  Marktintelligenz-Bericht herunterladen",
-        "dl_patent":  "⬇️  Patentintelligenz-Bericht herunterladen",
-        "dl_feasib":  "⬇️  Technischen Machbarkeitsbericht herunterladen",
-        "dl_org":     "⬇️  Org. Bereitschaftsbericht herunterladen",
-        "dl_master":  "⬇️  Vollständigen Innovationsbericht herunterladen",
-        "dl_ideas":   "↓  Ideen-Log herunterladen",
-        "dl_spinner": "Bericht wird erstellt — bitte warten…",
-        "dl_caption": "Umfasst alle 5 Stufen: Markt · Patente · Machbarkeit · Org. Bereitschaft · IPI",
-        "claude_suffix": (
-            "\n\nWICHTIG: Antworte AUSSCHLIESSLICH auf Deutsch. "
-            "Alle Analysen, Überschriften, Beschreibungen und Texte müssen vollständig "
-            "auf Deutsch verfasst sein. Verwende keine englischen Begriffe ausser bei "
-            "Eigennamen, Marken oder etablierten Fachbegriffen."
-        ),
-    },
-}
-
-def T(key):
-    lang = st.session_state.get("ui_lang", "en")
-    return _LANG.get(lang, _LANG["en"]).get(key, _LANG["en"].get(key, key))
-
-def _lang_suffix():
-    lang = st.session_state.get("ui_lang", "en")
-    return _LANG.get(lang, _LANG["en"]).get("claude_suffix", "")
-
-def _one_click_dl(label, gen_fn, filename):
-    """Single-click: show progress bar, generate report, auto-download via JS."""
-    import base64
-    import streamlit.components.v1 as _stc
-    MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    col_btn, _ = st.columns([3,1])
-    with col_btn:
-        if st.button(label, type="primary", use_container_width=True):
-            prog = st.progress(0, text=T("dl_spinner"))
-            try:
-                prog.progress(20, text=T("dl_spinner"))
-                buf = gen_fn()
-                prog.progress(80, text=T("dl_spinner"))
-                b64 = base64.b64encode(buf.getvalue()).decode()
-                prog.progress(100, text="✓ Ready — downloading…")
-                time.sleep(0.3)
-                prog.empty()
-                _stc.html(f"""
-<a id="_sdl" href="data:{MIME};base64,{b64}" download="{filename}"
-   style="display:inline-block;margin:6px 0 2px;padding:10px 22px;
-          background:#007A3D;color:#fff;font-weight:700;border-radius:5px;
-          text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">
-  ⬇️ {filename}
-</a>
-<script>(function(){{var a=document.getElementById('_sdl');if(a)a.click();}})();</script>
-""", height=55)
-            except Exception as exc:
-                prog.empty()
-                st.error(f"Report error: {exc}")
-
 # ── Helpers ───────────────────────────────────────────────────
 def call_claude(system, user, max_tokens=2000):
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-    full_sys = system + _lang_suffix()
     for attempt in range(3):
         try:
             msg = client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=max_tokens,
-                system=full_sys,
+                system=system,
                 messages=[{"role": "user", "content": user}]
             )
             return msg.content[0].text
@@ -399,13 +301,12 @@ def call_claude(system, user, max_tokens=2000):
 
 def call_claude_chat(system, history, max_tokens=500):
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-    full_sys = system + _lang_suffix()
     for attempt in range(3):
         try:
             msg = client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=max_tokens,
-                system=full_sys,
+                system=system,
                 messages=history
             )
             return msg.content[0].text
@@ -432,7 +333,6 @@ def tavily_search(query):
 # ── Session state ─────────────────────────────────────────────
 defaults = {
     "active_stage": 1,
-    "ui_lang": "en",
     # User identity
     "user_name": "",
     "user_position": "",
@@ -456,33 +356,23 @@ for k, v in defaults.items():
 
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
-    # ── Logo ──────────────────────────────────────────────────
-    st.markdown(f"""
+    st.markdown("""
 <div style="padding:20px 12px 12px 12px;">
   <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:20px;font-weight:700;letter-spacing:3px;color:#FFFFFF;line-height:1;">SCHAEFFLER</div>
   <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:8px;letter-spacing:3.5px;color:rgba(255,255,255,0.7);margin-top:3px;font-weight:400;">WE PIONEER MOTION</div>
   <div style="background:rgba(255,255,255,0.2);height:1px;margin:16px 0 12px 0;"></div>
-  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.65);font-weight:600;">{T("pipeline")}</div>
+  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.65);font-weight:600;">INNOVATION PIPELINE</div>
 </div>
 """, unsafe_allow_html=True)
-
-    # ── Language selector ──────────────────────────────────────
-    _lang_opts   = ["English", "Deutsch"]
-    _lang_to_key = {"English":"en","Deutsch":"de"}
-    _key_to_lang = {"en":"English","de":"Deutsch"}
-    _sel = st.selectbox(
-        T("lang_label"), _lang_opts,
-        index=_lang_opts.index(_key_to_lang.get(st.session_state.ui_lang,"English")),
-        key="_lang_sel"
-    )
-    if _lang_to_key[_sel] != st.session_state.ui_lang:
-        st.session_state.ui_lang = _lang_to_key[_sel]
-        st.rerun()
-
-    st.markdown('<div style="background:rgba(255,255,255,0.15);height:1px;margin:6px 0 10px;"></div>', unsafe_allow_html=True)
-
-    # ── Stage navigation ───────────────────────────────────────
-    stages = T("stages")
+    stages = [
+        (1, "01 · Quadrant Classifier"),
+        (2, "02 · Market Intelligence"),
+        (3, "03 · Patent Intelligence"),
+        (4, "04 · Technical Feasibility"),
+        (5, "05 · Organisational Readiness"),
+        (6, "06 · Scoring & Synthesis"),
+    ]
+    # Determine which stages have been completed
     completed = set()
     if st.session_state.get("s1_classification"): completed.add(1)
     if st.session_state.get("s2_data"):           completed.add(2)
@@ -504,29 +394,29 @@ with st.sidebar:
 
     if st.session_state.s1_idea:
         st.markdown("---")
-        st.caption(f"**{T('idea_cap')}:** {st.session_state.s1_idea[:60]}...")
+        st.caption(f"**Idea:** {st.session_state.s1_idea[:60]}...")
         if st.session_state.s1_classification:
-            st.caption(f"**{T('quad_cap')}:** {st.session_state.s1_classification.get('quadrant','')}")
+            st.caption(f"**Quadrant:** {st.session_state.s1_classification.get('quadrant','')}")
 
-    # ── Ideas Log — one-click download fixed at bottom of sidebar ──
+    # ── Ideas Log — fixed at very bottom of sidebar ──────────
     st.markdown('<div class="ideas-log-fixed">', unsafe_allow_html=True)
-    import base64 as _b64, streamlit.components.v1 as _stcv1
-    _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    if st.button(T("dl_ideas"), key="sidebar_xl", use_container_width=True):
-        with st.spinner(""):
-            try:
-                _xl_buf = generate_ideas_excel()
-                _xl_b64 = _b64.b64encode(_xl_buf.getvalue()).decode()
-                _xl_fn  = f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                _stcv1.html(f"""
-<a id="_xdl" href="data:{_XLSX_MIME};base64,{_xl_b64}" download="{_xl_fn}"
-   style="display:inline-block;padding:7px 14px;background:#005a2d;color:#fff;
-          font-size:12px;font-weight:600;border-radius:4px;text-decoration:none;
-          font-family:Arial,sans-serif;">{_xl_fn}</a>
-<script>(function(){{var a=document.getElementById('_xdl');if(a)a.click();}})();</script>
-""", height=44)
-            except Exception as exc:
-                st.error(str(exc))
+    if not st.session_state.get("_sidebar_xl_buf"):
+        if st.button("↓  Download Ideas Log", key="sidebar_xl", use_container_width=True):
+            with st.spinner(""):
+                try:
+                    st.session_state["_sidebar_xl_buf"] = generate_ideas_excel()
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+    else:
+        st.download_button(
+            label="↓  Download Ideas Log",
+            data=st.session_state["_sidebar_xl_buf"],
+            file_name=f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="sidebar_xl_dl",
+            use_container_width=True
+        )
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Ansoff chart helper ───────────────────────────────────────
@@ -2745,11 +2635,27 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
 
         # ── Download report ──────────────────────────────────
         st.markdown("---")
-        _one_click_dl(
-            T("dl_market"),
-            lambda: generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, final),
-            f"Schaeffler_Market_Intelligence_{datetime.now().strftime('%Y%m%d')}.docx"
-        )
+        if "s2_report_buf" not in st.session_state:
+            st.session_state.s2_report_buf = None
+
+        if st.session_state.s2_report_buf is None:
+            if st.button("⬇️ Download Market Intelligence Report", type="primary"):
+                with st.spinner("Generating your report — this takes about 20 seconds..."):
+                    try:
+                        st.session_state.s2_report_buf = generate_market_report(
+                            idea, quadrant, s1c, market, comp, sectors, weights, final
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report generation error: {e}")
+        else:
+            st.download_button(
+                label="⬇️ Download Market Intelligence Report",
+                data=st.session_state.s2_report_buf,
+                file_name=f"Schaeffler_Market_Intelligence_{datetime.now().strftime('%Y%m%d')}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary"
+            )
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
@@ -3259,11 +3165,27 @@ Return ONLY valid JSON:
 
         # ── Download report ───────────────────────────────────
         st.markdown("---")
-        _one_click_dl(
-            T("dl_patent"),
-            lambda: generate_patent_report(idea, quadrant, s1c, landscape, ansoff_data, d),
-            f"Schaeffler_Patent_Intelligence_{datetime.now().strftime('%Y%m%d')}.docx"
-        )
+        if "s3_report_buf" not in st.session_state:
+            st.session_state.s3_report_buf = None
+
+        if st.session_state.s3_report_buf is None:
+            if st.button("⬇️ Download Patent Intelligence Report", type="primary"):
+                with st.spinner("Generating report..."):
+                    try:
+                        st.session_state.s3_report_buf = generate_patent_report(
+                            idea, quadrant, s1c, landscape, ansoff_data, d
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report error: {e}")
+        else:
+            st.download_button(
+                label="⬇️ Download Patent Intelligence Report",
+                data=st.session_state.s3_report_buf,
+                file_name=f"Schaeffler_Patent_Intelligence_{datetime.now().strftime('%Y%m%d')}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary"
+            )
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
@@ -3654,11 +3576,27 @@ Return ONLY valid JSON:
 
         # ── Download report ───────────────────────────────────
         st.markdown("---")
-        _one_click_dl(
-            T("dl_feasib"),
-            lambda: generate_feasibility_report(idea, quadrant, s1c, existence, trl, d),
-            f"Schaeffler_Technical_Feasibility_{datetime.now().strftime('%Y%m%d')}.docx"
-        )
+        if "s4_report_buf" not in st.session_state:
+            st.session_state.s4_report_buf = None
+
+        if st.session_state.s4_report_buf is None:
+            if st.button("⬇️ Download Technical Feasibility Report", type="primary"):
+                with st.spinner("Generating report..."):
+                    try:
+                        st.session_state.s4_report_buf = generate_feasibility_report(
+                            idea, quadrant, s1c, existence, trl, d
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report error: {e}")
+        else:
+            st.download_button(
+                label="⬇️ Download Technical Feasibility Report",
+                data=st.session_state.s4_report_buf,
+                file_name=f"Schaeffler_Technical_Feasibility_{datetime.now().strftime('%Y%m%d')}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary"
+            )
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
@@ -3995,11 +3933,24 @@ Be specific to Schaeffler's context (Vitesco integration, E-Mobility shift, OEM 
 
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
-        _one_click_dl(
-            T("dl_org"),
-            lambda: generate_org_report(idea, quadrant, s1c, d),
-            f"Schaeffler_Org_Readiness_{datetime.now().strftime('%Y%m%d')}.docx"
-        )
+        if "s5_report_buf" not in st.session_state:
+            st.session_state.s5_report_buf = None
+        if st.session_state.s5_report_buf is None:
+            if st.button("⬇️ Download Organisational Readiness Report", type="primary", key="s5_dl"):
+                with st.spinner("Generating report — this takes about 20 seconds..."):
+                    try:
+                        st.session_state.s5_report_buf = generate_org_report(idea, quadrant, s1c, d)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report error: {e}")
+        else:
+            st.download_button(
+                label="⬇️ Download Organisational Readiness Report",
+                data=st.session_state.s5_report_buf,
+                file_name=f"Schaeffler_Org_Readiness_{datetime.now().strftime('%Y%m%d')}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary"
+            )
         st.markdown("---")
         st.success(f"✓ Organisational Readiness complete. Score: **{final}/10**")
         if st.button("Continue to Stage 06: Scoring & Synthesis →", type="primary", key="s5_continue"):
@@ -4484,16 +4435,33 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
 
         # ── Master report download ────────────────────────────
         st.markdown("---")
-        _s2d = st.session_state.s2_data
-        _s3d = st.session_state.s3_data
-        _s4d = st.session_state.s4_data
-        _s5d = st.session_state.s5_data
-        _one_click_dl(
-            T("dl_master"),
-            lambda: generate_master_report(idea, quadrant, s1c, _s2d, _s3d, _s4d, _s5d, d),
-            f"Schaeffler_Innovation_Assessment_{datetime.now().strftime('%Y%m%d')}.docx"
-        )
-        st.caption(T("dl_caption"))
+        if "s5_report_buf" not in st.session_state:
+            st.session_state.s6_report_buf = None
+
+        if st.session_state.s6_report_buf is None:
+            if st.button("⬇️ Download Full Innovation Assessment Report", type="primary"):
+                with st.spinner("Generating master report — this covers all 5 stages..."):
+                    try:
+                        st.session_state.s6_report_buf = generate_master_report(
+                            idea, quadrant, s1c,
+                            st.session_state.s2_data,
+                            st.session_state.s3_data,
+                            st.session_state.s4_data,
+                            st.session_state.s5_data,
+                            d
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Report error: {e}")
+        else:
+            st.download_button(
+                label="⬇️ Download Full Innovation Assessment Report",
+                data=st.session_state.s6_report_buf,
+                file_name=f"Schaeffler_Innovation_Assessment_{datetime.now().strftime('%Y%m%d')}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary"
+            )
+            st.caption("Covers all 5 stages: Market Intelligence · Patent Intelligence · Technical Feasibility · Organisational Readiness · Innovation Potential Index")
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
