@@ -178,15 +178,35 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Sidebar collapse/expand toggle — permanently hidden via CSS ── */
+/* ── Sidebar collapse/expand toggle — keep it functional ── */
 [data-testid="collapsedControl"],
 [data-testid="stSidebarCollapsedControl"],
-div[class*="collapsedControl"],
+div[class*="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+[data-testid="collapsedControl"] button,
+[data-testid="stSidebarCollapsedControl"] button,
 button[data-testid="baseButton-headerNoPadding"] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    width: 0 !important; height: 0 !important; overflow: hidden !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    font-size: 0 !important; /* hide broken icon ligature text fallback */
+}
+[data-testid="collapsedControl"] button::before {
+    content: "◀";
+    font-size: 14px !important;
+    line-height: 1 !important;
+    color: rgba(255,255,255,0.9) !important;
+}
+[data-testid="stSidebarCollapsedControl"] button::before {
+    content: "▶";
+    font-size: 14px !important;
+    line-height: 1 !important;
+    color: rgba(255,255,255,0.9) !important;
 }
 
 /* ── Fix expander arrow rendering as icon-name text ── */
@@ -364,30 +384,6 @@ code, pre, .stCode {
     if (shortcut) shortcut.href = svgFavicon;
 })();
 
-// ── Permanently hide sidebar collapse/expand toggle ──────────────
-// CSS alone cannot reliably target it because Streamlit renders it
-// outside the sidebar element and re-injects it on every update.
-// A MutationObserver fires on every DOM change and immediately hides
-// any toggle button that appears, regardless of Streamlit version.
-(function hideSidebarToggle() {
-    var SELECTORS = [
-        '[data-testid="collapsedControl"]',
-        '[data-testid="stSidebarCollapsedControl"]',
-        'button[data-testid="baseButton-headerNoPadding"]',
-        '[class*="collapsedControl"]',
-        '[class*="sidebarButton"]',
-    ];
-    function killToggles() {
-        SELECTORS.forEach(function(sel) {
-            document.querySelectorAll(sel).forEach(function(el) {
-                el.style.cssText = "display:none!important;visibility:hidden!important;pointer-events:none!important;width:0!important;height:0!important;overflow:hidden!important;";
-            });
-        });
-    }
-    // Run immediately and on every subsequent DOM mutation
-    killToggles();
-    new MutationObserver(killToggles).observe(document.body, { childList: true, subtree: true });
-})();
 </script>
 """, unsafe_allow_html=True)
 
@@ -4950,5 +4946,4 @@ Be direct and specific. Reference Schaeffler's context where relevant. 3-4 sente
             st.session_state.s6_chat = []
             st.session_state.s6_report_buf = None
             st.rerun()
-
 
