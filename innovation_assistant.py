@@ -288,6 +288,20 @@ section[data-testid="stSidebar"] .stSelectbox svg {
     fill: rgba(255,255,255,0.45) !important;
 }
 
+/* ── Fix expander arrow overlapping label text ── */
+[data-testid="stExpander"] summary {
+    padding-left: 28px !important;
+}
+[data-testid="stExpander"] summary svg {
+    left: 6px !important;
+    position: absolute !important;
+    flex-shrink: 0 !important;
+}
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary span {
+    margin-left: 4px !important;
+}
+
 /* ── Source tag pill ── */
 .source-tag {
     background:#1e3a5f; color:#93c5fd;
@@ -3009,7 +3023,7 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
         col_r.markdown(f"**Geography** · {market.get('geographic_focus','')}")
         if market.get("growth_drivers"):
-            with st.expander(f"Growth drivers (top {min(3,len(market['growth_drivers']))} of {len(market['growth_drivers'])})"):
+            with st.expander(f"  Growth drivers (top {min(3,len(market['growth_drivers']))} of {len(market['growth_drivers'])})"):
                 for drv in market["growth_drivers"][:3]:
                     st.markdown(f"- {drv}")
                 if len(market["growth_drivers"]) > 3:
@@ -3850,7 +3864,7 @@ Return ONLY valid JSON:
         st.markdown("---")
 
         # ── TRL scale reference ───────────────────────────────
-        with st.expander("Schaeffler-adapted TRL scale reference"):
+        with st.expander("  Schaeffler-adapted TRL scale reference"):
             trl_descriptions = [
                 (1,"Basic principles observed","Theoretical concept only, no testing"),
                 (2,"Technology concept formulated","Application identified, no experimental testing"),
@@ -4735,7 +4749,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         st.markdown("---")
 
         # ── Full narrative (expandable) ───────────────────────
-        with st.expander("📖 Read full narrative synthesis"):
+        with st.expander("  📖 Read full narrative synthesis"):
             st.markdown(synthesis.get("narrative",""))
 
         # ── Visual mockup generation ──────────────────────────
