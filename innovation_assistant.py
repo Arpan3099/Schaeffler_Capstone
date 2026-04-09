@@ -178,8 +178,7 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Fix sidebar collapse/expand toggle button ── */
-/* Belt-and-suspenders: hide ALL children, then inject arrow via ::after */
+/* ── Sidebar toggle: shape only — text replaced via JS below ── */
 button[data-testid="baseButton-headerNoPadding"] {
     overflow: hidden !important;
     position: relative !important;
@@ -189,38 +188,6 @@ button[data-testid="baseButton-headerNoPadding"] {
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
-    font-size: 0 !important;
-    color: transparent !important;
-    line-height: 0 !important;
-}
-button[data-testid="baseButton-headerNoPadding"] *,
-button[data-testid="baseButton-headerNoPadding"] svg,
-button[data-testid="baseButton-headerNoPadding"] span,
-button[data-testid="baseButton-headerNoPadding"] p,
-button[data-testid="baseButton-headerNoPadding"] div {
-    display: none !important;
-    font-size: 0 !important;
-    color: transparent !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-}
-button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "«" !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    position: absolute !important;
-    inset: 0 !important;
-    font-size: 16px !important;
-    font-weight: 700 !important;
-    color: #FFFFFF !important;
-    font-family: Arial, sans-serif !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    line-height: 1 !important;
-}
-[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "»" !important;
 }
 
 
@@ -345,46 +312,73 @@ code, pre, .stCode {
     if (shortcut) shortcut.href = svgFavicon;
 })();
 
-// ── Inject sidebar toggle style directly into <head> ─────────
-// This bypasses any Streamlit CSS scoping so the rule applies globally
-// regardless of iframe nesting or specificity conflicts.
-(function injectSidebarToggleStyle() {
-    var css = [
-        'button[data-testid="baseButton-headerNoPadding"]{',
-        '  overflow:hidden!important;position:relative!important;',
-        '  width:32px!important;height:32px!important;',
-        '  background:rgba(255,255,255,0.15)!important;',
-        '  border:none!important;border-radius:4px!important;',
-        '  cursor:pointer!important;font-size:0!important;',
-        '  color:transparent!important;line-height:0!important;}',
-        'button[data-testid="baseButton-headerNoPadding"] *,',
-        'button[data-testid="baseButton-headerNoPadding"] svg,',
-        'button[data-testid="baseButton-headerNoPadding"] span,',
-        'button[data-testid="baseButton-headerNoPadding"] p,',
-        'button[data-testid="baseButton-headerNoPadding"] div{',
-        '  display:none!important;font-size:0!important;',
-        '  color:transparent!important;visibility:hidden!important;',
-        '  opacity:0!important;}',
-        'button[data-testid="baseButton-headerNoPadding"]::after{',
-        '  content:"\\00AB"!important;display:flex!important;',
-        '  align-items:center!important;justify-content:center!important;',
-        '  position:absolute!important;inset:0!important;',
-        '  font-size:16px!important;font-weight:700!important;',
-        '  color:#FFFFFF!important;font-family:Arial,sans-serif!important;',
-        '  visibility:visible!important;opacity:1!important;line-height:1!important;}',
-        '[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after{',
-        '  content:"\\00BB"!important;}'
-    ].join('');
-    var el = document.createElement('style');
-    el.setAttribute('id', 'schaeffler-toggle-fix');
-    el.textContent = css;
-    document.head.appendChild(el);
-    // Re-apply on DOM mutations in case Streamlit re-renders the button
-    new MutationObserver(function() {
-        if (!document.getElementById('schaeffler-toggle-fix')) {
-            document.head.appendChild(el.cloneNode(true));
-        }
-    }).observe(document.body, {childList: true, subtree: true});
+// ── Sidebar toggle fix: find by text content, replace with arrow ──
+// CSS alone cannot reach this button reliably across Streamlit versions.
+// We find it by the literal Material Icon ligature text it contains,
+// hide all its children via inline styles, and inject our own arrow span.
+(function patchSidebarToggle() {
+    function patch() {
+        document.querySelectorAll('button').forEach(function(btn) {
+            if (btn.getAttribute('data-sf-patched')) return;
+            var txt = btn.textContent || btn.innerText || '';
+            if (!txt.includes('keyboard_double_arrow')) return;
+
+            btn.setAttribute('data-sf-patched', '1');
+
+            // Shape the button
+            btn.style.setProperty('overflow',      'hidden',                  'important');
+            btn.style.setProperty('position',      'relative',                'important');
+            btn.style.setProperty('width',         '32px',                    'important');
+            btn.style.setProperty('height',        '32px',                    'important');
+            btn.style.setProperty('background',    'rgba(255,255,255,0.15)',   'important');
+            btn.style.setProperty('border',        'none',                    'important');
+            btn.style.setProperty('border-radius', '4px',                     'important');
+            btn.style.setProperty('cursor',        'pointer',                  'important');
+            btn.style.setProperty('font-size',     '0',                       'important');
+            btn.style.setProperty('color',         'transparent',             'important');
+
+            // Hide every child element and clear text nodes
+            btn.querySelectorAll('*').forEach(function(child) {
+                child.style.setProperty('display',     'none',        'important');
+                child.style.setProperty('visibility',  'hidden',      'important');
+                child.style.setProperty('font-size',   '0',           'important');
+                child.style.setProperty('color',       'transparent', 'important');
+                child.style.setProperty('opacity',     '0',           'important');
+            });
+            btn.childNodes.forEach(function(node) {
+                if (node.nodeType === 3) node.textContent = '';  // text nodes
+            });
+
+            // Inject our arrow — « when open (left-facing), » when collapsed (right-facing)
+            var isRight = txt.includes('right');
+            var arrow = document.createElement('span');
+            arrow.textContent = isRight ? '\u00BB' : '\u00AB';
+            arrow.setAttribute('data-sf-arrow', '1');
+            arrow.style.cssText = [
+                'display:flex!important',
+                'align-items:center!important',
+                'justify-content:center!important',
+                'position:absolute!important',
+                'inset:0!important',
+                'font-size:16px!important',
+                'font-weight:700!important',
+                'color:#FFFFFF!important',
+                'font-family:Arial,sans-serif!important',
+                'visibility:visible!important',
+                'opacity:1!important',
+                'line-height:1!important',
+                'pointer-events:none!important'
+            ].join(';');
+            btn.appendChild(arrow);
+        });
+    }
+
+    // Run once now, then watch for Streamlit re-renders
+    patch();
+    new MutationObserver(patch).observe(
+        document.body || document.documentElement,
+        {childList: true, subtree: true}
+    );
 })();
 </script>
 """, unsafe_allow_html=True)
