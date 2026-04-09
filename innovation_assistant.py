@@ -179,11 +179,27 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 }
 
 /* ── Sidebar collapse/expand toggle — permanently hidden ── */
-/* The sidebar is always open; the toggle button and collapsed-state
-   re-open button are both hidden so users cannot close it. */
+/* Hide every known Streamlit variant of the sidebar toggle button
+   so the sidebar is always open and cannot be closed. */
 button[data-testid="baseButton-headerNoPadding"],
-[data-testid="collapsedControl"] {
+button[data-testid="baseButton-secondary"][aria-label*="sidebar"],
+button[data-testid="baseButton-secondary"][aria-label*="Sidebar"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"],
+section[data-testid="stSidebar"] > div:first-child > div > button,
+section[data-testid="stSidebar"] button[kind="header"] {
     display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+}
+/* Also hide the floating arrow that appears outside the sidebar */
+div[data-testid="collapsedControl"],
+div[class*="collapsedControl"] {
+    display: none !important;
+    visibility: hidden !important;
     pointer-events: none !important;
 }
 
@@ -3069,20 +3085,21 @@ Return ONLY valid JSON with NO inline comments:
         col_r.markdown(f"**Geography** · {market.get('geographic_focus','')}")
         if market.get("growth_drivers"):
             drivers = market["growth_drivers"]
+            show_n   = min(3, len(drivers))
+            total_n  = len(drivers)
             drivers_html = "".join(
-                f'<div style="display:flex;gap:10px;margin:6px 0;color:#e2e8f0;font-size:13px;">' +
-                f'<span style="color:#60a5fa;flex-shrink:0;">›</span><span>{drv}</span></div>'
+                f'<div style="display:flex;gap:10px;margin:6px 0;color:#e2e8f0;font-size:13px;'
+                f'"><span style="color:#60a5fa;flex-shrink:0;">›</span><span>{drv}</span></div>'
                 for drv in drivers[:3]
             )
-            extra = '<div style="color:#64748b;font-size:11px;margin-top:6px;">Full list in the downloaded report.</div>' if len(drivers) > 3 else ""
-            st.markdown(f"""
-<div style="background:#1a2d45;border-radius:6px;padding:12px 16px;margin:8px 0 4px 0;">
-  <div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;margin-bottom:8px;">
-    GROWTH DRIVERS &middot; TOP {{min(3,len(drivers))}} OF {{len(drivers)}}
-  </div>
-  {{drivers_html}}{{extra}}
-</div>
-""", unsafe_allow_html=True)
+            extra_html = '<div style="color:#64748b;font-size:11px;margin-top:6px;">Full list in the downloaded report.</div>' if total_n > 3 else ""
+            st.markdown(
+                '<div style="background:#1a2d45;border-radius:6px;padding:12px 16px;margin:8px 0 4px 0;">' +
+                f'<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;margin-bottom:8px;">GROWTH DRIVERS &middot; TOP {show_n} OF {total_n}</div>' +
+                drivers_html + extra_html +
+                '</div>',
+                unsafe_allow_html=True
+            )
         st.markdown("---")
 
         # ── Sector cluster chart ──────────────────────────────
