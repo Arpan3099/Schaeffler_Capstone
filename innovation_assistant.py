@@ -182,13 +182,7 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Sidebar toggle button shell ── */
-button[data-testid="baseButton-headerNoPadding"] {
-    background: rgba(255,255,255,0.15) !important;
-    border: none !important;
-    border-radius: 4px !important;
-    cursor: pointer !important;
-}
+
 
 
 
@@ -296,20 +290,6 @@ code, pre, .stCode {
 
 <script>
 
-
-// ── Sidebar toggle: replace Material Icon text nodes with unicode arrows ──
-(function() {
-    function fix() {
-        if (!document.body) return;
-        var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-        var node;
-        while (node = walker.nextNode()) {
-            if (node.nodeValue.indexOf('keyboard_double_arrow_right') !== -1) node.nodeValue = '»';
-            else if (node.nodeValue.indexOf('keyboard_double_arrow_left') !== -1) node.nodeValue = '«';
-        }
-    }
-    setInterval(fix, 300);
-})();
 
 // Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
