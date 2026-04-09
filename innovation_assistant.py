@@ -178,38 +178,12 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Fix sidebar collapse/expand toggle button ── */
-/* Streamlit renders a Material icon name as text when the font isn't loaded.
-   We hide it and force a unicode double-arrow instead. */
+/* ── Sidebar toggle button base style ── */
 button[data-testid="baseButton-headerNoPadding"] {
-    overflow: hidden !important;
-    position: relative !important;
-    width: 32px !important;
-    height: 32px !important;
     background: rgba(255,255,255,0.15) !important;
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
-}
-button[data-testid="baseButton-headerNoPadding"] svg,
-button[data-testid="baseButton-headerNoPadding"] span {
-    display: none !important;
-}
-button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "«";
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    inset: 0;
-    font-size: 16px;
-    font-weight: 700;
-    color: #FFFFFF;
-    font-family: Arial, sans-serif;
-}
-/* When sidebar is collapsed, the control button flips */
-[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "»";
 }
 
 
@@ -317,6 +291,19 @@ code, pre, .stCode {
 </style>
 
 <script>
+// ── Sidebar toggle text fix ──────────────────────────────────
+// Replace Material Icon ligature text with plain unicode arrows
+(function fixToggle() {
+    function run() {
+        document.querySelectorAll('button span').forEach(function(el) {
+            if (el.textContent.indexOf('keyboard_double_arrow_right') !== -1) el.textContent = '»';
+            if (el.textContent.indexOf('keyboard_double_arrow_left')  !== -1) el.textContent = '«';
+        });
+    }
+    run();
+    new MutationObserver(run).observe(document.body || document.documentElement, {childList: true, subtree: true});
+})();
+
 // Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
     var svgFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23007A3D'/%3E%3Ctext x='16' y='24' font-family='Arial,Helvetica,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E";
