@@ -178,86 +178,41 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Sidebar collapse/expand toggle — keep it functional ── */
-[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"],
-div[class*="collapsedControl"] {
-    display: flex !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-}
-[data-testid="collapsedControl"] button,
-[data-testid="stSidebarCollapsedControl"] button,
+/* ── Fix sidebar collapse/expand toggle button ── */
+/* Streamlit renders a Material icon name as text when the font isn't loaded.
+   We hide it and force a unicode double-arrow instead. */
 button[data-testid="baseButton-headerNoPadding"] {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    font-size: 0 !important; /* hide broken icon ligature text fallback */
-}
-[data-testid="collapsedControl"] button span,
-[data-testid="collapsedControl"] button p,
-[data-testid="stSidebarCollapsedControl"] button span,
-[data-testid="stSidebarCollapsedControl"] button p,
-button[data-testid="baseButton-headerNoPadding"] span,
-button[data-testid="baseButton-headerNoPadding"] p {
-    font-size: 0 !important;
-    color: transparent !important;
-}
-[data-testid="collapsedControl"] button::before {
-    content: "◀";
-    font-size: 14px !important;
-    line-height: 1 !important;
-    color: rgba(255,255,255,0.9) !important;
-}
-[data-testid="stSidebarCollapsedControl"] button::before {
-    content: "▶";
-    font-size: 14px !important;
-    line-height: 1 !important;
-    color: rgba(255,255,255,0.9) !important;
-}
-
-/* ── Fix expander arrow rendering as icon-name text ── */
-/* Same root cause: Material Icons ligature not loading → hide the icon
-   span entirely and use a CSS triangle that is font-independent. */
-[data-testid="stExpander"] summary {
+    overflow: hidden !important;
     position: relative !important;
-    padding-left: 28px !important;
-    list-style: none !important;
+    width: 32px !important;
+    height: 32px !important;
+    background: rgba(255,255,255,0.15) !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
 }
-[data-testid="stExpander"] summary::-webkit-details-marker { display: none !important; }
-/* Hide every potential icon element — SVG, span, p inside summary */
-[data-testid="stExpander"] summary > svg,
-[data-testid="stExpander"] summary > span[data-testid],
-[data-testid="stExpander"] summary > div > svg {
+button[data-testid="baseButton-headerNoPadding"] svg,
+button[data-testid="baseButton-headerNoPadding"] span {
     display: none !important;
 }
-/* Zero out any orphan text node that is a Material icon name */
-[data-testid="stExpander"] summary > span:not([class]),
-[data-testid="stExpander"] summary > p {
-    font-size: 0 !important;
-    line-height: 0 !important;
+button[data-testid="baseButton-headerNoPadding"]::after {
+    content: "«";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    inset: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #FFFFFF;
+    font-family: Arial, sans-serif;
 }
-/* Inject a CSS-only chevron arrow — totally font-independent */
-[data-testid="stExpander"] summary::before {
-    content: "" !important;
-    position: absolute !important;
-    left: 8px !important;
-    top: 50% !important;
-    transform: translateY(-50%) rotate(-90deg) !important;
-    width: 0 !important;
-    height: 0 !important;
-    border-left: 5px solid transparent !important;
-    border-right: 5px solid transparent !important;
-    border-top: 7px solid #60a5fa !important;
-    transition: transform 0.2s ease !important;
-    display: block !important;
-    visibility: visible !important;
+/* When sidebar is collapsed, the control button flips */
+[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
+    content: "»";
 }
-details[open] [data-testid="stExpander"] summary::before {
-    transform: translateY(-50%) rotate(0deg) !important;
-}
+
+
 
 /* ── Sidebar selectbox — match sidebar style ── */
 section[data-testid="stSidebar"] .stSelectbox label {
@@ -335,20 +290,6 @@ section[data-testid="stSidebar"] .stSelectbox svg {
     fill: rgba(255,255,255,0.45) !important;
 }
 
-/* ── Fix expander arrow overlapping label text ── */
-[data-testid="stExpander"] summary {
-    padding-left: 28px !important;
-}
-[data-testid="stExpander"] summary svg {
-    left: 6px !important;
-    position: absolute !important;
-    flex-shrink: 0 !important;
-}
-[data-testid="stExpander"] summary p,
-[data-testid="stExpander"] summary span {
-    margin-left: 4px !important;
-}
-
 /* ── Source tag pill ── */
 .source-tag {
     background:#1e3a5f; color:#93c5fd;
@@ -393,48 +334,6 @@ code, pre, .stCode {
     if (shortcut) shortcut.href = svgFavicon;
 })();
 
-// ── Keep Streamlit sidebar toggle clickable + icon-safe ───────────
-(function fixSidebarToggleControl() {
-    var SELECTORS = [
-        '[data-testid="collapsedControl"] button',
-        '[data-testid="stSidebarCollapsedControl"] button',
-        'button[data-testid="baseButton-headerNoPadding"]'
-    ];
-
-    function setImportantStyle(el, prop, value) {
-        if (!el || !el.style) return;
-        el.style.setProperty(prop, value, "important");
-    }
-
-    function patchOneButton(btn) {
-        if (!btn) return;
-
-        // Force functional click target
-        setImportantStyle(btn, "display", "inline-flex");
-        setImportantStyle(btn, "visibility", "visible");
-        setImportantStyle(btn, "pointer-events", "auto");
-        setImportantStyle(btn, "align-items", "center");
-        setImportantStyle(btn, "justify-content", "center");
-        setImportantStyle(btn, "font-size", "0");
-        setImportantStyle(btn, "color", "transparent");
-
-        // Hide broken ligature fallback text (e.g., keyboard_double_arrow_left)
-        btn.querySelectorAll("span, p").forEach(function(node) {
-            setImportantStyle(node, "font-size", "0");
-            setImportantStyle(node, "color", "transparent");
-            setImportantStyle(node, "line-height", "0");
-        });
-    }
-
-    function patchAll() {
-        SELECTORS.forEach(function(sel) {
-            document.querySelectorAll(sel).forEach(patchOneButton);
-        });
-    }
-
-    patchAll();
-    new MutationObserver(patchAll).observe(document.body, { childList: true, subtree: true });
-})();
 
 </script>
 """, unsafe_allow_html=True)
@@ -4008,7 +3907,8 @@ Return ONLY valid JSON:
         st.markdown("---")
 
         # ── TRL scale reference ───────────────────────────────
-        with st.expander("  Schaeffler-adapted TRL scale reference"):
+        st.markdown("**Schaeffler-adapted TRL scale reference**")
+        if True:
             trl_descriptions = [
                 (1,"Basic principles observed","Theoretical concept only, no testing"),
                 (2,"Technology concept formulated","Application identified, no experimental testing"),
@@ -4892,9 +4792,9 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
             st.markdown(f"**{i}.** {step}")
         st.markdown("---")
 
-        # ── Full narrative (expandable) ───────────────────────
-        with st.expander("  📖 Read full narrative synthesis"):
-            st.markdown(synthesis.get("narrative",""))
+        # ── Full narrative ────────────────────────────────────
+        st.markdown("#### 📖 Full Narrative Synthesis")
+        st.markdown(synthesis.get("narrative",""))
 
         # ── Visual mockup generation ──────────────────────────
         st.markdown("---")
