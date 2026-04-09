@@ -179,8 +179,7 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 }
 
 /* ── Fix sidebar collapse/expand toggle button ── */
-/* Streamlit renders a Material icon name as text when the font isn't loaded.
-   We hide it and force a unicode double-arrow instead. */
+/* Belt-and-suspenders: hide ALL children, then inject arrow via ::after */
 button[data-testid="baseButton-headerNoPadding"] {
     overflow: hidden !important;
     position: relative !important;
@@ -190,26 +189,38 @@ button[data-testid="baseButton-headerNoPadding"] {
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    line-height: 0 !important;
 }
+button[data-testid="baseButton-headerNoPadding"] *,
 button[data-testid="baseButton-headerNoPadding"] svg,
-button[data-testid="baseButton-headerNoPadding"] span {
+button[data-testid="baseButton-headerNoPadding"] span,
+button[data-testid="baseButton-headerNoPadding"] p,
+button[data-testid="baseButton-headerNoPadding"] div {
     display: none !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
 }
 button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "«";
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    inset: 0;
-    font-size: 16px;
-    font-weight: 700;
-    color: #FFFFFF;
-    font-family: Arial, sans-serif;
+    content: "«" !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: absolute !important;
+    inset: 0 !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #FFFFFF !important;
+    font-family: Arial, sans-serif !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    line-height: 1 !important;
 }
-/* When sidebar is collapsed, the control button flips */
 [data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "»";
+    content: "»" !important;
 }
 
 
@@ -334,7 +345,47 @@ code, pre, .stCode {
     if (shortcut) shortcut.href = svgFavicon;
 })();
 
-
+// ── Inject sidebar toggle style directly into <head> ─────────
+// This bypasses any Streamlit CSS scoping so the rule applies globally
+// regardless of iframe nesting or specificity conflicts.
+(function injectSidebarToggleStyle() {
+    var css = [
+        'button[data-testid="baseButton-headerNoPadding"]{',
+        '  overflow:hidden!important;position:relative!important;',
+        '  width:32px!important;height:32px!important;',
+        '  background:rgba(255,255,255,0.15)!important;',
+        '  border:none!important;border-radius:4px!important;',
+        '  cursor:pointer!important;font-size:0!important;',
+        '  color:transparent!important;line-height:0!important;}',
+        'button[data-testid="baseButton-headerNoPadding"] *,',
+        'button[data-testid="baseButton-headerNoPadding"] svg,',
+        'button[data-testid="baseButton-headerNoPadding"] span,',
+        'button[data-testid="baseButton-headerNoPadding"] p,',
+        'button[data-testid="baseButton-headerNoPadding"] div{',
+        '  display:none!important;font-size:0!important;',
+        '  color:transparent!important;visibility:hidden!important;',
+        '  opacity:0!important;}',
+        'button[data-testid="baseButton-headerNoPadding"]::after{',
+        '  content:"\\00AB"!important;display:flex!important;',
+        '  align-items:center!important;justify-content:center!important;',
+        '  position:absolute!important;inset:0!important;',
+        '  font-size:16px!important;font-weight:700!important;',
+        '  color:#FFFFFF!important;font-family:Arial,sans-serif!important;',
+        '  visibility:visible!important;opacity:1!important;line-height:1!important;}',
+        '[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after{',
+        '  content:"\\00BB"!important;}'
+    ].join('');
+    var el = document.createElement('style');
+    el.setAttribute('id', 'schaeffler-toggle-fix');
+    el.textContent = css;
+    document.head.appendChild(el);
+    // Re-apply on DOM mutations in case Streamlit re-renders the button
+    new MutationObserver(function() {
+        if (!document.getElementById('schaeffler-toggle-fix')) {
+            document.head.appendChild(el.cloneNode(true));
+        }
+    }).observe(document.body, {childList: true, subtree: true});
+})();
 </script>
 """, unsafe_allow_html=True)
 
