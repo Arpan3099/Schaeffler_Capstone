@@ -65,7 +65,7 @@ SHEET_COLUMNS = [
     "Date", "Submitter Name", "Position", "Department",
     "Full Idea Description", "Clarifying Q&A",
     "Quadrant", "Innovation Cluster", "Product Family",
-    "Market Score", "Patent Score", "Feasibility Score", "Org Readiness Score", "IPI Score",
+    "Market Score", "Patent Score", "Feasibility Score", "P³ Score", "IPI Score",
     "Recommendation", "Key Concerns", "Next Steps",
     "Market Name", "Market Size 2024", "CAGR",
     "TRL Level", "Build Strategy"
@@ -337,17 +337,17 @@ _LANG = {
             (2,"02 · Market Intelligence"),
             (3,"03 · Patent Intelligence"),
             (4,"04 · Technical Feasibility"),
-            (5,"05 · Organisational Readiness"),
+            (5,"05 · P³ Perspective"),
             (6,"06 · Scoring & Synthesis"),
         ],
         "dl_market":  "⬇️  Download Market Intelligence Report",
         "dl_patent":  "⬇️  Download Patent Intelligence Report",
         "dl_feasib":  "⬇️  Download Technical Feasibility Report",
-        "dl_org":     "⬇️  Download Organisational Readiness Report",
+        "dl_org":     "⬇️  Download P³ Perspective Report",
         "dl_master":  "⬇️  Download Full Innovation Assessment Report",
         "dl_ideas":   "↓  Download Ideas Log",
         "dl_spinner": "Generating report — please wait…",
-        "dl_caption": "Covers all 5 stages: Market · Patent · Feasibility · Org Readiness · IPI",
+        "dl_caption": "Covers all 5 stages: Market · Patent · Feasibility · P³ Score · IPI",
         "claude_suffix": "",
         # Stage 01
         "s1_title": "Stage 01 · Quadrant Classifier",
@@ -419,19 +419,19 @@ _LANG = {
         "s4_what": "Assesses whether the core technology of your idea actually exists and how mature it is — using the Technology Readiness Level (TRL) framework used by NASA, the EU, and industrial R&D organisations.",
         "s4_you_get": "<b style='color:#e2e8f0;'>You get:</b> Technology existence verdict · TRL level (1–9) with rationale · Schaeffler entry readiness · Technical Feasibility Score (0–10)",
         "s4_run_btn": "Run Technical Feasibility →",
-        "s4_continue": "Continue to Stage 05: Organisational Readiness →",
+        "s4_continue": "Continue to Stage 05: P³ Perspective →",
         "s4_rerun": "← Re-run analysis",
         "s4_success": "✓ Technical Feasibility complete. Final score: **{score}/10**",
         "s4_chat_header": "💬 Questions about the feasibility analysis?",
         "s4_chat_ph": "Ask about TRL, technology gaps, development timeline...",
         # Stage 05
-        "s5_title": "Stage 05 · Organisational Readiness",
+        "s5_title": "Stage 05 · P³ Perspective",
         "s5_what": "Assesses whether Schaeffler has the organisational capability to develop and commercialise this idea — using the P³ formula: Performance = Portfolio × People × Process.",
-        "s5_you_get": "<b style='color:#e2e8f0;'>You get:</b> P³ readiness scores · Build vs Partner recommendation · Key capability gaps · Organisational Readiness Score (0–10)",
-        "s5_run_btn": "Run Organisational Readiness →",
+        "s5_you_get": "<b style='color:#e2e8f0;'>You get:</b> P³ readiness scores · Build vs Partner recommendation · Key capability gaps · P³ Perspective Score (0–10)",
+        "s5_run_btn": "Run P³ Perspective →",
         "s5_continue": "Continue to Stage 06: Scoring & Synthesis →",
         "s5_rerun": "← Re-run analysis",
-        "s5_success": "✓ Organisational Readiness complete. Final score: **{score}/10**",
+        "s5_success": "✓ P³ Perspective complete. Final score: **{score}/10**",
         "s5_chat_header": "💬 Questions about the org readiness analysis?",
         "s5_chat_ph": "Ask about P³ scores, capability gaps, partnerships...",
         # Stage 06
@@ -455,7 +455,7 @@ _LANG = {
             (2,"02 · Marktintelligenz"),
             (3,"03 · Patentintelligenz"),
             (4,"04 · Technische Machbarkeit"),
-            (5,"05 · Organisatorische Bereitschaft"),
+            (5,"05 · P³ Perspektive"),
             (6,"06 · Bewertung & Synthese"),
         ],
         "dl_market":  "⬇️  Marktintelligenz-Bericht herunterladen",
@@ -536,19 +536,19 @@ _LANG = {
         "s4_what": "Bewertet, ob die Kerntechnologie Ihrer Idee tatsächlich existiert und wie ausgereift sie ist — unter Verwendung des TRL-Rahmens (Technology Readiness Level) von NASA, EU und industriellen F&E-Organisationen.",
         "s4_you_get": "<b style='color:#e2e8f0;'>Sie erhalten:</b> Technologie-Existenzbewertung · TRL-Stufe (1–9) mit Begründung · Schaeffler-Eintrittsvorbereitung · Technische Machbarkeits-Score (0–10)",
         "s4_run_btn": "Technische Machbarkeit starten →",
-        "s4_continue": "Weiter zu Stufe 05: Organisatorische Bereitschaft →",
+        "s4_continue": "Weiter zu Stufe 05: P³ Perspektive →",
         "s4_rerun": "← Analyse wiederholen",
         "s4_success": "✓ Technische Machbarkeit abgeschlossen. Endergebnis: **{score}/10**",
         "s4_chat_header": "💬 Fragen zur Machbarkeitsanalyse?",
         "s4_chat_ph": "Fragen zu TRL, Technologielücken, Entwicklungszeitplan...",
         # Stage 05
-        "s5_title": "Stufe 05 · Organisatorische Bereitschaft",
-        "s5_what": "Bewertet, ob Schaeffler die organisatorische Fähigkeit hat, diese Idee zu entwickeln und zu kommerzialisieren — mit der P³-Formel: Leistung = Portfolio × People × Process.",
-        "s5_you_get": "<b style='color:#e2e8f0;'>Sie erhalten:</b> P³-Bereitschaftsscores · Build-vs-Partner-Empfehlung · Wichtige Kompetenzlücken · Organisatorischer Bereitschafts-Score (0–10)",
-        "s5_run_btn": "Organisatorische Bereitschaft starten →",
+        "s5_title": "Stufe 05 · P³ Perspektive",
+        "s5_what": "Bewertet, ob Schaeffler die P³-Perspektive hat, diese Idee zu entwickeln und zu kommerzialisieren — mit der P³-Formel: Leistung = Portfolio × People × Process.",
+        "s5_you_get": "<b style='color:#e2e8f0;'>Sie erhalten:</b> P³-Bereitschaftsscores · Build-vs-Partner-Empfehlung · Wichtige Kompetenzlücken · P³ Score (0–10)",
+        "s5_run_btn": "P³ Perspektive starten →",
         "s5_continue": "Weiter zu Stufe 06: Bewertung & Synthese →",
         "s5_rerun": "← Analyse wiederholen",
-        "s5_success": "✓ Organisatorische Bereitschaft abgeschlossen. Endergebnis: **{score}/10**",
+        "s5_success": "✓ P³ Perspektive abgeschlossen. Endergebnis: **{score}/10**",
         "s5_chat_header": "💬 Fragen zur Org.-Bereitschaftsanalyse?",
         "s5_chat_ph": "Fragen zu P³-Scores, Kompetenzlücken, Partnerschaften...",
         # Stage 06
@@ -903,7 +903,7 @@ def get_dot_position(quadrant, confidence):
 
 
 def generate_org_report(idea, quadrant, s1c, s5d):
-    """Generate a Stage 05 Organisational Readiness Word report."""
+    """Generate a Stage 05 P³ Perspective Word report."""
     org_data   = s5d.get("org_data", {})
     portfolio  = org_data.get("p3_portfolio", {})
     people     = org_data.get("p3_people", {})
@@ -927,11 +927,11 @@ def generate_org_report(idea, quadrant, s1c, s5d):
         f"Overall org readiness score: {s5d.get('final_score',5)}/10"
     )
     extended = call_claude(
-        '''You are a senior Schaeffler innovation strategist writing a detailed Organisational Readiness report.
+        '''You are a senior Schaeffler innovation strategist writing a detailed P³ Perspective report.
 Write specific, substantive content referencing Schaeffler P3 formula (Performance = Portfolio x People x Process).
 Return ONLY valid JSON, no markdown backticks:
 {
-  "executive_summary": "3-4 full paragraphs: overall organisational readiness verdict, key P3 strengths and gaps, build-or-partner recommendation, and strategic rationale.",
+  "executive_summary": "3-4 full paragraphs: overall P³ Perspective verdict, key P3 strengths and gaps, build-or-partner recommendation, and strategic rationale.",
   "portfolio_analysis": "2-3 full paragraphs on strategic portfolio fit — how this idea aligns with Schaeffler innovation clusters, trends, product families, and the broader electrification strategy post-Vitesco.",
   "people_analysis": "2-3 full paragraphs on human capital readiness — which Schaeffler competencies match, what is critically missing, and the most realistic route to close the gap (hire, upskill, acquire, partner).",
   "process_analysis": "2-3 full paragraphs on process and infrastructure readiness — which Schaeffler assets and processes apply directly, what needs to be built, and estimated investment and timeline.",
@@ -949,7 +949,7 @@ Return ONLY valid JSON, no markdown backticks:
         ext = json.loads(raw_e)
     except:
         ext = {
-            "executive_summary": f"Schaeffler\'s organisational readiness for this idea scores {s5d.get('final_score',5)}/10. The P3 assessment shows Portfolio fit at {s5d.get('p_portfolio',5)}/10, People readiness at {s5d.get('p_people',5)}/10, and Process readiness at {s5d.get('p_process',5)}/10. Recommended build strategy: {bop.get('recommendation','Co-develop')}. {bop.get('rationale','')}",
+            "executive_summary": f"Schaeffler\'s P³ Perspective for this idea scores {s5d.get('final_score',5)}/10. The P3 assessment shows Portfolio fit at {s5d.get('p_portfolio',5)}/10, People readiness at {s5d.get('p_people',5)}/10, and Process readiness at {s5d.get('p_process',5)}/10. Recommended build strategy: {bop.get('recommendation','Co-develop')}. {bop.get('rationale','')}",
             "portfolio_analysis": f"Portfolio fit: {portfolio.get('rationale','')} Cluster fit: {portfolio.get('cluster_fit','')}",
             "people_analysis": f"People readiness: {people.get('rationale','')} Critical gap: {people.get('competency_gap','')} Closure route: {people.get('sourcing_route','')}",
             "process_analysis": f"Process readiness: {process.get('rationale','')} Investment required: {process.get('investment_required','')} Time to close: {process.get('time_to_close','')}",
@@ -995,7 +995,7 @@ Return ONLY valid JSON, no markdown backticks:
     p2=c.add_paragraph(); p2.paragraph_format.space_before=Pt(0); p2.paragraph_format.space_after=Pt(10)
     r2=p2.add_run("Schaeffler AI Innovation Research Assistant  ·  Stage 05"); r2.font.size=Pt(9); r2.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
     doc.add_paragraph()
-    p=doc.add_paragraph(); r=p.add_run("Organisational Readiness Assessment")
+    p=doc.add_paragraph(); r=p.add_run("P³ Perspective Assessment")
     r.bold=True; r.font.size=Pt(18); r.font.color.rgb=NAVY
     p2=doc.add_paragraph(); r2=p2.add_run(f"Score: {s5d.get('final_score',5)}/10  ·  Strategy: {bop.get('recommendation','')}  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}"); r2.font.size=Pt(10); r2.italic=True; r2.font.color.rgb=GREY
     doc.add_paragraph()
@@ -1079,7 +1079,7 @@ Return ONLY valid JSON, no markdown backticks:
     doc.add_paragraph()
     ft=doc.add_table(rows=1,cols=1); ft.style="Table Grid"; fc=ft.cell(0,0); set_bg(fc,"1F3864")
     fp=fc.paragraphs[0]; fp.paragraph_format.space_before=Pt(6); fp.paragraph_format.space_after=Pt(6)
-    fr=fp.add_run(f"Schaeffler AI Innovation Research Assistant  ·  Stage 05: Organisational Readiness  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität")
+    fr=fp.add_run(f"Schaeffler AI Innovation Research Assistant  ·  Stage 05: P³ Perspective  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität")
     fr.font.size=Pt(8); fr.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
     buf=io.BytesIO(); doc.save(buf); buf.seek(0)
     return buf
@@ -1119,7 +1119,7 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
         f"TRL: {trl.get('trl_level',3)} — {trl.get('trl_label','')}\n"
         f"Existence: {existence.get('existence_verdict','')}  Entry readiness: {trl.get('schaeffler_entry_readiness','')}\n"
         f"Time to production: {existence.get('time_to_readiness','')}\n\n"
-        f"STAGE 05 — Org Readiness ({weights.get('org',15)}%): {scores.get('org',5)}/10\n"
+        f"STAGE 05 — P³ Score ({weights.get('org',15)}%): {scores.get('org',5)}/10\n"
         f"Portfolio: {s5d_org.get('p_portfolio',5)}/10  People: {s5d_org.get('p_people',5)}/10  Process: {s5d_org.get('p_process',5)}/10\n"
         f"Strategy: {bop.get('recommendation','')}  Time with partner: {bop.get('time_to_trl6_partner','')}\n"
         f"Critical gap: {people.get('competency_gap','')}\n\n"
@@ -1136,7 +1136,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
   "market_highlights": "2 full paragraphs on the top 3 market signals — most important size/growth data point, the most relevant sector fit, and the most significant competitive dynamic.",
   "ip_highlights": "2 full paragraphs on the top IP insights — novelty position, the most threatening filer, and the most valuable white space to capture.",
   "feasibility_highlights": "2 full paragraphs on the technology readiness picture — TRL rationale, most convincing evidence found, and the one critical gap that needs solving before TRL6.",
-  "org_highlights": "2 full paragraphs on organisational readiness — the strongest existing capability, the most critical gap, and the recommended build-partner path.",
+  "org_highlights": "2 full paragraphs on P³ Perspective — the strongest existing capability, the most critical gap, and the recommended build-partner path.",
   "risk_synthesis": ["Top cross-cutting risk 1 with specific mitigation", "Risk 2 with mitigation", "Risk 3 with mitigation", "Risk 4 with mitigation", "Risk 5 with mitigation"],
   "action_plan": ["Immediate action (0-30 days): specific step 1", "Short-term (1-3 months): specific step 2", "Medium-term (3-6 months): specific step 3", "Longer-term (6-12 months): specific step 4", "Strategic (12+ months): specific step 5"]
 }''',
@@ -1232,7 +1232,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         ("02 · Market Intelligence",    f"{scores.get('market',5):.1f}/10",      f"{weights.get('market',35)}%",      f"{scores.get('market',5)*weights.get('market',35)/100:.2f}"),
         ("03 · Patent Intelligence",    f"{scores.get('patent',5):.1f}/10",      f"{weights.get('patent',25)}%",      f"{scores.get('patent',5)*weights.get('patent',25)/100:.2f}"),
         ("04 · Technical Feasibility",  f"{scores.get('feasibility',5):.1f}/10", f"{weights.get('feasibility',25)}%", f"{scores.get('feasibility',5)*weights.get('feasibility',25)/100:.2f}"),
-        ("05 · Organisational Readiness",f"{scores.get('org',5):.1f}/10",        f"{weights.get('org',15)}%",         f"{scores.get('org',5)*weights.get('org',15)/100:.2f}"),
+        ("05 · P³ Perspective",f"{scores.get('org',5):.1f}/10",        f"{weights.get('org',15)}%",         f"{scores.get('org',5)*weights.get('org',15)/100:.2f}"),
     ]):
         row=ipi_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
@@ -1394,8 +1394,8 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             for j,val in enumerate([risk.get("risk",""),risk.get("severity",""),risk.get("mitigation","")]):
                 r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
 
-    # ── Stage 05 — Organisational Readiness ──────────────────────
-    h1(doc,"Stage 05 · Organisational Readiness  ·  Score: " + str(scores.get("org",5)) + "/10")
+    # ── Stage 05 — P³ Perspective ──────────────────────
+    h1(doc,"Stage 05 · P³ Perspective  ·  Score: " + str(scores.get("org",5)) + "/10")
     body(doc, enr.get("org_highlights",""))
     doc.add_paragraph()
     kv(doc,"P³ Portfolio", f"{s5d_org.get('p_portfolio',5)}/10")
@@ -2346,7 +2346,7 @@ Return ONLY valid JSON:
 
 
 def run_stage5(idea, quadrant, s1c):
-    """Run Stage 05 Organisational Readiness and store results in session state."""
+    """Run Stage 05 P³ Perspective and store results in session state."""
     s3_landscape = st.session_state.get("s3_data",{}).get("landscape",{})
     s4_existence = st.session_state.get("s4_data",{}).get("existence",{})
     s4_trl       = st.session_state.get("s4_data",{}).get("trl",{})
@@ -2357,7 +2357,7 @@ def run_stage5(idea, quadrant, s1c):
     product_family     = s1c.get("product_family","")
     trend_alignment    = s1c.get("trend_alignment",[])
 
-    system_readiness = f"""You are a senior Schaeffler innovation strategist assessing internal organisational readiness.
+    system_readiness = f"""You are a senior Schaeffler innovation strategist assessing internal P³ Perspective.
 Schaeffler P³: Performance = Portfolio × People × Process.
 Innovation cluster: {innovation_cluster}, Product family: {product_family}, Trends: {', '.join(trend_alignment)}, TRL: {trl_level}
 Known filers: {', '.join(prior_filers[:6])}, Evidence sources: {', '.join(prior_evidence_sources[:5])}
@@ -2369,7 +2369,7 @@ Return ONLY valid JSON:
 "partnership_candidates":[{{"name":"string","type":"Startup/University/Customer/Supplier","rationale":"string","route":"Co-develop/Acquire/License/JDA"}}],
 "org_gaps":[{{"gap":"string","severity":"High/Medium/Low","closure_route":"string","timeline":"string"}}],
 "build_or_partner":{{"recommendation":"string","rationale":"2-3 sentences","time_to_trl6_internal":"string","time_to_trl6_partner":"string"}},
-"org_readiness_score":0-10}}"""
+"p3_perspective_score":0-10}}"""
 
     raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=2500)
     try:
@@ -2378,7 +2378,7 @@ Return ONLY valid JSON:
         if fb >= 0: raw_clean = raw_clean[fb:lb]
         org_data = json.loads(raw_clean)
     except:
-        org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"org_readiness_score":5}
+        org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"p3_perspective_score":5}
 
     p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
     p_people    = float(org_data.get("p3_people",{}).get("score",5))
@@ -2417,7 +2417,7 @@ def run_stage6_synthesis(idea, quadrant, s1c):
 Market ({weights['market']}%): {market_score}/10 — {s2d.get('market',{}).get('market_name','')}
 Patent ({weights['patent']}%): {patent_score}/10 — Novelty: {s3d.get('ansoff_data',{}).get('novelty_signal','')} IP risk: {s3d.get('ansoff_data',{}).get('ip_risk','')}
 Feasibility ({weights['feasibility']}%): {feasibility_score}/10 — TRL {s4d.get('trl',{}).get('trl_level','')} {s4d.get('trl',{}).get('schaeffler_entry_readiness','')}
-Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partner',{}).get('recommendation','')}"""
+P³ Score ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partner',{}).get('recommendation','')}"""
 
     system_structured = """You are a senior Schaeffler innovation strategist. Return ONLY valid JSON:
 {"headline":"one direct sentence","recommendation":"PROCEED or PROCEED WITH CONDITIONS or DEFER or REJECT",
@@ -2436,7 +2436,7 @@ Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partn
     except:
         synthesis_structured = {"headline":f"IPI {ipi}/10","recommendation":"PROCEED WITH CONDITIONS" if ipi>=5 else "DEFER","recommendation_rationale":"Based on pipeline analysis.","strongest_signals":[],"key_concerns":[],"conditions":[],"strategic_fit":"","risks":[],"next_steps":[]}
 
-    system_narrative = "Write a 4-paragraph narrative synthesis for this Schaeffler innovation assessment. Flowing prose, no bullets. Cover: market opportunity, IP landscape, technical maturity, organisational readiness, and recommendation. Reference Schaeffler P³ formula and electrification context."
+    system_narrative = "Write a 4-paragraph narrative synthesis for this Schaeffler innovation assessment. Flowing prose, no bullets. Cover: market opportunity, IP landscape, technical maturity, P³ Perspective, and recommendation. Reference Schaeffler P³ formula and electrification context."
     raw2 = call_claude(system_narrative, synthesis_context + f"\nRecommendation: {synthesis_structured.get('recommendation','')}\nIPI: {ipi}/10", max_tokens=600)
     narrative_text = raw2.strip().replace("```","").strip()
 
@@ -2716,7 +2716,7 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
                         run_stage3(idea_fa, quad_fa, s1c_fa)
                     with st.spinner("Stage 04: Technical Feasibility..."):
                         run_stage4(idea_fa, quad_fa, s1c_fa)
-                    with st.spinner("Stage 05: Organisational Readiness..."):
+                    with st.spinner("Stage 05: P³ Perspective..."):
                         run_stage5(idea_fa, quad_fa, s1c_fa)
                     with st.spinner("Stage 06: Scoring & Synthesis..."):
                         run_stage6_synthesis(idea_fa, quad_fa, s1c_fa)
@@ -4101,7 +4101,7 @@ elif st.session_state.active_stage == 5:
         status.markdown("🏭 Assessing Schaeffler competency and asset fit...")
         progress.progress(25)
 
-        system_readiness = f"""You are a senior Schaeffler Group innovation strategist assessing internal organisational readiness.
+        system_readiness = f"""You are a senior Schaeffler Group innovation strategist assessing internal P³ Perspective.
 
 Schaeffler's P³ formula: Performance = Portfolio × People × Process
 - Portfolio: Does this idea fit Schaeffler's strategic portfolio and innovation clusters?
@@ -4166,7 +4166,7 @@ Return ONLY valid JSON:
     "time_to_trl6_internal": "estimated timeline if built internally",
     "time_to_trl6_partner": "estimated timeline with external partnership"
   }},
-  "org_readiness_score": 0-10
+  "p3_perspective_score": 0-10
 }}"""
 
         try:
@@ -4185,7 +4185,7 @@ Return ONLY valid JSON:
                 "partnership_candidates":[],
                 "org_gaps":[],
                 "build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},
-                "org_readiness_score":5
+                "p3_perspective_score":5
             }
 
         progress.progress(75)
@@ -4229,7 +4229,7 @@ Return ONLY valid JSON:
 
         # ── P³ score cards ────────────────────────────────────
         st.markdown("#### P³ Assessment — Portfolio × People × Process")
-        st.caption("Schaeffler's own innovation performance formula applied to this idea's organisational readiness")
+        st.caption("Schaeffler's own innovation performance formula applied to this idea's P³ Perspective")
         col1, col2, col3 = st.columns(3)
         col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "35% weight")
         col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "40% weight")
@@ -4393,7 +4393,7 @@ elif st.session_state.active_stage == 6:
         if not s2_done: missing.append("Stage 02: Market Intelligence")
         if not s3_done: missing.append("Stage 03: Patent Intelligence")
         if not s4_done: missing.append("Stage 04: Technical Feasibility")
-        if not s5_done: missing.append("Stage 05: Organisational Readiness")
+        if not s5_done: missing.append("Stage 05: P³ Perspective")
         for m in missing:
             st.markdown(f"- ⬜ {m}")
         if st.button("← Back", key="s6_back2"):
@@ -4418,7 +4418,7 @@ elif st.session_state.active_stage == 6:
         c1.metric("Market Intelligence",    f"{market_score} / 10")
         c2.metric("Patent Intelligence",    f"{patent_score} / 10")
         c3.metric("Technical Feasibility",  f"{feasibility_score} / 10")
-        c4.metric("Org Readiness",          f"{org_score} / 10")
+        c4.metric("P³ Score",          f"{org_score} / 10")
 
         st.markdown("---")
         st.markdown("#### Innovation Potential Index — Scoring Weights")
@@ -4432,7 +4432,7 @@ elif st.session_state.active_stage == 6:
         with col3:
             w_feasibility = st.slider("Technical Feasibility", 0, 100, 25, 5, key="w_feasibility")
         with col4:
-            w_org = st.slider("Org Readiness", 0, 100, 15, 5, key="w_org")
+            w_org = st.slider("P³ Score", 0, 100, 15, 5, key="w_org")
 
         total_weight = w_market + w_patent + w_feasibility + w_org
         if total_weight != 100:
@@ -4520,7 +4520,7 @@ Stage 04 — Technical Feasibility ({weights['feasibility']}% weight): {feasibil
 - Entry readiness: {s4d.get('trl',{}).get('schaeffler_entry_readiness','')}
 - Time to readiness: {s4d.get('existence',{}).get('time_to_readiness','')}
 
-Stage 05 — Organisational Readiness ({weights.get('org',15)}% weight): {org_score}/10
+Stage 05 — P³ Perspective ({weights.get('org',15)}% weight): {org_score}/10
 - P³ Portfolio: {s5d.get('p_portfolio',5)}/10
 - P³ People: {s5d.get('p_people',5)}/10
 - P³ Process: {s5d.get('p_process',5)}/10
@@ -4647,7 +4647,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                 "Market Score":          str(scores.get("market","")),
                 "Patent Score":          str(scores.get("patent","")),
                 "Feasibility Score":     str(scores.get("feasibility","")),
-                "Org Readiness Score":   str(scores.get("org","")),
+                "P³ Score":   str(scores.get("org","")),
                 "IPI Score":             str(ipi),
                 "Recommendation":        rec,
                 "Key Concerns":          " | ".join(synthesis.get("key_concerns",[])[:3]),
@@ -4683,7 +4683,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         # ── Radar chart ───────────────────────────────────────
         st.markdown("#### 📡 Innovation Potential Radar")
 
-        categories   = ["Market Intelligence", "Patent Intelligence", "Technical Feasibility", "Org Readiness"]
+        categories   = ["Market Intelligence", "Patent Intelligence", "Technical Feasibility", "P³ Score"]
         values       = [scores["market"], scores["patent"], scores["feasibility"], scores.get("org", 5)]
         values_close = values + [values[0]]
         cats_close   = categories + [categories[0]]
@@ -4733,7 +4733,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         col1.metric("Market Intelligence",   f"{scores['market']} / 10",   f"{weights['market']}% weight")
         col2.metric("Patent Intelligence",   f"{scores['patent']} / 10",   f"{weights['patent']}% weight")
         col3.metric("Technical Feasibility", f"{scores['feasibility']} / 10", f"{weights['feasibility']}% weight")
-        col4.metric("Org Readiness",         f"{scores.get('org',5)} / 10", f"{weights.get('org',15)}% weight")
+        col4.metric("P³ Score",         f"{scores.get('org',5)} / 10", f"{weights.get('org',15)}% weight")
         st.markdown("---")
 
         # ── Recommendation ────────────────────────────────────
