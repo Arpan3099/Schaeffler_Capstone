@@ -312,73 +312,102 @@ code, pre, .stCode {
     if (shortcut) shortcut.href = svgFavicon;
 })();
 
-// ── Sidebar toggle fix: find by text content, replace with arrow ──
-// CSS alone cannot reach this button reliably across Streamlit versions.
-// We find it by the literal Material Icon ligature text it contains,
-// hide all its children via inline styles, and inject our own arrow span.
+// ── Sidebar toggle fix ───────────────────────────────────────
+// Problem: Streamlit uses Material Icons ligature text (e.g. "keyboard_double_arrow_right").
+// When the font loads the text renders as an icon — fine, leave it alone.
+// When the font does NOT load, the raw text is visible — we detect this via
+// scrollWidth and replace the content with an inline SVG chevron.
 (function patchSidebarToggle() {
+
+    function svgChevron(pointRight) {
+        // Single bold chevron, white fill, 18x18
+        var d = pointRight
+            ? 'M8 5l7 7-7 7'   // right-pointing
+            : 'M16 5l-7 7 7 7'; // left-pointing
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" '
+             + 'viewBox="0 0 24 24" fill="none" stroke="#fff" '
+             + 'stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+             + '<polyline points="' + (pointRight ? '9 18 15 12 9 6' : '15 18 9 12 15 6') + '"/>'
+             + '</svg>';
+    }
+
+    function isTextOverflowing(btn) {
+        // If Material Icons rendered correctly, inner span scrollWidth ≈ icon size (≤ 30px).
+        // If font failed, the raw text is wider than the button — scrollWidth >> clientWidth.
+        var found = false;
+        btn.querySelectorAll('span, p').forEach(function(el) {
+            if ((el.textContent || '').indexOf('keyboard_double_arrow') !== -1) {
+                if (el.scrollWidth > 30) found = true;
+            }
+        });
+        return found;
+    }
+
+    function applyPatch(btn) {
+        var txt = btn.textContent || btn.innerText || '';
+        var isRight = txt.indexOf('right') !== -1;
+
+        // Style the button shell
+        btn.style.overflow     = 'hidden';
+        btn.style.position     = 'relative';
+        btn.style.width        = '32px';
+        btn.style.height       = '32px';
+        btn.style.background   = 'rgba(255,255,255,0.15)';
+        btn.style.border       = 'none';
+        btn.style.borderRadius = '4px';
+        btn.style.cursor       = 'pointer';
+
+        // Hide all original children via inline style (beats any CSS specificity)
+        btn.querySelectorAll('*').forEach(function(child) {
+            if (child.hasAttribute('data-sf-arrow')) return; // don't hide our own element
+            child.style.setProperty('display',    'none',        'important');
+            child.style.setProperty('visibility', 'hidden',      'important');
+            child.style.setProperty('color',      'transparent', 'important');
+            child.style.setProperty('opacity',    '0',           'important');
+        });
+        // Blank out direct text nodes
+        btn.childNodes.forEach(function(n) {
+            if (n.nodeType === 3) n.textContent = '';
+        });
+
+        // Remove any previously injected arrow so we don't double-up
+        var prev = btn.querySelector('[data-sf-arrow]');
+        if (prev) prev.parentNode.removeChild(prev);
+
+        // Inject SVG chevron
+        var wrap = document.createElement('span');
+        wrap.setAttribute('data-sf-arrow', '1');
+        wrap.innerHTML = svgChevron(isRight);
+        wrap.style.position      = 'absolute';
+        wrap.style.inset         = '0';
+        wrap.style.display       = 'flex';
+        wrap.style.alignItems    = 'center';
+        wrap.style.justifyContent = 'center';
+        wrap.style.pointerEvents = 'none';
+        btn.appendChild(wrap);
+    }
+
     function patch() {
         document.querySelectorAll('button').forEach(function(btn) {
-            if (btn.getAttribute('data-sf-patched')) return;
-            var txt = btn.textContent || btn.innerText || '';
-            if (!txt.includes('keyboard_double_arrow')) return;
+            var txt = btn.textContent || '';
+            if (txt.indexOf('keyboard_double_arrow') === -1) return;
 
-            btn.setAttribute('data-sf-patched', '1');
+            // Already has our SVG arrow and it's still present — skip
+            if (btn.querySelector('[data-sf-arrow]')) return;
 
-            // Shape the button
-            btn.style.setProperty('overflow',      'hidden',                  'important');
-            btn.style.setProperty('position',      'relative',                'important');
-            btn.style.setProperty('width',         '32px',                    'important');
-            btn.style.setProperty('height',        '32px',                    'important');
-            btn.style.setProperty('background',    'rgba(255,255,255,0.15)',   'important');
-            btn.style.setProperty('border',        'none',                    'important');
-            btn.style.setProperty('border-radius', '4px',                     'important');
-            btn.style.setProperty('cursor',        'pointer',                  'important');
-            btn.style.setProperty('font-size',     '0',                       'important');
-            btn.style.setProperty('color',         'transparent',             'important');
-
-            // Hide every child element and clear text nodes
-            btn.querySelectorAll('*').forEach(function(child) {
-                child.style.setProperty('display',     'none',        'important');
-                child.style.setProperty('visibility',  'hidden',      'important');
-                child.style.setProperty('font-size',   '0',           'important');
-                child.style.setProperty('color',       'transparent', 'important');
-                child.style.setProperty('opacity',     '0',           'important');
+            // Only intervene if the font actually failed to render
+            requestAnimationFrame(function() {
+                if (isTextOverflowing(btn)) applyPatch(btn);
             });
-            btn.childNodes.forEach(function(node) {
-                if (node.nodeType === 3) node.textContent = '';  // text nodes
-            });
-
-            // Inject our arrow — « when open (left-facing), » when collapsed (right-facing)
-            var isRight = txt.includes('right');
-            var arrow = document.createElement('span');
-            arrow.textContent = isRight ? '\u00BB' : '\u00AB';
-            arrow.setAttribute('data-sf-arrow', '1');
-            arrow.style.cssText = [
-                'display:flex!important',
-                'align-items:center!important',
-                'justify-content:center!important',
-                'position:absolute!important',
-                'inset:0!important',
-                'font-size:16px!important',
-                'font-weight:700!important',
-                'color:#FFFFFF!important',
-                'font-family:Arial,sans-serif!important',
-                'visibility:visible!important',
-                'opacity:1!important',
-                'line-height:1!important',
-                'pointer-events:none!important'
-            ].join(';');
-            btn.appendChild(arrow);
         });
     }
 
-    // Run once now, then watch for Streamlit re-renders
+    // Initial run + watch for Streamlit re-renders
     patch();
-    new MutationObserver(patch).observe(
-        document.body || document.documentElement,
-        {childList: true, subtree: true}
-    );
+    new MutationObserver(function() {
+        patch();
+    }).observe(document.body || document.documentElement, {childList: true, subtree: true});
+
 })();
 </script>
 """, unsafe_allow_html=True)
