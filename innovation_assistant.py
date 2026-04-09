@@ -26,7 +26,7 @@ def _mval(field):
 
 TAVILY_KEY = ""  # optional
 
-st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered")
+st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered", initial_sidebar_state="expanded")
 
 # ── API key — loaded from Streamlit secrets ───────────────────────────────────
 try:
@@ -178,49 +178,13 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Fix sidebar collapse/expand toggle button ── */
-/* Streamlit renders Material Icon names as raw text when the ligature font
-   is absent. We zero-out ALL text inside the button and inject a stable
-   unicode arrow via ::after so it NEVER shows icon-name text. */
-button[data-testid="baseButton-headerNoPadding"] {
-    overflow: hidden !important;
-    position: relative !important;
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    background: rgba(255,255,255,0.15) !important;
-    border: none !important;
-    border-radius: 4px !important;
-    cursor: pointer !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-/* Kill every child element — text nodes, spans, SVGs, divs, ps */
-button[data-testid="baseButton-headerNoPadding"] * {
-    font-size: 0px !important;
-    line-height: 0 !important;
-    width: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    visibility: hidden !important;
+/* ── Sidebar collapse/expand toggle — permanently hidden ── */
+/* The sidebar is always open; the toggle button and collapsed-state
+   re-open button are both hidden so users cannot close it. */
+button[data-testid="baseButton-headerNoPadding"],
+[data-testid="collapsedControl"] {
     display: none !important;
-}
-/* Inject stable unicode arrow that cannot be affected by icon fonts */
-button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "\00AB" !important; /* « */
-    display: block !important;
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    line-height: 1 !important;
-    color: #FFFFFF !important;
-    font-family: Arial, Helvetica, sans-serif !important;
-    visibility: visible !important;
-    width: auto !important;
-    height: auto !important;
-}
-[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "\00BB" !important; /* » */
+    pointer-events: none !important;
 }
 
 /* ── Fix expander arrow rendering as icon-name text ── */
@@ -3104,11 +3068,21 @@ Return ONLY valid JSON with NO inline comments:
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
         col_r.markdown(f"**Geography** · {market.get('geographic_focus','')}")
         if market.get("growth_drivers"):
-            with st.expander(f"  Growth drivers (top {min(3,len(market['growth_drivers']))} of {len(market['growth_drivers'])})"):
-                for drv in market["growth_drivers"][:3]:
-                    st.markdown(f"- {drv}")
-                if len(market["growth_drivers"]) > 3:
-                    st.caption("Full list in the downloaded report.")
+            drivers = market["growth_drivers"]
+            drivers_html = "".join(
+                f'<div style="display:flex;gap:10px;margin:6px 0;color:#e2e8f0;font-size:13px;">' +
+                f'<span style="color:#60a5fa;flex-shrink:0;">›</span><span>{drv}</span></div>'
+                for drv in drivers[:3]
+            )
+            extra = '<div style="color:#64748b;font-size:11px;margin-top:6px;">Full list in the downloaded report.</div>' if len(drivers) > 3 else ""
+            st.markdown(f"""
+<div style="background:#1a2d45;border-radius:6px;padding:12px 16px;margin:8px 0 4px 0;">
+  <div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;margin-bottom:8px;">
+    GROWTH DRIVERS &middot; TOP {{min(3,len(drivers))}} OF {{len(drivers)}}
+  </div>
+  {{drivers_html}}{{extra}}
+</div>
+""", unsafe_allow_html=True)
         st.markdown("---")
 
         # ── Sector cluster chart ──────────────────────────────
