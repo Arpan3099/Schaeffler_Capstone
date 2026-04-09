@@ -2130,10 +2130,14 @@ def run_stage2(idea, quadrant, s1c):
     """Run Stage 02 Market Intelligence and store results in session state."""
     web_ctx = ""
     system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
-RULES: Every data point MUST include [Source: Org, Year]. Use only credible sources (McKinsey, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, industry associations). If uncertain, give a range.
+RULES:
+- Every numeric data point MUST include [Source: Org, Year, URL] where URL is the actual report/page URL if publicly accessible, or omit URL if behind paywall.
+- Use only credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights.
+- For market_size_2024, market_size_2030, cagr: return ONLY the numeric value/range first (e.g. "$4.2B"), then source annotation. Do NOT put descriptive text in the value.
+- If uncertain, give a range with two sources.
 Return ONLY valid JSON:
-{"market_name":"string","market_size_2024":"value [Source: X, Y]","market_size_2030":"value [Source: X, Y]",
-"cagr":"% [Source: X, Y]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
+{"market_name":"string","market_size_2024":"$X.XB [Source: Org, Year, https://url-if-public]","market_size_2030":"$X.XB [Source: Org, Year, https://url-if-public]",
+"cagr":"X%–Y% [Source: Org, Year, https://url-if-public]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":1-10,"market_score_rationale":"2 sentences"}"""
     raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1200)
     try:
@@ -2760,10 +2764,14 @@ elif st.session_state.active_stage == 2:
         status.markdown("📊 Analysing market size and growth...")
         progress.progress(35)
         system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
-RULES: Every data point MUST include [Source: Org, Year]. Use only credible sources (McKinsey, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, industry associations). If uncertain, give a range.
+RULES:
+- Every numeric data point MUST include [Source: Org, Year, URL] where URL is the actual report/page URL if publicly accessible, or omit URL if behind paywall.
+- Use only credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global.
+- For market_size_2024, market_size_2030, cagr: return ONLY the numeric value/range first (e.g. "$4.2B–$5.8B"), then the source annotation. Do NOT include descriptive text in the value itself.
+- If uncertain, give a range with two sources.
 Return ONLY valid JSON:
-{"market_name":"string","market_size_2024":"value [Source: X, Y]","market_size_2030":"value [Source: X, Y]",
-"cagr":"% [Source: X, Y]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
+{"market_name":"string","market_size_2024":"$X.XB [Source: Org, Year, https://url-if-public]","market_size_2030":"$X.XB [Source: Org, Year, https://url-if-public]",
+"cagr":"X%–Y% [Source: Org, Year, https://url-if-public]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":integer 1-10 (9-10=large fast-growing >$10bn/>15%CAGR; 7-8=strong $2-10bn/8-15%; 5-6=moderate; 3-4=niche; 1-2=tiny or declining),"market_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}")
@@ -2838,94 +2846,137 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         # ── Market size ───────────────────────────────────────
         st.markdown("#### 📊 Market")
 
-        def extract_value_and_sources(field_str):
-            """Return (display_value, [source_str, ...])"""
+        import re as _re, urllib.parse as _up
+
+        def extract_number_and_sources(field_str):
+            """
+            Returns (number_only, [{"label": str, "url": str}, ...])
+            number_only  — just the numeric value/range, no parenthetical text
+            sources list — each entry has a clean label and a best-available URL
+            """
             if not field_str or field_str == "N/A":
                 return field_str, []
-            val = field_str.split("[Source:")[0].strip().rstrip(",").strip()
-            import re
-            sources = [m.group(1).strip() for m in re.finditer(r'\[Source:\s*([^\]]+)\]', field_str)]
-            return val, sources
 
-        def build_source_pills(sources, idea_ctx):
-            """Return HTML string of pill-shaped <a> tags for each source."""
-            if not sources:
-                return ""
-            import re, urllib.parse
-            ORG_SEARCH = {
-                "mckinsey":         "https://www.mckinsey.com/search?q={q}",
-                "gartner":          "https://www.gartner.com/en/search#/?term={q}",
-                "bloomberg":        "https://www.bloomberg.com/search?query={q}",
-                "bloombergnef":     "https://about.bnef.com/search/?q={q}",
-                "iea":              "https://www.iea.org/search?q={q}",
-                "statista":         "https://www.statista.com/search/#searchContent={q}",
-                "roland berger":    "https://www.rolandberger.com/en/Insights/search/?q={q}",
-                "frost & sullivan": "https://www.frost.com/search/?q={q}",
-                "frost":            "https://www.frost.com/search/?q={q}",
-                "deloitte":         "https://www.deloitte.com/global/en/search.html?q={q}",
-                "pwc":              "https://www.pwc.com/gx/en/search.html?q={q}",
-                "ihs markit":       "https://ihsmarkit.com/index.html#q={q}",
-                "mordor":           "https://www.mordorintelligence.com/search?q={q}",
-                "grand view":       "https://www.grandviewresearch.com/industry-analysis/search?keyword={q}",
-                "allied market":    "https://www.alliedmarketresearch.com/search?query={q}",
+            # 1. Pull out all [Source: ...] blocks first
+            raw_sources = [m.group(1).strip() for m in _re.finditer(r'\[Source:\s*([^\]]+)\]', field_str)]
+
+            # 2. Strip everything from first "[Source:" onwards to get the value
+            val_part = field_str.split("[Source:")[0].strip().rstrip(",;").strip()
+
+            # 3. Strip parenthetical descriptions — keep only the leading number/range
+            #    e.g. "$1.2B–$1.8B (addressable segment ...)" → "$1.2B–$1.8B"
+            #    e.g. "18%–24% (neuromorphic...); 12%–16% (industrial...)" → "18%–24%"
+            number_only = val_part.split("(")[0].split(";")[0].strip()
+
+            # 4. Known org → their canonical publications/research page (real, stable URLs)
+            ORG_PAGES = {
+                "mckinsey":             "https://www.mckinsey.com/mgi/research",
+                "mckinsey global":      "https://www.mckinsey.com/mgi/research",
+                "gartner":              "https://www.gartner.com/en/research/publications",
+                "bloomberg":            "https://www.bloomberg.com/professional/insights/",
+                "bloombergnef":         "https://about.bnef.com/insights/",
+                "bnef":                 "https://about.bnef.com/insights/",
+                "iea":                  "https://www.iea.org/reports",
+                "statista":             "https://www.statista.com/markets/",
+                "roland berger":        "https://www.rolandberger.com/en/Insights/Publications/",
+                "frost & sullivan":     "https://store.frost.com/reports.html",
+                "frost":                "https://store.frost.com/reports.html",
+                "deloitte":             "https://www2.deloitte.com/global/en/insights.html",
+                "pwc":                  "https://www.pwc.com/gx/en/industries/",
+                "ihs markit":           "https://ihsmarkit.com/research-analysis/",
+                "s&p global":           "https://www.spglobal.com/marketintelligence/en/news-insights/research",
+                "wood mackenzie":       "https://www.woodmac.com/reports/",
+                "mordor":               "https://www.mordorintelligence.com/industry-reports",
+                "mordor intelligence":  "https://www.mordorintelligence.com/industry-reports",
+                "grand view":           "https://www.grandviewresearch.com/industry-analysis",
+                "grand view research":  "https://www.grandviewresearch.com/industry-analysis",
+                "allied market":        "https://www.alliedmarketresearch.com/market-research-report",
+                "allied market research": "https://www.alliedmarketresearch.com/market-research-report",
+                "marketsandmarkets":    "https://www.marketsandmarkets.com/Market-Reports/",
+                "fortune business":     "https://www.fortunebusinessinsights.com/reports",
+                "fortune business insights": "https://www.fortunebusinessinsights.com/reports",
+                "idc":                  "https://www.idc.com/research/viewtoc",
+                "precedence":           "https://www.precedenceresearch.com/",
+                "technavio":            "https://www.technavio.com/report-store",
+                "ibisworld":            "https://www.ibisworld.com/global/",
+                "euromonitor":          "https://www.euromonitor.com/reports",
             }
-            pills = []
-            for s in sources:
-                url_match = re.search(r'https?://\S+', s)
-                if url_match:
-                    url   = url_match.group(0).rstrip(')')
-                    label = s[:s.find('http')].strip().rstrip(',').strip() or url[:30]
+
+            # 5. Parse each raw source into {label, url}
+            parsed = []
+            for s in raw_sources:
+                # Split on commas to get parts: Org, Year, URL
+                parts = [p.strip() for p in s.split(",")]
+                url_in_src = None
+                label_parts = []
+                for p in parts:
+                    if p.startswith("http"):
+                        url_in_src = p.rstrip(")")
+                    else:
+                        label_parts.append(p)
+
+                label = ", ".join(label_parts).strip()
+
+                if url_in_src:
+                    # Claude provided a direct URL — use it
+                    url = url_in_src
                 else:
+                    # Look up org publications page
                     s_lower = s.lower()
                     url = None
-                    for org_key, url_tpl in ORG_SEARCH.items():
+                    for org_key, org_url in ORG_PAGES.items():
                         if org_key in s_lower:
-                            q   = urllib.parse.quote(idea_ctx[:50] + " " + s.strip())
-                            url = url_tpl.format(q=q)
+                            url = org_url
                             break
                     if not url:
-                        url = f"https://scholar.google.com/scholar?q={urllib.parse.quote(s.strip())}"
-                    label = s.strip()
-                # Trim label to keep pills compact
-                label = label[:35] + "…" if len(label) > 35 else label
-                pills.append(
-                    f'<a href="{url}" target="_blank" '
+                        # Fallback: Google Scholar search with exact source label
+                        url = f"https://scholar.google.com/scholar?q={_up.quote(label or s)}"
+
+                parsed.append({"label": label or s, "url": url})
+
+            return number_only, parsed
+
+        def render_pills(sources):
+            """Return HTML for individual pill <a> tags, one per source."""
+            if not sources:
+                return ""
+            html = ""
+            for src in sources:
+                lbl = src["label"][:40] + "…" if len(src["label"]) > 40 else src["label"]
+                html += (
+                    f'<a href="{src["url"]}" target="_blank" '
                     f'style="display:inline-block;background:#1e3a5f;color:#93c5fd;'
-                    f'font-size:10px;padding:3px 10px;border-radius:12px;margin:3px 2px;'
-                    f'text-decoration:none;border:1px solid #2a4a70;white-space:nowrap;'
-                    f'line-height:1.4;">{label}</a>'
+                    f'font-size:10px;padding:3px 10px;border-radius:12px;margin:3px 2px 0;'
+                    f'text-decoration:none;border:1px solid #2a4a70;'
+                    f'white-space:nowrap;line-height:1.5;">{lbl}</a>'
                 )
-            return "".join(pills)
+            return html
 
         size_2024_raw = market.get("market_size_2024", "N/A")
         size_2030_raw = market.get("market_size_2030", "N/A")
         cagr_raw      = market.get("cagr", "N/A")
 
-        val_2024, src_2024 = extract_value_and_sources(size_2024_raw)
-        val_2030, src_2030 = extract_value_and_sources(size_2030_raw)
-        val_cagr,  src_cagr  = extract_value_and_sources(cagr_raw)
+        num_2024, src_2024 = extract_number_and_sources(size_2024_raw)
+        num_2030, src_2030 = extract_number_and_sources(size_2030_raw)
+        num_cagr,  src_cagr  = extract_number_and_sources(cagr_raw)
 
-        pills_2024 = build_source_pills(src_2024, idea)
-        pills_2030 = build_source_pills(src_2030, idea)
-        pills_cagr = build_source_pills(src_cagr,  idea)
-
-        # ── Big-number metric cards with inline source pills ───
+        # ── Big-number cards: number prominent, pills inline below ──
         mc1, mc2, mc3 = st.columns(3)
-        card_data = [
-            (mc1, "MARKET SIZE (2024)", val_2024, pills_2024),
-            (mc2, "MARKET SIZE (2030)", val_2030, pills_2030),
-            (mc3, "CAGR",               val_cagr,  pills_cagr),
-        ]
-        for col, label, val, pills_html in card_data:
+        for col, label, num, srcs in [
+            (mc1, "MARKET SIZE (2024)", num_2024, src_2024),
+            (mc2, "MARKET SIZE (2030)", num_2030, src_2030),
+            (mc3, "CAGR",               num_cagr,  src_cagr),
+        ]:
+            pills_html = render_pills(srcs)
             col.markdown(f"""
-<div style="background:#1a2d45;border-radius:8px;padding:18px 14px 14px;text-align:center;min-height:130px;">
+<div style="background:#1a2d45;border-radius:8px;padding:18px 14px 14px;text-align:center;min-height:120px;">
   <div style="color:#94a3b8;font-size:10px;letter-spacing:1.5px;font-weight:600;margin-bottom:10px;">{label}</div>
-  <div style="color:#60a5fa;font-size:30px;font-weight:700;line-height:1.15;word-break:break-word;">{val}</div>
-  <div style="margin-top:10px;line-height:1.8;">{pills_html}</div>
+  <div style="color:#60a5fa;font-size:32px;font-weight:700;line-height:1.1;">{num}</div>
+  <div style="margin-top:10px;line-height:2.0;">{pills_html if pills_html else '<span style="color:#4a6fa5;font-size:10px;">no source available</span>'}</div>
 </div>""", unsafe_allow_html=True)
 
-        st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
-        st.caption("↑ Source pills link to the org's search page for the topic — click to verify the figures independently.")
+        st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
+        st.caption("Source pills link to the org's publications page — click to find the cited report.")
 
         col_l, col_r = st.columns(2)
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
