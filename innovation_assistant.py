@@ -178,29 +178,15 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Sidebar collapse/expand toggle — permanently hidden ── */
-/* Hide every known Streamlit variant of the sidebar toggle button
-   so the sidebar is always open and cannot be closed. */
-button[data-testid="baseButton-headerNoPadding"],
-button[data-testid="baseButton-secondary"][aria-label*="sidebar"],
-button[data-testid="baseButton-secondary"][aria-label*="Sidebar"],
+/* ── Sidebar collapse/expand toggle — permanently hidden via CSS ── */
 [data-testid="collapsedControl"],
 [data-testid="stSidebarCollapsedControl"],
-section[data-testid="stSidebar"] > div:first-child > div > button,
-section[data-testid="stSidebar"] button[kind="header"] {
+div[class*="collapsedControl"],
+button[data-testid="baseButton-headerNoPadding"] {
     display: none !important;
     visibility: hidden !important;
     pointer-events: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-}
-/* Also hide the floating arrow that appears outside the sidebar */
-div[data-testid="collapsedControl"],
-div[class*="collapsedControl"] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
+    width: 0 !important; height: 0 !important; overflow: hidden !important;
 }
 
 /* ── Fix expander arrow rendering as icon-name text ── */
@@ -374,9 +360,33 @@ code, pre, .stCode {
         link.href = svgFavicon;
         document.head.appendChild(link);
     }
-    // Also set shortcut icon
     var shortcut = document.querySelector("link[rel='shortcut icon']");
     if (shortcut) shortcut.href = svgFavicon;
+})();
+
+// ── Permanently hide sidebar collapse/expand toggle ──────────────
+// CSS alone cannot reliably target it because Streamlit renders it
+// outside the sidebar element and re-injects it on every update.
+// A MutationObserver fires on every DOM change and immediately hides
+// any toggle button that appears, regardless of Streamlit version.
+(function hideSidebarToggle() {
+    var SELECTORS = [
+        '[data-testid="collapsedControl"]',
+        '[data-testid="stSidebarCollapsedControl"]',
+        'button[data-testid="baseButton-headerNoPadding"]',
+        '[class*="collapsedControl"]',
+        '[class*="sidebarButton"]',
+    ];
+    function killToggles() {
+        SELECTORS.forEach(function(sel) {
+            document.querySelectorAll(sel).forEach(function(el) {
+                el.style.cssText = "display:none!important;visibility:hidden!important;pointer-events:none!important;width:0!important;height:0!important;overflow:hidden!important;";
+            });
+        });
+    }
+    // Run immediately and on every subsequent DOM mutation
+    killToggles();
+    new MutationObserver(killToggles).observe(document.body, { childList: true, subtree: true });
 })();
 </script>
 """, unsafe_allow_html=True)
@@ -626,9 +636,11 @@ _LANG = {
         "s6_image_redo": "🔄 Anderes Bild generieren",
         "claude_suffix": (
             "\n\nWICHTIG: Antworte AUSSCHLIESSLICH auf Deutsch. "
-            "Alle Analysen, Überschriften, Beschreibungen und Texte müssen vollständig "
-            "auf Deutsch verfasst sein. Verwende keine englischen Begriffe ausser bei "
-            "Eigennamen, Marken oder etablierten Fachbegriffen."
+            "Alle Analysen, Beschreibungen, Begründungen, Zusammenfassungen und sonstigen Texte "
+            "müssen vollständig auf Deutsch verfasst sein — auch alle String-Werte in JSON-Antworten "
+            "(z.B. market_name, rationale, focus, summary, growth_drivers usw.). "
+            "JSON-Schlüssel bleiben auf Englisch. Eigennamen, Marken und internationale "
+            "Fachbegriffe dürfen auf Englisch bleiben."
         ),
     },
 }
@@ -833,6 +845,14 @@ with st.sidebar:
     )
     if _lang_to_key[_sel] != st.session_state.ui_lang:
         st.session_state.ui_lang = _lang_to_key[_sel]
+        # Clear all cached stage outputs so every stage re-runs in the new language
+        for _k in ["s2_data","s3_data","s4_data","s5_data","s6_data",
+                   "s2_step","s3_step","s4_step","s5_step","s6_step",
+                   "s2_chat","s3_chat","s4_chat","s5_chat","s6_chat",
+                   "s1_classification","s1_chat","s1_similar_ideas"]:
+            if _k in st.session_state:
+                del st.session_state[_k]
+        st.session_state.active_stage = 1
         st.rerun()
     st.markdown('<div style="background:rgba(255,255,255,0.12);height:1px;margin:6px 0 4px;"></div>', unsafe_allow_html=True)
     import base64 as _b64, streamlit.components.v1 as _stcv1
