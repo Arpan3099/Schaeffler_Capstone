@@ -179,37 +179,89 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 }
 
 /* ── Fix sidebar collapse/expand toggle button ── */
-/* Streamlit renders a Material icon name as text when the font isn't loaded.
-   We hide all children and inject a unicode arrow via ::after instead. */
+/* Streamlit renders Material Icon names as raw text when the ligature font
+   is absent. We zero-out ALL text inside the button and inject a stable
+   unicode arrow via ::after so it NEVER shows icon-name text. */
 button[data-testid="baseButton-headerNoPadding"] {
     overflow: hidden !important;
     position: relative !important;
     width: 32px !important;
     height: 32px !important;
+    min-width: 32px !important;
     background: rgba(255,255,255,0.15) !important;
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
-button[data-testid="baseButton-headerNoPadding"] svg,
-button[data-testid="baseButton-headerNoPadding"] span,
-button[data-testid="baseButton-headerNoPadding"] p {
+/* Kill every child element — text nodes, spans, SVGs, divs, ps */
+button[data-testid="baseButton-headerNoPadding"] * {
+    font-size: 0px !important;
+    line-height: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
     display: none !important;
 }
+/* Inject stable unicode arrow that cannot be affected by icon fonts */
 button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "«";
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    inset: 0;
-    font-size: 16px;
-    font-weight: 700;
-    color: #FFFFFF;
-    font-family: Arial, sans-serif;
+    content: "\00AB" !important; /* « */
+    display: block !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    color: #FFFFFF !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    visibility: visible !important;
+    width: auto !important;
+    height: auto !important;
 }
 [data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "»";
+    content: "\00BB" !important; /* » */
+}
+
+/* ── Fix expander arrow rendering as icon-name text ── */
+/* Same root cause: Material Icons ligature not loading → hide the icon
+   span entirely and use a CSS triangle that is font-independent. */
+[data-testid="stExpander"] summary {
+    position: relative !important;
+    padding-left: 28px !important;
+    list-style: none !important;
+}
+[data-testid="stExpander"] summary::-webkit-details-marker { display: none !important; }
+/* Hide every potential icon element — SVG, span, p inside summary */
+[data-testid="stExpander"] summary > svg,
+[data-testid="stExpander"] summary > span[data-testid],
+[data-testid="stExpander"] summary > div > svg {
+    display: none !important;
+}
+/* Zero out any orphan text node that is a Material icon name */
+[data-testid="stExpander"] summary > span:not([class]),
+[data-testid="stExpander"] summary > p {
+    font-size: 0 !important;
+    line-height: 0 !important;
+}
+/* Inject a CSS-only chevron arrow — totally font-independent */
+[data-testid="stExpander"] summary::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) rotate(-90deg) !important;
+    width: 0 !important;
+    height: 0 !important;
+    border-left: 5px solid transparent !important;
+    border-right: 5px solid transparent !important;
+    border-top: 7px solid #60a5fa !important;
+    transition: transform 0.2s ease !important;
+    display: block !important;
+    visibility: visible !important;
+}
+details[open] [data-testid="stExpander"] summary::before {
+    transform: translateY(-50%) rotate(0deg) !important;
 }
 
 /* ── Sidebar selectbox — match sidebar style ── */
@@ -2236,6 +2288,13 @@ Return ONLY valid JSON:
     ])
     system_ansoff = """You are a Schaeffler patent strategist. Map ALL listed filers onto Schaeffler's Ansoff matrix.
 IMPORTANT: Every filer in the input list MUST appear in filer_positions — do not skip any.
+
+Matrix axes (X=Technology Dimension, Y=Market Dimension — same as Schaeffler's Stage 1):
+- x_score: 0-10 (0=existing technology, 10=new to the world technology)
+- y_score: 0-10 (0=existing market, 10=new to the world market)
+Quadrants: EXPLOIT(x 0-5,y 0-5)=bottom-left, EXTEND(x 0-5,y 5-10)=top-left,
+           RADICAL(x 5-10,y 5-10)=top-right, DISRUPT(x 5-10,y 0-5)=bottom-right
+
 Return ONLY valid JSON:
 {"filer_positions":[{"company":"name","matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"rationale":"one sentence"}],
 "schaeffler_position":{"matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"existing_ip":"one sentence","gap":"one sentence"},
@@ -2252,13 +2311,15 @@ Return ONLY valid JSON:
         ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
 
     # Guarantee every key_filer has a position
+    # X=Technology, Y=Market — EXPLOIT(low x,low y), EXTEND(low x,high y),
+    # RADICAL(high x,high y), DISRUPT(high x,low y)
     positioned_run3 = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
     type_defaults_run3 = {
-        "Competitor":          ("EXPLOIT", 3.0, 3.0),
-        "Customer":            ("EXTEND",  2.5, 6.5),
-        "Research Institution":("RADICAL", 7.0, 7.5),
-        "Adjacent Player":     ("EXTEND",  6.0, 4.0),
-        "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
+        "Competitor":          ("EXPLOIT", 3.0, 3.0),   # established tech + established market
+        "Customer":            ("EXTEND",  2.5, 6.5),   # established tech + new market
+        "Research Institution":("RADICAL", 7.0, 7.5),  # new tech + new market
+        "Adjacent Player":     ("DISRUPT", 6.5, 3.5),  # new tech + established market
+        "Patent Troll":        ("EXPLOIT", 2.0, 2.0),  # established tech + established market
     }
     for i, f in enumerate(key_filers_run3):
         name = f.get("company","")
@@ -3203,20 +3264,20 @@ Return ONLY valid JSON:
         system_ansoff = """You are a Schaeffler Group patent strategist.
 Map patent filing companies onto Schaeffler's modified Ansoff matrix based on where their patents sit.
 
-The matrix axes:
-- X axis: Market Dimension (Existing Market → New Market)
-- Y axis: Technology Dimension (Existing Technology → New Technology)
+The matrix axes (MUST match Schaeffler's Stage 1 Innovation Framework):
+- X axis: Technology Dimension (0=Existing/Established Technology → 10=New to the World)
+- Y axis: Market Dimension (0=Existing/Established Market → 10=New to the World)
 
-Quadrants:
-- EXPLOIT (existing tech, existing market): incremental improvements, defensive filings
-- EXTEND (existing tech, new market): technology transfer to new applications
-- RADICAL (new tech, existing market): breakthrough technology for known customers
-- DISRUPT (new tech, new market): entirely new technology for new markets
+Quadrant positions (identical to Schaeffler's quadrant classifier):
+- EXPLOIT  (bottom-left):  existing tech  + existing market  — x_score 0–5,  y_score 0–5
+- EXTEND   (top-left):     existing tech  + new market       — x_score 0–5,  y_score 5–10
+- RADICAL  (top-right):    new tech       + new market       — x_score 5–10, y_score 5–10
+- DISRUPT  (bottom-right): new tech       + existing market  — x_score 5–10, y_score 0–5
 
 For each company, assign:
 - matrix_position: which quadrant their patent activity sits in
-- x_score: 0-10 (0=existing market, 10=new market)
-- y_score: 0-10 (0=existing tech, 10=new tech)
+- x_score: 0-10 (0=existing technology, 10=new to the world technology)
+- y_score: 0-10 (0=existing market, 10=new to the world market)
 
 Also map where SCHAEFFLER's own known IP sits relative to this idea.
 
@@ -3272,12 +3333,15 @@ Return ONLY valid JSON:
         # Build a lookup of which companies already have positions
         positioned_companies = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
         # Quadrant → default score ranges for auto-placement fallback
+        # Quadrant → default score ranges (X=Technology, Y=Market — matches Stage 1 convention)
+        # EXPLOIT=bottom-left(low x,low y), EXTEND=top-left(low x,high y),
+        # RADICAL=top-right(high x,high y), DISRUPT=bottom-right(high x,low y)
         type_defaults = {
-            "Competitor":          ("EXPLOIT", 3.0, 3.0),
-            "Customer":            ("EXTEND",  2.5, 6.5),
-            "Research Institution":("RADICAL", 7.0, 7.5),
-            "Adjacent Player":     ("EXTEND",  6.0, 4.0),
-            "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
+            "Competitor":          ("EXPLOIT", 3.0, 3.0),   # established tech + established market
+            "Customer":            ("EXTEND",  2.5, 6.5),   # established tech + new market
+            "Research Institution":("RADICAL", 7.0, 7.5),  # new tech + new market
+            "Adjacent Player":     ("DISRUPT", 6.5, 3.5),  # new tech + established market
+            "Patent Troll":        ("EXPLOIT", 2.0, 2.0),  # established tech + established market
         }
         import random
         for i, f in enumerate(key_filers):
@@ -3446,12 +3510,13 @@ Return ONLY valid JSON:
 
         fig = go.Figure()
 
-        # Quadrant shading
+        # Quadrant shading — X=Technology, Y=Market (matches Stage 1 Ansoff convention)
+        # EXPLOIT=bottom-left, EXTEND=top-left, RADICAL=top-right, DISRUPT=bottom-right
         q_fills = [
             dict(x=[0,5,5,0],   y=[0,0,5,5],   name="EXPLOIT", fill="#1a2d45", lx=2.5,ly=2.5),
-            dict(x=[5,10,10,5], y=[0,0,5,5],   name="EXTEND",  fill="#1e3a5f", lx=7.5,ly=2.5),
-            dict(x=[0,5,5,0],   y=[5,5,10,10], name="RADICAL", fill="#1F3864", lx=2.5,ly=7.5),
-            dict(x=[5,10,10,5], y=[5,5,10,10], name="DISRUPT", fill="#0d2137", lx=7.5,ly=7.5),
+            dict(x=[0,5,5,0],   y=[5,5,10,10], name="EXTEND",  fill="#1e3a5f", lx=2.5,ly=7.5),
+            dict(x=[5,10,10,5], y=[5,5,10,10], name="RADICAL", fill="#1F3864", lx=7.5,ly=7.5),
+            dict(x=[5,10,10,5], y=[0,0,5,5],   name="DISRUPT", fill="#0d2137", lx=7.5,ly=2.5),
         ]
         for q in q_fills:
             fig.add_trace(go.Scatter(
