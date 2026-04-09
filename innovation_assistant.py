@@ -165,6 +165,14 @@ section[data-testid="stSidebar"] > div {
 section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
 }
+/* ── Toggle button: fully transparent ── */
+button[data-testid="baseButton-headerNoPadding"],
+button[data-testid="baseButton-headerNoPadding"] * {
+    color: transparent !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
 section[data-testid="stSidebar"] .stButton > button {
     background: transparent !important;
     color: rgba(255,255,255,0.75) !important;
@@ -290,6 +298,16 @@ code, pre, .stCode {
 
 <script>
 
+
+// ── Blank out any keyboard_double_arrow text nodes on every render ──
+setInterval(function() {
+    if (!document.body) return;
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    var node;
+    while (node = walker.nextNode()) {
+        if (node.nodeValue.indexOf('keyboard_double_arrow') !== -1) node.nodeValue = '';
+    }
+}, 300);
 
 // Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
