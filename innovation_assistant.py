@@ -157,6 +157,10 @@ st.markdown("""
 section[data-testid="stSidebar"] {
     background-color: #007A3D !important;
     border-right: none !important;
+    overflow-x: hidden !important;
+}
+section[data-testid="stSidebar"] > div {
+    overflow-x: hidden !important;
 }
 section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
@@ -178,12 +182,32 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Sidebar toggle button base style ── */
+/* ── Sidebar toggle: hide ligature text, show unicode arrow ── */
 button[data-testid="baseButton-headerNoPadding"] {
+    position: relative !important;
     background: rgba(255,255,255,0.15) !important;
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
+}
+button[data-testid="baseButton-headerNoPadding"] * {
+    visibility: hidden !important;
+}
+button[data-testid="baseButton-headerNoPadding"]::after {
+    content: "\00AB";
+    visibility: visible !important;
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-size: 16px;
+    font-family: Arial, sans-serif;
+    font-weight: 700;
+}
+[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
+    content: "\00BB";
 }
 
 
@@ -291,13 +315,7 @@ code, pre, .stCode {
 </style>
 
 <script>
-// ── Sidebar toggle text fix ──────────────────────────────────
-setInterval(function() {
-    document.querySelectorAll('button span, button p').forEach(function(el) {
-        if (el.textContent.indexOf('keyboard_double_arrow_right') !== -1) el.textContent = '»';
-        if (el.textContent.indexOf('keyboard_double_arrow_left')  !== -1) el.textContent = '«';
-    });
-}, 300);
+
 
 // Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
