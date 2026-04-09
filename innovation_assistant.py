@@ -11,6 +11,10 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import io
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment as XlAlign
 
 # Load API key — Streamlit secrets take priority, fallback to hardcoded for local dev
 TAVILY_KEY = ""  # optional
@@ -22,6 +26,112 @@ try:
     ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
 except Exception:
     ANTHROPIC_KEY = "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"
+
+# ── Google Sheets — Idea Log ──────────────────────────────────────────────────
+SHEET_ID = "1Ya-z55BtzRS7NYiKiM8U8E0-NChueTVprJovvUrvZ6s"
+
+_SA_INFO = {
+    "type": "service_account",
+    "project_id": "absolute-dahlia-450007-r8",
+    "private_key_id": "292e1cb7c9d249e34ad3f89ab2f180e865ea1576",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCbuv2KGVKo3RN+\nY2vvVAsjGRBFxu8j8p8tGYxrvaxc0g0wefRZq0hOJbh9zBZu+dL4JwWf5SAJQ+Yp\nLdqctTIl+M6vBJNL1J8iNZxtmOmKrQeGvI+O+CnkU/4ZVMLk+lhOUrSVyJ8rPXOl\nT4E5ar8j+ZpWtueKtODgdKVgYHpTX4kjYj+/ochlFG6DQfhSWmJDf52Gfd/nldZt\n13+n3/uHYmLI1wKNFEpVaq3Qd2r191bcVAY8/NrOtRaqtHsoINAP2Sn6rEuGthaa\niZECrIkYiMKkjTWk8E8XIv9Zv2JnBOWPErIHRbGGHV6WBz5p0Z0L1GLGDiuhvha8\nvq6AiVsXAgMBAAECggEAHCGClDQv1NYeo9mU0UY2vs/Tuy8M2ssEivKPBZVdMeU1\nwbh99ca1iHxS39KCiOhy/iWaZABRMatEw9KHJ4Cpvuc7eq0SaIPPfS//AmM5aLYJ\n4oJkUlisxJSRlYTUseUxF3DkMxxq+DYhEk8S0krgnUCE6z4eBFXZO2KGzyqOXknf\nCS0ThZ2ky0/ytuIoj8OeCkanuBQZXj219zH0Kiamqt7AWs7qSUoafnejkkQGJ5xR\nKrYr+Y0D4L9LFmZEbidlfoHZOcz7vrHvkx3RrL+RA2QJU7XolzR6sl7ecwzLGifs\nvsCxzD52+7pOvwNUp/hHpol/2bD8W0xkDcRpqCFrKQKBgQDKJ6V12ElUixKz9djx\n3X8SLpQTJihAqIts5gesaNp1mAG7/3nAq1cThprwKaYPukkPYbwGjN/IPXwZKfZr\nfyHxFBA/a5ooz2bJoEm4w4w8dIrqxbDd9K2HuqKSnW0ouU/Hustv7gE+zkyGFRIx\nJ08hJwQaMuAfulzt/7vhbOvjDwKBgQDFNcvjltsm8gw80jjCxh3+6r+UDFPncVDL\niL5P/q6pfCzulsdxFVZUfx9yh9mCrxGopbdZnmzQW86GuhfnPC+AQpYdltGTOUdx\n+calCeSAmtfoztI3P+CmR4DDiZ4c2rfPlqOwwHueJXo62u8984y7NsGBdCRCrBSG\njVzFWFBneQKBgHTF/BUbsBhPEam0rPHh0cJN96ksFHptIcTxB6O3GeJtwSq4w7rg\n/ra/vYZXeJ6DLCrfeP6Lp8UCh0n97GNiF9grj8siu/UxAR4dIhjBlKNjas99DNLZ\nwNeznq90kpbAnO4x38wzPrLp9lhJma2dGF99Kyh7FO4e+Ale/UeVZJlPAoGAB8N6\nZ1dFAV9+A9byzRgnjiWHrThfBTl8yMZ1V4jbL2joC+x7pYQFhgYLIuMeOPrTYyRC\n95A5EGrM0pj43+2KoS394uRRE86pdV8z5sNg738pCM07kVk+as1d0FTWmKQzoER5\n5TdupmcrTK3ZxUKVQ7mAHKyJ0OYdWL6v7ETxxWECgYA2RXMn67Pb0CtfX1Gs7ztB\n8N3PMOtYdz/TQbOK0u4waWrzbnFUCvsH39yoqiDofYdUDN/E/31IXoTzCi3N4F2U\ncvJ3oid6ZubsBA2gJrHTYvd/yljV+o8kuzUV4d2/fxTuphhh2TyoYa3BUD+W7alr\nDs4l7RfxIUIgMviRmVpAdw==\n-----END PRIVATE KEY-----\n",
+    "client_email": "schaeffler-capstone@absolute-dahlia-450007-r8.iam.gserviceaccount.com",
+    "client_id": "105367783720778854419",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/schaeffler-capstone%40absolute-dahlia-450007-r8.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+}
+
+SHEET_COLUMNS = [
+    "Date", "Submitter Name", "Position", "Department",
+    "Full Idea Description", "Clarifying Q&A",
+    "Quadrant", "Innovation Cluster", "Product Family",
+    "Market Score", "Patent Score", "Feasibility Score", "Org Readiness Score", "IPI Score",
+    "Recommendation", "Key Concerns", "Next Steps",
+    "Market Name", "Market Size 2024", "CAGR",
+    "TRL Level", "Build Strategy"
+]
+
+def _sheets_client():
+    scopes = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds = Credentials.from_service_account_info(_SA_INFO, scopes=scopes)
+    return gspread.authorize(creds)
+
+def load_past_ideas():
+    try:
+        ws = _sheets_client().open_by_key(SHEET_ID).sheet1
+        return ws.get_all_records()
+    except Exception:
+        return []
+
+def save_idea_to_sheets(row_data: dict):
+    try:
+        sh = _sheets_client().open_by_key(SHEET_ID)
+        ws = sh.sheet1
+        existing = ws.get_all_values()
+        if not existing:
+            ws.append_row(SHEET_COLUMNS)
+        row = [str(row_data.get(col, "")) for col in SHEET_COLUMNS]
+        ws.append_row(row)
+        return True
+    except Exception as e:
+        return False
+
+def check_similar_ideas(new_idea, past_ideas):
+    if not past_ideas:
+        return []
+    past_summaries = "\n".join([
+        f"- [{r.get('Date','')}] {r.get('Submitter Name','Unknown')} ({r.get('Department','')}): {str(r.get('Full Idea Description',''))[:200]}"
+        for r in past_ideas[:30]
+    ])
+    result = call_claude(
+        'You compare innovation ideas. Return ONLY valid JSON: {"similar": [{"date": "...", "submitter": "...", "department": "...", "idea_snippet": "...", "quadrant": "...", "ipi": "...", "recommendation": "...", "similarity": "High/Medium", "reason": "one sentence"}]}. Return empty similar array if nothing is genuinely similar.',
+        f"New idea: {new_idea}\n\nPast researched ideas:\n{past_summaries}",
+        max_tokens=600
+    )
+    try:
+        raw = result.strip().replace("```json","").replace("```","").strip()
+        fb = raw.find("{"); lb = raw.rfind("}") + 1
+        if fb >= 0: raw = raw[fb:lb]
+        return json.loads(raw).get("similar", [])
+    except Exception:
+        return []
+
+def generate_ideas_excel():
+    records = load_past_ideas()
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Innovation Ideas"
+    hdr_fill  = PatternFill("solid", fgColor="1F3864")
+    hdr_font  = Font(bold=True, color="FFFFFF", size=10)
+    alt_fill  = PatternFill("solid", fgColor="EAF1FB")
+    if not records:
+        ws.append(["No ideas recorded yet — complete a full pipeline assessment to populate this log."])
+        ws["A1"].font = Font(italic=True, color="555555")
+    else:
+        headers = list(records[0].keys())
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = hdr_font
+            cell.fill = hdr_fill
+            cell.alignment = XlAlign(horizontal="center", wrap_text=True)
+        for i, record in enumerate(records, start=2):
+            ws.append([record.get(h, "") for h in headers])
+            if i % 2 == 0:
+                for cell in ws[i]:
+                    cell.fill = alt_fill
+        for col in ws.columns:
+            max_len = max((len(str(cell.value or "")) for cell in col), default=10)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
 
 # ── Styling — sidebar identity + sidebar-toggle arrow fix ────
 st.markdown("""
@@ -35,20 +145,25 @@ section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
 }
 section[data-testid="stSidebar"] .stButton > button {
-    background: rgba(255,255,255,0.12) !important;
-    color: #FFFFFF !important;
-    border: 1px solid rgba(255,255,255,0.35) !important;
+    background: transparent !important;
+    color: rgba(255,255,255,0.75) !important;
+    border: none !important;
     border-radius: 4px !important;
     font-size: 12px !important;
+    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
+    font-weight: 400 !important;
+    letter-spacing: 0.3px !important;
+    padding: 8px 12px !important;
+    text-align: left !important;
 }
 section[data-testid="stSidebar"] .stButton > button:hover {
-    background: rgba(255,255,255,0.22) !important;
+    background: rgba(255,255,255,0.12) !important;
+    color: #FFFFFF !important;
 }
 
 /* ── Fix sidebar collapse/expand toggle button ── */
-/* Streamlit renders a Material icon name as text when the font isn't loaded.
-   We hide it and force a unicode double-arrow instead. */
-button[data-testid="baseButton-headerNoPadding"] {
+button[data-testid="baseButton-headerNoPadding"],
+button[data-testid="stBaseButton-headerNoPadding"] {
     overflow: hidden !important;
     position: relative !important;
     width: 32px !important;
@@ -57,26 +172,120 @@ button[data-testid="baseButton-headerNoPadding"] {
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
+    font-size: 0 !important;
+    color: transparent !important;
 }
+button[data-testid="baseButton-headerNoPadding"] span,
+button[data-testid="stBaseButton-headerNoPadding"] span,
 button[data-testid="baseButton-headerNoPadding"] svg,
-button[data-testid="baseButton-headerNoPadding"] span {
-    display: none !important;
+button[data-testid="stBaseButton-headerNoPadding"] svg,
+button[data-testid="baseButton-headerNoPadding"] p,
+button[data-testid="stBaseButton-headerNoPadding"] p {
+    font-size: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    position: absolute !important;
+    pointer-events: none !important;
+    display: block !important;
+    max-width: 0 !important;
+    max-height: 0 !important;
 }
-button[data-testid="baseButton-headerNoPadding"]::after {
+button[data-testid="baseButton-headerNoPadding"]::after,
+button[data-testid="stBaseButton-headerNoPadding"]::after {
     content: "«";
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    inset: 0;
-    font-size: 16px;
-    font-weight: 700;
-    color: #FFFFFF;
-    font-family: Arial, sans-serif;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: absolute !important;
+    inset: 0 !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: #FFFFFF !important;
+    font-family: Arial, sans-serif !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
-/* When sidebar is collapsed, the control button flips */
-[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "»";
+[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after,
+[data-testid="collapsedControl"] button[data-testid="stBaseButton-headerNoPadding"]::after {
+    content: "»" !important;
+}
+
+/* ── Sidebar selectbox — match sidebar style ── */
+section[data-testid="stSidebar"] .stSelectbox label {
+    color: rgba(255,255,255,0.55) !important;
+    font-size: 10px !important;
+    letter-spacing: 1.5px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+}
+section[data-testid="stSidebar"] .stSelectbox > div > div {
+    background: transparent !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    color: rgba(255,255,255,0.8) !important;
+    font-size: 11px !important;
+    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
+    border-radius: 4px !important;
+}
+section[data-testid="stSidebar"] .stSelectbox > div > div:hover {
+    border-color: rgba(255,255,255,0.45) !important;
+}
+section[data-testid="stSidebar"] .stSelectbox svg {
+    fill: rgba(255,255,255,0.6) !important;
+    color: rgba(255,255,255,0.6) !important;
+}
+
+/* ── Language + Ideas Log fixed at bottom of sidebar ── */
+.ideas-log-fixed {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: var(--sidebar-width, 246px) !important;
+    max-width: 260px !important;
+    background: #007A3D !important;
+    border-top: 1px solid rgba(255,255,255,0.18) !important;
+    padding: 10px 14px 16px 14px !important;
+    z-index: 9999 !important;
+    box-sizing: border-box !important;
+}
+.ideas-log-fixed .stButton > button,
+.ideas-log-fixed .stDownloadButton > button {
+    background: transparent !important;
+    border: none !important;
+    color: rgba(255,255,255,0.5) !important;
+    font-size: 10px !important;
+    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
+    font-weight: 400 !important;
+    letter-spacing: 0.3px !important;
+    padding: 4px 0 !important;
+    text-align: left !important;
+    width: 100% !important;
+}
+.ideas-log-fixed .stButton > button:hover,
+.ideas-log-fixed .stDownloadButton > button:hover {
+    color: rgba(255,255,255,0.85) !important;
+    background: transparent !important;
+}
+.ideas-log-fixed .stSelectbox label {
+    color: rgba(255,255,255,0.45) !important;
+    font-size: 9px !important;
+    letter-spacing: 1.5px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    margin-bottom: 2px !important;
+}
+.ideas-log-fixed .stSelectbox > div > div {
+    background: transparent !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+    color: rgba(255,255,255,0.65) !important;
+    font-size: 10px !important;
+    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
+    border-radius: 3px !important;
+    padding: 2px 6px !important;
+}
+.ideas-log-fixed .stSelectbox svg {
+    fill: rgba(255,255,255,0.45) !important;
 }
 
 /* ── Source tag pill ── */
@@ -85,6 +294,23 @@ button[data-testid="baseButton-headerNoPadding"]::after {
     font-size:11px; padding:2px 8px;
     border-radius:3px; margin-left:6px;
     font-family: monospace;
+}
+
+/* ── Global font consistency — Arial/Helvetica Neue throughout ── */
+html, body, [class*="css"],
+.stApp, .stMarkdown, .stText,
+.stButton > button,
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stSelectbox > div > div,
+.stMetric, .stChatMessage,
+.stCaption, .stAlert,
+h1, h2, h3, h4, h5, h6, p, div, span, label, li {
+    font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif !important;
+}
+/* Keep monospace only for code blocks */
+code, pre, .stCode {
+    font-family: 'Courier New', Courier, monospace !important;
 }
 </style>
 
@@ -116,15 +342,299 @@ DIM   = "#4a6fa5"
 WHITE = "#e2e8f0"
 NAVY  = "#1F3864"
 
+# ── Language system ────────────────────────────────────────────
+_LANG = {
+    "en": {
+        "pipeline":  "INNOVATION PIPELINE",
+        "idea_cap":  "Idea",
+        "quad_cap":  "Quadrant",
+        "lang_label":"Language / Sprache",
+        "stages": [
+            (1,"01 · Quadrant Classifier"),
+            (2,"02 · Market Intelligence"),
+            (3,"03 · Patent Intelligence"),
+            (4,"04 · Technical Feasibility"),
+            (5,"05 · Organisational Readiness"),
+            (6,"06 · Scoring & Synthesis"),
+        ],
+        "dl_market":  "⬇️  Download Market Intelligence Report",
+        "dl_patent":  "⬇️  Download Patent Intelligence Report",
+        "dl_feasib":  "⬇️  Download Technical Feasibility Report",
+        "dl_org":     "⬇️  Download Organisational Readiness Report",
+        "dl_master":  "⬇️  Download Full Innovation Assessment Report",
+        "dl_ideas":   "↓  Download Ideas Log",
+        "dl_spinner": "Generating report — please wait…",
+        "dl_caption": "Covers all 5 stages: Market · Patent · Feasibility · Org Readiness · IPI",
+        "claude_suffix": "",
+        # Stage 01
+        "s1_title": "Stage 01 · Quadrant Classifier",
+        "s1_what": "Maps your idea onto Schaeffler's modified Ansoff matrix — Exploit, Extend, Radical, or Disrupt. Ideas in Radical and Disrupt proceed through the full pipeline. Others are redirected to the right Schaeffler product division.",
+        "s1_what_label": "WHAT THIS STAGE DOES",
+        "s1_you_get": "<b style='color:#e2e8f0;'>You get:</b> Quadrant classification · Schaeffler Motion product family fit · Strategic trend alignment · Innovation pathway (Start-Up Mode vs Innovation Factory)",
+        "s1_step1": "Step 1 — Who are you & describe your idea",
+        "s1_name": "Your name *", "s1_name_ph": "e.g. Anna Müller",
+        "s1_role": "Position / Role *", "s1_role_ph": "e.g. Senior Engineer",
+        "s1_dept": "Department *", "s1_dept_ph": "e.g. E-Mobility R&D",
+        "s1_idea_label": "What is your innovation idea?",
+        "s1_idea_ph": "e.g. A self-lubricating bearing system that uses micro-reservoirs embedded within the bearing material to release lubricant automatically based on temperature and load sensing...",
+        "s1_submit": "Submit idea",
+        "s1_warn_identity": "Please fill in your name, position, and department before continuing.",
+        "s1_warn_empty": "Please enter your idea first.",
+        "s1_warn_brief": "A bit brief — can you add more detail? What does it do, and for whom?",
+        "s1_step2": "Step 2 — Three quick questions",
+        "s1_step2_caption": "These answers help refine the classification. The idea description itself drives the result — use these to add context, not to override what the idea clearly is.",
+        "s1_q1": "**1. Has the core technology behind this idea been demonstrated anywhere — in a lab, a startup, a research paper, or a competitor product?**",
+        "s1_q1a": "Yes — it has been demonstrated somewhere (even if not commercialised)",
+        "s1_q1b": "No — the underlying technology is genuinely novel or theoretical",
+        "s1_q1_detail": "Optional — where has it been demonstrated, or what makes it genuinely new?",
+        "s1_q1_ph": "e.g. MIT lab prototype, or 'no known demonstration of this mechanism'",
+        "s1_q2": "**2. Does this idea target markets or applications that Schaeffler currently operates in?**",
+        "s1_q2_caption": "Schaeffler's current markets: automotive (ICE & EV), industrial machinery, rail, aerospace, energy, two-wheelers. If the idea fits any of these, select yes.",
+        "s1_q2a": "Yes — it targets automotive, industrial, rail, aerospace, energy or adjacent sectors Schaeffler already serves",
+        "s1_q2b": "No — it targets a market genuinely outside Schaeffler's current scope (e.g. consumer electronics, healthcare devices, retail)",
+        "s1_q2_detail": "Optional — which specific market or application area?",
+        "s1_q2_ph": "e.g. EV drivetrain OEMs, or 'medical implant manufacturers — entirely new for Schaeffler'",
+        "s1_q3": "**3. Is the problem this idea solves already recognised and being worked on by the industry?**",
+        "s1_q3a": "Yes — the problem is well known and others are actively trying to solve it",
+        "s1_q3b": "No — the problem itself is new, underappreciated, or not yet widely recognised",
+        "s1_q3_detail": "Optional — describe the problem in one sentence",
+        "s1_q3_ph": "e.g. Bearing failure in EV drivetrains due to high-frequency current leakage",
+        "s1_classify_btn": "Classify my idea →",
+        "s1_result": "Result",
+        "s1_qualifies": "✓ This idea qualifies for the full Innovation pipeline.",
+        "s1_continue": "Continue to Stage 02: Market Intelligence →",
+        "s1_full_run": "⚡ Run Full Analysis — all 5 stages",
+        "s1_chat_header": "💬 Questions about this classification?",
+        "s1_chat_ph": "Ask about the classification...",
+        "s1_startover": "← Start over",
+        "s1_spinner_check": "Checking your idea...",
+        "s1_spinner_similar": "Checking against past ideas...",
+        "s1_spinner_classify": "Classifying your idea...",
+        "s1_similar_warn": "⚠️ **{n} similar idea(s) previously researched** — review before proceeding.",
+        # Stage 02
+        "s2_title": "Stage 02 · Market Intelligence",
+        "s2_what": "Analyses the commercial opportunity behind your idea — how big the market is, how fast it is growing, who the competitors are, and how well the idea fits across Schaeffler's 10 customer sector clusters.",
+        "s2_you_get": "<b style='color:#e2e8f0;'>You get:</b> Market size & CAGR with sources · Sector cluster fit chart · Competitor landscape · Market Intelligence Score (0–10)",
+        "s2_run_btn": "Run Market Intelligence →",
+        "s2_continue": "Continue to Stage 03: Patent Intelligence →",
+        "s2_rerun": "← Re-run analysis",
+        "s2_success": "✓ Market Intelligence complete. Final score: **{score}/10**",
+        "s2_chat_header": "💬 Questions about the market analysis?",
+        "s2_chat_ph": "Ask about the market, sectors, competitors...",
+        # Stage 03
+        "s3_title": "Stage 03 · Patent Intelligence",
+        "s3_what": "Maps the patent landscape for your idea's core technology — who is filing, whether they are competitors or potential customers, where the IP white spaces are, and how Schaeffler's existing patent portfolio relates to the idea.",
+        "s3_you_get": "<b style='color:#e2e8f0;'>You get:</b> Patent Ansoff map with all key filers plotted · IP white spaces · Schaeffler IP gap analysis · Patent Intelligence Score (0–10)",
+        "s3_run_btn": "Run Patent Intelligence →",
+        "s3_continue": "Continue to Stage 04: Technical Feasibility →",
+        "s3_rerun": "← Re-run analysis",
+        "s3_success": "✓ Patent Intelligence complete. Final score: **{score}/10**",
+        "s3_chat_header": "💬 Questions about the patent analysis?",
+        "s3_chat_ph": "Ask about patents, IP risks, white spaces...",
+        # Stage 04
+        "s4_title": "Stage 04 · Technical Feasibility",
+        "s4_what": "Assesses whether the core technology of your idea actually exists and how mature it is — using the Technology Readiness Level (TRL) framework used by NASA, the EU, and industrial R&D organisations.",
+        "s4_you_get": "<b style='color:#e2e8f0;'>You get:</b> Technology existence verdict · TRL level (1–9) with rationale · Schaeffler entry readiness · Technical Feasibility Score (0–10)",
+        "s4_run_btn": "Run Technical Feasibility →",
+        "s4_continue": "Continue to Stage 05: Organisational Readiness →",
+        "s4_rerun": "← Re-run analysis",
+        "s4_success": "✓ Technical Feasibility complete. Final score: **{score}/10**",
+        "s4_chat_header": "💬 Questions about the feasibility analysis?",
+        "s4_chat_ph": "Ask about TRL, technology gaps, development timeline...",
+        # Stage 05
+        "s5_title": "Stage 05 · Organisational Readiness",
+        "s5_what": "Assesses whether Schaeffler has the organisational capability to develop and commercialise this idea — using the P³ formula: Performance = Portfolio × People × Process.",
+        "s5_you_get": "<b style='color:#e2e8f0;'>You get:</b> P³ readiness scores · Build vs Partner recommendation · Key capability gaps · Organisational Readiness Score (0–10)",
+        "s5_run_btn": "Run Organisational Readiness →",
+        "s5_continue": "Continue to Stage 06: Scoring & Synthesis →",
+        "s5_rerun": "← Re-run analysis",
+        "s5_success": "✓ Organisational Readiness complete. Final score: **{score}/10**",
+        "s5_chat_header": "💬 Questions about the org readiness analysis?",
+        "s5_chat_ph": "Ask about P³ scores, capability gaps, partnerships...",
+        # Stage 06
+        "s6_title": "Stage 06 · Scoring & Synthesis",
+        "s6_what": "Synthesises all five pipeline dimensions into a single Innovation Potential Index (IPI) score and strategic recommendation — with full narrative, risk analysis, and concrete next steps.",
+        "s6_you_get": "<b style='color:#e2e8f0;'>You get:</b> IPI score (0–10) · Strategic recommendation · Radar chart · Key concerns & next steps · Full narrative synthesis",
+        "s6_run_btn": "Run Scoring & Synthesis →",
+        "s6_rerun": "← Adjust weights and re-run",
+        "s6_chat_header": "💬 Questions about the overall assessment?",
+        "s6_chat_ph": "Ask about the IPI score, recommendation, or next steps...",
+        "s6_image_btn": "🖼️ Generate Solution Image",
+        "s6_image_redo": "🔄 Generate different image",
+    },
+    "de": {
+        "pipeline":  "INNOVATIONS-PIPELINE",
+        "idea_cap":  "Idee",
+        "quad_cap":  "Quadrant",
+        "lang_label":"Sprache",
+        "stages": [
+            (1,"01 · Quadrant-Klassifikator"),
+            (2,"02 · Marktintelligenz"),
+            (3,"03 · Patentintelligenz"),
+            (4,"04 · Technische Machbarkeit"),
+            (5,"05 · Organisatorische Bereitschaft"),
+            (6,"06 · Bewertung & Synthese"),
+        ],
+        "dl_market":  "⬇️  Marktintelligenz-Bericht herunterladen",
+        "dl_patent":  "⬇️  Patentintelligenz-Bericht herunterladen",
+        "dl_feasib":  "⬇️  Technischen Machbarkeitsbericht herunterladen",
+        "dl_org":     "⬇️  Org. Bereitschaftsbericht herunterladen",
+        "dl_master":  "⬇️  Vollständigen Innovationsbericht herunterladen",
+        "dl_ideas":   "↓  Ideen-Log herunterladen",
+        "dl_spinner": "Bericht wird erstellt — bitte warten…",
+        "dl_caption": "Umfasst alle 5 Stufen: Markt · Patente · Machbarkeit · Org. Bereitschaft · IPI",
+        # Stage 01
+        "s1_title": "Stufe 01 · Quadrant-Klassifikator",
+        "s1_what": "Ordnet Ihre Idee in die modifizierte Ansoff-Matrix von Schaeffler ein — Exploit, Extend, Radical oder Disrupt. Ideen in Radical und Disrupt durchlaufen die gesamte Pipeline. Andere werden an die passende Produktsparte weitergeleitet.",
+        "s1_what_label": "WAS DIESE STUFE TUT",
+        "s1_you_get": "<b style='color:#e2e8f0;'>Sie erhalten:</b> Quadrant-Klassifikation · Passung zur Schaeffler Motion-Produktfamilie · Strategische Trendausrichtung · Innovationspfad (Start-Up-Modus vs. Innovationsfabrik)",
+        "s1_step1": "Schritt 1 — Wer sind Sie & beschreiben Sie Ihre Idee",
+        "s1_name": "Ihr Name *", "s1_name_ph": "z.B. Anna Müller",
+        "s1_role": "Position / Rolle *", "s1_role_ph": "z.B. Senior Engineer",
+        "s1_dept": "Abteilung *", "s1_dept_ph": "z.B. E-Mobilität F&E",
+        "s1_idea_label": "Was ist Ihre Innovationsidee?",
+        "s1_idea_ph": "z.B. Ein selbstschmierendes Lagersystem, das Mikro-Reservoirs im Lagermaterial nutzt, um Schmiermittel automatisch basierend auf Temperatur- und Lastsensoren freizusetzen...",
+        "s1_submit": "Idee einreichen",
+        "s1_warn_identity": "Bitte füllen Sie Name, Position und Abteilung aus, bevor Sie fortfahren.",
+        "s1_warn_empty": "Bitte geben Sie zuerst Ihre Idee ein.",
+        "s1_warn_brief": "Etwas kurz — können Sie mehr Details hinzufügen? Was macht es, und für wen?",
+        "s1_step2": "Schritt 2 — Drei kurze Fragen",
+        "s1_step2_caption": "Diese Antworten helfen bei der Verfeinerung der Klassifikation. Die Ideenbeschreibung selbst bestimmt das Ergebnis — nutzen Sie diese nur zur Ergänzung.",
+        "s1_q1": "**1. Wurde die Kerntechnologie dieser Idee irgendwo demonstriert — in einem Labor, einem Startup, einer Forschungsarbeit oder einem Konkurrenzprodukt?**",
+        "s1_q1a": "Ja — sie wurde irgendwo demonstriert (auch wenn nicht kommerzialisiert)",
+        "s1_q1b": "Nein — die zugrunde liegende Technologie ist wirklich neu oder theoretisch",
+        "s1_q1_detail": "Optional — wo wurde sie demonstriert, oder was macht sie wirklich neu?",
+        "s1_q1_ph": "z.B. MIT-Labor-Prototyp, oder 'kein bekannter Nachweis dieses Mechanismus'",
+        "s1_q2": "**2. Zielt diese Idee auf Märkte oder Anwendungen, in denen Schaeffler derzeit tätig ist?**",
+        "s1_q2_caption": "Aktuelle Märkte von Schaeffler: Automotive (Verbrenner & EV), Industriemaschinen, Bahn, Luft- und Raumfahrt, Energie, Zweiräder.",
+        "s1_q2a": "Ja — sie zielt auf Automotive, Industrie, Bahn, Luft- und Raumfahrt, Energie oder angrenzende Sektoren",
+        "s1_q2b": "Nein — sie zielt auf einen Markt außerhalb des aktuellen Schaeffler-Portfolios (z.B. Unterhaltungselektronik, Medizintechnik)",
+        "s1_q2_detail": "Optional — welcher spezifische Markt oder Anwendungsbereich?",
+        "s1_q2_ph": "z.B. EV-Antriebsstrang-OEMs, oder 'Medizinimplantat-Hersteller — völlig neu für Schaeffler'",
+        "s1_q3": "**3. Wird das Problem, das diese Idee löst, bereits von der Branche erkannt und bearbeitet?**",
+        "s1_q3a": "Ja — das Problem ist bekannt und andere versuchen es aktiv zu lösen",
+        "s1_q3b": "Nein — das Problem selbst ist neu, unterschätzt oder noch nicht weit verbreitet",
+        "s1_q3_detail": "Optional — beschreiben Sie das Problem in einem Satz",
+        "s1_q3_ph": "z.B. Lagerversagen in EV-Antriebssträngen durch hochfrequente Stromableitung",
+        "s1_classify_btn": "Meine Idee klassifizieren →",
+        "s1_result": "Ergebnis",
+        "s1_qualifies": "✓ Diese Idee qualifiziert sich für die vollständige Innovationspipeline.",
+        "s1_continue": "Weiter zu Stufe 02: Marktintelligenz →",
+        "s1_full_run": "⚡ Vollanalyse — alle 5 Stufen",
+        "s1_chat_header": "💬 Fragen zur Klassifikation?",
+        "s1_chat_ph": "Fragen zur Klassifikation stellen...",
+        "s1_startover": "← Von vorne beginnen",
+        "s1_spinner_check": "Idee wird geprüft...",
+        "s1_spinner_similar": "Vergleich mit früheren Ideen...",
+        "s1_spinner_classify": "Idee wird klassifiziert...",
+        "s1_similar_warn": "⚠️ **{n} ähnliche Idee(n) wurden bereits untersucht** — bitte vor dem Fortfahren prüfen.",
+        # Stage 02
+        "s2_title": "Stufe 02 · Marktintelligenz",
+        "s2_what": "Analysiert die kommerzielle Chance hinter Ihrer Idee — wie groß der Markt ist, wie schnell er wächst, wer die Wettbewerber sind, und wie gut die Idee zu Schaefflers 10 Kundensektorclustern passt.",
+        "s2_you_get": "<b style='color:#e2e8f0;'>Sie erhalten:</b> Marktgröße & CAGR mit Quellen · Sektorcluster-Passungsdiagramm · Wettbewerbslandschaft · Marktintelligenz-Score (0–10)",
+        "s2_run_btn": "Marktintelligenz starten →",
+        "s2_continue": "Weiter zu Stufe 03: Patentintelligenz →",
+        "s2_rerun": "← Analyse wiederholen",
+        "s2_success": "✓ Marktintelligenz abgeschlossen. Endergebnis: **{score}/10**",
+        "s2_chat_header": "💬 Fragen zur Marktanalyse?",
+        "s2_chat_ph": "Fragen zu Markt, Sektoren, Wettbewerbern...",
+        # Stage 03
+        "s3_title": "Stufe 03 · Patentintelligenz",
+        "s3_what": "Kartiert die Patentlandschaft für die Kerntechnologie Ihrer Idee — wer anmeldet, ob es Wettbewerber oder potenzielle Kunden sind, wo die IP-Weißräume liegen, und wie Schaefflers bestehendes Patentportfolio mit der Idee zusammenhängt.",
+        "s3_you_get": "<b style='color:#e2e8f0;'>Sie erhalten:</b> Patent-Ansoff-Karte · IP-Weißräume · Schaeffler-IP-Lückenanalyse · Patentintelligenz-Score (0–10)",
+        "s3_run_btn": "Patentintelligenz starten →",
+        "s3_continue": "Weiter zu Stufe 04: Technische Machbarkeit →",
+        "s3_rerun": "← Analyse wiederholen",
+        "s3_success": "✓ Patentintelligenz abgeschlossen. Endergebnis: **{score}/10**",
+        "s3_chat_header": "💬 Fragen zur Patentanalyse?",
+        "s3_chat_ph": "Fragen zu Patenten, IP-Risiken, Weißräumen...",
+        # Stage 04
+        "s4_title": "Stufe 04 · Technische Machbarkeit",
+        "s4_what": "Bewertet, ob die Kerntechnologie Ihrer Idee tatsächlich existiert und wie ausgereift sie ist — unter Verwendung des TRL-Rahmens (Technology Readiness Level) von NASA, EU und industriellen F&E-Organisationen.",
+        "s4_you_get": "<b style='color:#e2e8f0;'>Sie erhalten:</b> Technologie-Existenzbewertung · TRL-Stufe (1–9) mit Begründung · Schaeffler-Eintrittsvorbereitung · Technische Machbarkeits-Score (0–10)",
+        "s4_run_btn": "Technische Machbarkeit starten →",
+        "s4_continue": "Weiter zu Stufe 05: Organisatorische Bereitschaft →",
+        "s4_rerun": "← Analyse wiederholen",
+        "s4_success": "✓ Technische Machbarkeit abgeschlossen. Endergebnis: **{score}/10**",
+        "s4_chat_header": "💬 Fragen zur Machbarkeitsanalyse?",
+        "s4_chat_ph": "Fragen zu TRL, Technologielücken, Entwicklungszeitplan...",
+        # Stage 05
+        "s5_title": "Stufe 05 · Organisatorische Bereitschaft",
+        "s5_what": "Bewertet, ob Schaeffler die organisatorische Fähigkeit hat, diese Idee zu entwickeln und zu kommerzialisieren — mit der P³-Formel: Leistung = Portfolio × People × Process.",
+        "s5_you_get": "<b style='color:#e2e8f0;'>Sie erhalten:</b> P³-Bereitschaftsscores · Build-vs-Partner-Empfehlung · Wichtige Kompetenzlücken · Organisatorischer Bereitschafts-Score (0–10)",
+        "s5_run_btn": "Organisatorische Bereitschaft starten →",
+        "s5_continue": "Weiter zu Stufe 06: Bewertung & Synthese →",
+        "s5_rerun": "← Analyse wiederholen",
+        "s5_success": "✓ Organisatorische Bereitschaft abgeschlossen. Endergebnis: **{score}/10**",
+        "s5_chat_header": "💬 Fragen zur Org.-Bereitschaftsanalyse?",
+        "s5_chat_ph": "Fragen zu P³-Scores, Kompetenzlücken, Partnerschaften...",
+        # Stage 06
+        "s6_title": "Stufe 06 · Bewertung & Synthese",
+        "s6_what": "Synthetisiert alle fünf Pipeline-Dimensionen zu einem einzigen Innovationspotenzialindex (IPI) und einer strategischen Empfehlung — mit vollständiger Erzählung, Risikoanalyse und konkreten nächsten Schritten.",
+        "s6_you_get": "<b style='color:#e2e8f0;'>Sie erhalten:</b> IPI-Score (0–10) · Strategische Empfehlung · Radardiagramm · Wichtige Bedenken & nächste Schritte · Vollständige narrative Synthese",
+        "s6_run_btn": "Bewertung & Synthese starten →",
+        "s6_rerun": "← Gewichtungen anpassen und neu starten",
+        "s6_chat_header": "💬 Fragen zur Gesamtbewertung?",
+        "s6_chat_ph": "Fragen zu IPI-Score, Empfehlung oder nächsten Schritten...",
+        "s6_image_btn": "🖼️ Lösungsbild generieren",
+        "s6_image_redo": "🔄 Anderes Bild generieren",
+        "claude_suffix": (
+            "\n\nWICHTIG: Antworte AUSSCHLIESSLICH auf Deutsch. "
+            "Alle Analysen, Überschriften, Beschreibungen und Texte müssen vollständig "
+            "auf Deutsch verfasst sein. Verwende keine englischen Begriffe ausser bei "
+            "Eigennamen, Marken oder etablierten Fachbegriffen."
+        ),
+    },
+}
+
+def T(key):
+    lang = st.session_state.get("ui_lang", "en")
+    return _LANG.get(lang, _LANG["en"]).get(key, _LANG["en"].get(key, key))
+
+def _lang_suffix():
+    lang = st.session_state.get("ui_lang", "en")
+    return _LANG.get(lang, _LANG["en"]).get("claude_suffix", "")
+
+def _one_click_dl(label, gen_fn, filename):
+    """Single-click: show progress bar, generate report, auto-download via JS."""
+    import base64
+    import streamlit.components.v1 as _stc
+    MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    col_btn, _ = st.columns([3,1])
+    with col_btn:
+        if st.button(label, type="primary", use_container_width=True):
+            prog = st.progress(0, text=T("dl_spinner"))
+            try:
+                prog.progress(20, text=T("dl_spinner"))
+                buf = gen_fn()
+                prog.progress(80, text=T("dl_spinner"))
+                b64 = base64.b64encode(buf.getvalue()).decode()
+                prog.progress(100, text="✓ Ready — downloading…")
+                time.sleep(0.3)
+                prog.empty()
+                _stc.html(f"""
+<a id="_sdl" href="data:{MIME};base64,{b64}" download="{filename}"
+   style="display:inline-block;margin:6px 0 2px;padding:10px 22px;
+          background:#007A3D;color:#fff;font-weight:700;border-radius:5px;
+          text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">
+  ⬇️ {filename}
+</a>
+<script>(function(){{var a=document.getElementById('_sdl');if(a)a.click();}})();</script>
+""", height=55)
+            except Exception as exc:
+                prog.empty()
+                st.error(f"Report error: {exc}")
+
 # ── Helpers ───────────────────────────────────────────────────
 def call_claude(system, user, max_tokens=2000):
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+    full_sys = system + _lang_suffix()
     for attempt in range(3):
         try:
             msg = client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=max_tokens,
-                system=system,
+                system=full_sys,
                 messages=[{"role": "user", "content": user}]
             )
             return msg.content[0].text
@@ -140,12 +650,13 @@ def call_claude(system, user, max_tokens=2000):
 
 def call_claude_chat(system, history, max_tokens=500):
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+    full_sys = system + _lang_suffix()
     for attempt in range(3):
         try:
             msg = client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=max_tokens,
-                system=system,
+                system=full_sys,
                 messages=history
             )
             return msg.content[0].text
@@ -154,65 +665,6 @@ def call_claude_chat(system, history, max_tokens=500):
                 time.sleep(3)
             else:
                 return "The API is briefly overloaded — please try again in a moment."
-
-def repair_and_parse_json(raw: str) -> dict:
-    """
-    Robustly extract and parse JSON from an LLM response.
-    Handles: markdown fences, literal newlines inside strings,
-    trailing commas, and truncated output.
-    """
-    import re
-    # 1. Strip markdown fences
-    text = raw.strip().replace("```json", "").replace("```", "").strip()
-    # 2. Extract the outermost {...} block
-    first = text.find("{")
-    last  = text.rfind("}")
-    if first == -1 or last == -1:
-        raise ValueError("No JSON object found in response")
-    text = text[first:last + 1]
-    # 3. First attempt — try as-is
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-    # 4. Replace literal newlines INSIDE quoted strings with \n escape
-    #    We do a character-by-character pass so we only touch inside strings.
-    result = []
-    in_string = False
-    escape_next = False
-    for ch in text:
-        if escape_next:
-            result.append(ch)
-            escape_next = False
-        elif ch == "\\":
-            result.append(ch)
-            escape_next = True
-        elif ch == '"' and not escape_next:
-            in_string = not in_string
-            result.append(ch)
-        elif in_string and ch == "\n":
-            result.append("\\n")
-        elif in_string and ch == "\r":
-            result.append("\\r")
-        elif in_string and ch == "\t":
-            result.append("\\t")
-        else:
-            result.append(ch)
-    cleaned = "".join(result)
-    # 5. Remove trailing commas before } or ]
-    cleaned = re.sub(r",\s*([}\]])", r"\1", cleaned)
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        # 6. Last resort — try to truncate to last valid closing brace
-        last_valid = cleaned.rfind("}")
-        if last_valid > 0:
-            try:
-                return json.loads(cleaned[:last_valid + 1])
-            except Exception:
-                pass
-        raise e
-
 
 def tavily_search(query):
     if not TAVILY_KEY:
@@ -231,6 +683,11 @@ def tavily_search(query):
 # ── Session state ─────────────────────────────────────────────
 defaults = {
     "active_stage": 1,
+    "ui_lang": "en",
+    # User identity
+    "user_name": "",
+    "user_position": "",
+    "user_dept": "",
     # Stage 01
     "s1_step": 1,
     "s1_idea": "",
@@ -238,6 +695,7 @@ defaults = {
     "s1_answers": [],
     "s1_classification": {},
     "s1_chat": [],
+    "s1_similar_ideas": [],
     # Stage 02
     "s2_step": "intro",
     "s2_data": {},
@@ -249,23 +707,20 @@ for k, v in defaults.items():
 
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("""
+    # ── Logo ──────────────────────────────────────────────────
+    st.markdown(f"""
 <div style="padding:20px 12px 12px 12px;">
   <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:20px;font-weight:700;letter-spacing:3px;color:#FFFFFF;line-height:1;">SCHAEFFLER</div>
   <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:8px;letter-spacing:3.5px;color:rgba(255,255,255,0.7);margin-top:3px;font-weight:400;">WE PIONEER MOTION</div>
   <div style="background:rgba(255,255,255,0.2);height:1px;margin:16px 0 12px 0;"></div>
-  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.65);font-weight:600;">INNOVATION PIPELINE</div>
+  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.65);font-weight:600;">{T("pipeline")}</div>
 </div>
 """, unsafe_allow_html=True)
-    stages = [
-        (1, "01 · Quadrant Classifier"),
-        (2, "02 · Market Intelligence"),
-        (3, "03 · Patent Intelligence"),
-        (4, "04 · Technical Feasibility"),
-        (5, "05 · Organisational Readiness"),
-        (6, "06 · Scoring & Synthesis"),
-    ]
-    # Determine which stages have been completed
+
+    st.markdown('<div style="background:rgba(255,255,255,0.15);height:1px;margin:4px 0 10px;"></div>', unsafe_allow_html=True)
+
+    # ── Stage navigation ───────────────────────────────────────
+    stages = T("stages")
     completed = set()
     if st.session_state.get("s1_classification"): completed.add(1)
     if st.session_state.get("s2_data"):           completed.add(2)
@@ -287,9 +742,43 @@ with st.sidebar:
 
     if st.session_state.s1_idea:
         st.markdown("---")
-        st.caption(f"**Idea:** {st.session_state.s1_idea[:60]}...")
+        st.caption(f"**{T('idea_cap')}:** {st.session_state.s1_idea[:60]}...")
         if st.session_state.s1_classification:
-            st.caption(f"**Quadrant:** {st.session_state.s1_classification.get('quadrant','')}")
+            st.caption(f"**{T('quad_cap')}:** {st.session_state.s1_classification.get('quadrant','')}")
+
+    # ── Language + Ideas Log — fixed at bottom of sidebar ──
+    st.markdown('<div class="ideas-log-fixed">', unsafe_allow_html=True)
+    # Language selector
+    _lang_opts   = ["English", "Deutsch"]
+    _lang_to_key = {"English":"en","Deutsch":"de"}
+    _key_to_lang = {"en":"English","de":"Deutsch"}
+    _sel = st.selectbox(
+        T("lang_label"), _lang_opts,
+        index=_lang_opts.index(_key_to_lang.get(st.session_state.ui_lang,"English")),
+        key="_lang_sel"
+    )
+    if _lang_to_key[_sel] != st.session_state.ui_lang:
+        st.session_state.ui_lang = _lang_to_key[_sel]
+        st.rerun()
+    st.markdown('<div style="background:rgba(255,255,255,0.12);height:1px;margin:6px 0 4px;"></div>', unsafe_allow_html=True)
+    import base64 as _b64, streamlit.components.v1 as _stcv1
+    _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    if st.button(T("dl_ideas"), key="sidebar_xl", use_container_width=True):
+        with st.spinner(""):
+            try:
+                _xl_buf = generate_ideas_excel()
+                _xl_b64 = _b64.b64encode(_xl_buf.getvalue()).decode()
+                _xl_fn  = f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                _stcv1.html(f"""
+<a id="_xdl" href="data:{_XLSX_MIME};base64,{_xl_b64}" download="{_xl_fn}"
+   style="display:inline-block;padding:7px 14px;background:#005a2d;color:#fff;
+          font-size:12px;font-weight:600;border-radius:4px;text-decoration:none;
+          font-family:Arial,sans-serif;">{_xl_fn}</a>
+<script>(function(){{var a=document.getElementById('_xdl');if(a)a.click();}})();</script>
+""", height=44)
+            except Exception as exc:
+                st.error(str(exc))
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Ansoff chart helper ───────────────────────────────────────
 def ansoff_chart(quadrant, tech_score, market_score):
@@ -432,8 +921,11 @@ Return ONLY valid JSON, no markdown backticks:
         org_ctx,
         max_tokens=3500
     )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = repair_and_parse_json(extended)
+        ext = json.loads(raw_e)
     except:
         ext = {
             "executive_summary": f"Schaeffler\'s organisational readiness for this idea scores {s5d.get('final_score',5)}/10. The P3 assessment shows Portfolio fit at {s5d.get('p_portfolio',5)}/10, People readiness at {s5d.get('p_people',5)}/10, and Process readiness at {s5d.get('p_process',5)}/10. Recommended build strategy: {bop.get('recommendation','Co-develop')}. {bop.get('rationale','')}",
@@ -629,8 +1121,11 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
 }''',
         master_ctx, max_tokens=4000
     )
+    raw_e = enriched.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        enr = repair_and_parse_json(enriched)
+        enr = json.loads(raw_e)
     except:
         enr = {
             "executive_summary": f"This innovation idea ({idea[:80]}) has been assessed across four dimensions of Schaeffler\'s Innovation Pipeline, yielding an Innovation Potential Index (IPI) of {ipi}/10. The recommendation is: {synthesis.get('recommendation','PROCEED WITH CONDITIONS')}. {synthesis.get('recommendation_rationale','')} The strongest signal is: {synthesis.get('strongest_signals',['market opportunity'])[0] if synthesis.get('strongest_signals') else 'market opportunity'}. The primary concern is: {synthesis.get('key_concerns',['technical maturity'])[0] if synthesis.get('key_concerns') else 'technical maturity'}.",
@@ -1001,8 +1496,11 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         feas_ctx,
         max_tokens=3500
     )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = repair_and_parse_json(extended)
+        ext = json.loads(raw_e)
     except:
         ext = {
             "executive_summary": f"This innovation idea is assessed at TRL {trl.get('trl_level',3)} — {trl.get('trl_label','')}. Existence verdict: {existence.get('existence_verdict','Research Stage')}. {existence.get('existence_summary','')} Schaeffler entry readiness: {trl.get('schaeffler_entry_readiness','Ready for Innovation')}. Estimated time to production readiness: {existence.get('time_to_readiness','3-5 years')}.",
@@ -1218,8 +1716,11 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         pat_ctx,
         max_tokens=3500
     )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = repair_and_parse_json(extended)
+        ext = json.loads(raw_e)
     except:
         sp = ansoff_data.get('schaeffler_position',{})
         ext = {
@@ -1394,8 +1895,11 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         mkt_ctx,
         max_tokens=3500
     )
+    raw_e = extended.strip().replace("```json","").replace("```","").strip()
+    fb = raw_e.find("{"); lb = raw_e.rfind("}") + 1
+    if fb >= 0: raw_e = raw_e[fb:lb]
     try:
-        ext = repair_and_parse_json(extended)
+        ext = json.loads(raw_e)
     except:
         ext = {
             "executive_summary": f"The {market.get('market_name','target market')} represents a {market.get('market_maturity','growing')} opportunity. Market size is estimated at {market.get('market_size_2024','significant')} in 2024, projected to reach {market.get('market_size_2030','substantial')} by 2030 at a CAGR of {market.get('cagr','strong growth')}. Competitive intensity is {comp.get('competitive_intensity','moderate')}, with white space identified: {comp.get('white_space','see analysis')}.",
@@ -1697,7 +2201,10 @@ Return ONLY valid JSON:
 "white_spaces":["white space 1","white space 2","white space 3"]}"""
     raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1500)
     try:
-        landscape = repair_and_parse_json(raw)
+        raw_c = raw.strip().replace("```json","").replace("```","").strip()
+        fb = raw_c.find("{"); lb = raw_c.rfind("}") + 1
+        if fb >= 0: raw_c = raw_c[fb:lb]
+        landscape = json.loads(raw_c)
     except:
         landscape = {"technology_keywords":[],"landscape_summary":"N/A","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","patent_landscape_score":5,"key_filers":[],"white_spaces":[]}
 
@@ -1716,7 +2223,10 @@ Return ONLY valid JSON:
         f"Idea: {idea}\nQuadrant: {quadrant}\nMap ALL {len(key_filers_run3)} filers: {filers_full_run3}",
         max_tokens=max(1800, len(key_filers_run3) * 200 + 800))
     try:
-        ansoff_data = repair_and_parse_json(raw2)
+        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
+        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
+        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
+        ansoff_data = json.loads(raw2_c)
     except:
         ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
 
@@ -1765,7 +2275,10 @@ Return ONLY valid JSON:
 "technology_gaps":["gap 1","gap 2","gap 3"],"time_to_readiness":"e.g. 3-5 years","keywords":["6-10 key technical terms from this domain"]}"""
     raw = call_claude(system_existence, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
     try:
-        existence = repair_and_parse_json(raw)
+        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+        if fb >= 0: raw_clean = raw_clean[fb:lb]
+        existence = json.loads(raw_clean)
     except:
         existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"N/A","evidence":[],"technology_gaps":[],"time_to_readiness":"Not yet estimated","keywords":[]}
 
@@ -1778,7 +2291,10 @@ Return ONLY valid JSON:
 "trl_score":1-10}"""
     raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps','')}", max_tokens=1200)
     try:
-        trl = repair_and_parse_json(raw2)
+        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
+        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
+        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
+        trl = json.loads(raw2_c)
     except:
         trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":3}
 
@@ -1826,7 +2342,10 @@ Return ONLY valid JSON:
 
     raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=2500)
     try:
-        org_data = repair_and_parse_json(raw)
+        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+        if fb >= 0: raw_clean = raw_clean[fb:lb]
+        org_data = json.loads(raw_clean)
     except:
         org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"org_readiness_score":5}
 
@@ -1878,8 +2397,11 @@ Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partn
 "next_steps":["action 1","action 2","action 3","action 4"]}"""
 
     raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
+    raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
+    fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
+    if fb >= 0: raw1_clean = raw1_clean[fb:lb]
     try:
-        synthesis_structured = repair_and_parse_json(raw1)
+        synthesis_structured = json.loads(raw1_clean)
     except:
         synthesis_structured = {"headline":f"IPI {ipi}/10","recommendation":"PROCEED WITH CONDITIONS" if ipi>=5 else "DEFER","recommendation_rationale":"Based on pipeline analysis.","strongest_signals":[],"key_concerns":[],"conditions":[],"strategic_fit":"","risks":[],"next_steps":[]}
 
@@ -1897,27 +2419,42 @@ Org Readiness ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partn
 
 
 if st.session_state.active_stage == 1:
-    st.markdown("## Stage 01 · Quadrant Classifier")
-    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
-<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Maps your idea onto Schaeffler's modified Ansoff matrix — Exploit, Extend, Radical, or Disrupt. Ideas in Radical and Disrupt proceed through the full pipeline. Others are redirected to the right Schaeffler product division.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Quadrant classification · Schaeffler Motion product family fit · Strategic trend alignment · Innovation pathway (Start-Up Mode vs Innovation Factory)</div>
+    st.markdown(f"## {T('s1_title')}")
+    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">{T('s1_what_label')}</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">{T('s1_what')}</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;">{T('s1_you_get')}</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
     # Step 1 — Input
     if st.session_state.s1_step == 1:
-        st.subheader("Step 1 — Describe your idea")
-        idea = st.text_area("What is your innovation idea?", height=150,
-            placeholder="e.g. A self-lubricating bearing system that uses micro-reservoirs embedded within the bearing material to release lubricant automatically based on temperature and load sensing...")
+        st.subheader(T("s1_step1"))
 
-        if st.button("Submit idea", type="primary"):
-            if not idea.strip():
-                st.warning("Please enter your idea first.")
+        ucol1, ucol2, ucol3 = st.columns(3)
+        with ucol1:
+            user_name = st.text_input(T("s1_name"), value=st.session_state.user_name, placeholder=T("s1_name_ph"))
+        with ucol2:
+            user_position = st.text_input(T("s1_role"), value=st.session_state.user_position, placeholder=T("s1_role_ph"))
+        with ucol3:
+            user_dept = st.text_input(T("s1_dept"), value=st.session_state.user_dept, placeholder=T("s1_dept_ph"))
+
+        st.markdown("---")
+        idea = st.text_area(T("s1_idea_label"), height=150, placeholder=T("s1_idea_ph"))
+
+        if st.button(T("s1_submit"), type="primary"):
+            if not user_name.strip() or not user_position.strip() or not user_dept.strip():
+                st.warning(T("s1_warn_identity"))
+            elif not idea.strip():
+                st.warning(T("s1_warn_empty"))
             elif len(idea.split()) < 15:
-                st.warning("A bit brief — can you add more detail? What does it do, and for whom?")
+                st.warning(T("s1_warn_brief"))
             else:
-                with st.spinner("Checking your idea..."):
+                # Save user identity
+                st.session_state.user_name     = user_name.strip()
+                st.session_state.user_position = user_position.strip()
+                st.session_state.user_dept     = user_dept.strip()
+                with st.spinner(T("s1_spinner_check")):
                     check = call_claude(
                         'Check if this innovation idea has enough detail to classify. Reply ONLY with JSON: {"sufficient": true/false, "missing": "one short sentence or empty string"}',
                         idea
@@ -1930,47 +2467,56 @@ if st.session_state.active_stage == 1:
                     st.warning(f"A bit more detail needed: {result.get('missing','')}")
                 else:
                     st.session_state.s1_idea = idea
+                    # Check for similar past ideas
+                    with st.spinner(T("s1_spinner_similar")):
+                        past = load_past_ideas()
+                        similar = check_similar_ideas(idea, past)
+                        st.session_state.s1_similar_ideas = similar
                     st.session_state.s1_step = 2
                     st.rerun()
 
     # Step 2 — Forced-choice enrichment
     if st.session_state.s1_step == 2:
         st.markdown("---")
-        st.subheader("Step 2 — Three quick questions")
+        st.subheader(T("s1_step2"))
         st.info(f"**Your idea:** {st.session_state.s1_idea}")
-        st.caption("These answers help refine the classification. The idea description itself drives the result — use these to add context, not to override what the idea clearly is.")
+
+        # ── Similar ideas alert ───────────────────────────────
+        similar = st.session_state.get("s1_similar_ideas", [])
+        if similar:
+            st.warning(T("s1_similar_warn").format(n=len(similar)))
+            for s in similar:
+                sim_col = "#f59e0b" if s.get("similarity") == "High" else "#60a5fa"
+                st.markdown(f"""
+<div style="background:#1a2d45;border-left:4px solid {sim_col};border-radius:4px;padding:12px 16px;margin:6px 0;">
+  <div style="color:{sim_col};font-size:11px;font-weight:600;letter-spacing:1px;">{s.get('similarity','').upper()} SIMILARITY — {s.get('date','')} · {s.get('submitter','')} ({s.get('department','')})</div>
+  <div style="color:#e2e8f0;font-size:13px;margin-top:4px;">{s.get('idea_snippet','')}</div>
+  <div style="color:#94a3b8;font-size:12px;margin-top:4px;">Quadrant: <b>{s.get('quadrant','')}</b> · IPI: <b>{s.get('ipi','')}</b> · Outcome: <b>{s.get('recommendation','')}</b></div>
+  <div style="color:#94a3b8;font-size:12px;margin-top:2px;">Similarity reason: {s.get('reason','')}</div>
+</div>
+""", unsafe_allow_html=True)
+            st.markdown("---")
+        st.caption(T("s1_step2_caption"))
 
         # Q1 — Technology novelty
-        st.markdown("**1. Has the core technology behind this idea been demonstrated anywhere — in a lab, a startup, a research paper, or a competitor product?**")
-        q1_choice = st.radio("", [
-            "Yes — it has been demonstrated somewhere (even if not commercialised)",
-            "No — the underlying technology is genuinely novel or theoretical"
-        ], key="q1_radio", label_visibility="collapsed")
-        q1_detail = st.text_input("Optional — where has it been demonstrated, or what makes it genuinely new?", key="q1_detail",
-                                   placeholder="e.g. MIT lab prototype, or 'no known demonstration of this mechanism'")
+        st.markdown(T("s1_q1"))
+        q1_choice = st.radio("", [T("s1_q1a"), T("s1_q1b")], key="q1_radio", label_visibility="collapsed")
+        q1_detail = st.text_input(T("s1_q1_detail"), key="q1_detail", placeholder=T("s1_q1_ph"))
 
         st.markdown("---")
-        # Q2 — Market familiarity — reworded to avoid false DISRUPTIVE flips
-        st.markdown("**2. Does this idea target markets or applications that Schaeffler currently operates in?**")
-        st.caption("Schaeffler's current markets: automotive (ICE & EV), industrial machinery, rail, aerospace, energy, two-wheelers. If the idea fits any of these, select yes.")
-        q2_choice = st.radio("", [
-            "Yes — it targets automotive, industrial, rail, aerospace, energy or adjacent sectors Schaeffler already serves",
-            "No — it targets a market genuinely outside Schaeffler's current scope (e.g. consumer electronics, healthcare devices, retail)"
-        ], key="q2_radio", label_visibility="collapsed")
-        q2_detail = st.text_input("Optional — which specific market or application area?", key="q2_detail",
-                                   placeholder="e.g. EV drivetrain OEMs, or 'medical implant manufacturers — entirely new for Schaeffler'")
+        # Q2 — Market familiarity
+        st.markdown(T("s1_q2"))
+        st.caption(T("s1_q2_caption"))
+        q2_choice = st.radio("", [T("s1_q2a"), T("s1_q2b")], key="q2_radio", label_visibility="collapsed")
+        q2_detail = st.text_input(T("s1_q2_detail"), key="q2_detail", placeholder=T("s1_q2_ph"))
 
         st.markdown("---")
         # Q3 — Problem clarity
-        st.markdown("**3. Is the problem this idea solves already recognised and being worked on by the industry?**")
-        q3_choice = st.radio("", [
-            "Yes — the problem is well known and others are actively trying to solve it",
-            "No — the problem itself is new, underappreciated, or not yet widely recognised"
-        ], key="q3_radio", label_visibility="collapsed")
-        q3_detail = st.text_input("Optional — describe the problem in one sentence", key="q3_detail",
-                                   placeholder="e.g. Bearing failure in EV drivetrains due to high-frequency current leakage")
+        st.markdown(T("s1_q3"))
+        q3_choice = st.radio("", [T("s1_q3a"), T("s1_q3b")], key="q3_radio", label_visibility="collapsed")
+        q3_detail = st.text_input(T("s1_q3_detail"), key="q3_detail", placeholder=T("s1_q3_ph"))
 
-        if st.button("Classify my idea →", type="primary"):
+        if st.button(T("s1_classify_btn"), type="primary"):
             a1 = q1_choice + (f" — {q1_detail}" if q1_detail.strip() else "")
             a2 = q2_choice + (f" — {q2_detail}" if q2_detail.strip() else "")
             a3 = q3_choice + (f" — {q3_detail}" if q3_detail.strip() else "")
@@ -1985,7 +2531,7 @@ if st.session_state.active_stage == 1:
 
     # Step 3 — Classify
     if st.session_state.s1_step == 3 and not st.session_state.s1_classification:
-        with st.spinner("Classifying your idea..."):
+        with st.spinner(T("s1_spinner_classify")):
             q = st.session_state.s1_questions
             a = st.session_state.s1_answers
             system = """You are a senior innovation strategist at Schaeffler Group.
@@ -2054,7 +2600,10 @@ Return ONLY valid JSON:
                     f"Q: {q[0]} A: {a[0]}\n"
                     f"Q: {q[1]} A: {a[1]}\n"
                     f"Q: {q[2]} A: {a[2]}")
-                classification = repair_and_parse_json(raw)
+                raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+                fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+                if fb >= 0: raw_clean = raw_clean[fb:lb]
+                classification = json.loads(raw_clean)
                 # Hard-code proceed based on quadrant — never trust Claude's value here
                 # EXPLOIT and EXTEND must always redirect; RADICAL and DISRUPTIVE always proceed
                 q_result = classification.get("quadrant","").upper()
@@ -2072,7 +2621,7 @@ Return ONLY valid JSON:
         proceed  = c.get("proceed", False)
 
         st.markdown("---")
-        st.subheader("Result")
+        st.subheader(T("s1_result"))
         st.info(f"**Your idea:** {st.session_state.s1_idea}")
 
         if not proceed:
@@ -2119,14 +2668,14 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
         # Continue button
         st.markdown("---")
         if proceed:
-            st.success("✓ This idea qualifies for the full Innovation pipeline.")
+            st.success(T("s1_qualifies"))
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
-                if st.button("Continue to Stage 02: Market Intelligence →", type="primary", key="s1_continue"):
+                if st.button(T("s1_continue"), type="primary", key="s1_continue"):
                     st.session_state.active_stage = 2
                     st.rerun()
             with btn_col2:
-                if st.button("⚡ Run Full Analysis — all 5 stages", type="secondary", key="s1_full_run"):
+                if st.button(T("s1_full_run"), type="secondary", key="s1_full_run"):
                     idea_fa  = st.session_state.s1_idea
                     s1c_fa   = st.session_state.s1_classification
                     quad_fa  = s1c_fa.get("quadrant","RADICAL")
@@ -2145,12 +2694,12 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
 
         # Post-result chat
         st.markdown("---")
-        st.subheader("💬 Questions about this classification?")
+        st.subheader(T("s1_chat_header"))
         for msg in st.session_state.s1_chat:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        user_q = st.chat_input("Ask about the classification...")
+        user_q = st.chat_input(T("s1_chat_ph"))
         if user_q:
             st.session_state.s1_chat.append({"role":"user","content":user_q})
             with st.chat_message("user"):
@@ -2170,20 +2719,20 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
                     st.markdown(reply)
                     st.session_state.s1_chat.append({"role":"assistant","content":reply})
 
-        if st.button("← Start over", key="s1_startover"):
-            for k in ["s1_step","s1_idea","s1_questions","s1_answers","s1_classification","s1_chat"]:
-                st.session_state[k] = defaults[k]
+        if st.button(T("s1_startover"), key="s1_startover"):
+            for k in ["s1_step","s1_idea","s1_questions","s1_answers","s1_classification","s1_chat","s1_similar_ideas","user_name","user_position","user_dept"]:
+                st.session_state[k] = defaults.get(k, "" if k in ("user_name","user_position","user_dept") else defaults.get(k))
             st.rerun()
 
 # ════════════════════════════════════════════════════════════
 # STAGE 02 — MARKET INTELLIGENCE
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 2:
-    st.markdown("## Stage 02 · Market Intelligence")
-    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
-<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Analyses the commercial opportunity behind your idea — how big the market is, how fast it is growing, who the competitors are, and how well the idea fits across Schaeffler's 10 customer sector clusters.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Market size & CAGR with sources · Sector cluster fit chart · Competitor landscape · Market Intelligence Score (0–10)</div>
+    st.markdown(f"## {T('s2_title')}")
+    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">{T('s1_what_label')}</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">{T('s2_what')}</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;">{T('s2_you_get')}</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2195,7 +2744,7 @@ elif st.session_state.active_stage == 2:
     if st.session_state.s2_step == "intro":
         st.info(f"**Idea:** {idea}")
         st.markdown(f"**Quadrant:** {quadrant} · {s1c.get('technology_novelty','')}")
-        if st.button("Run Market Intelligence →", type="primary"):
+        if st.button(T("s2_run_btn"), type="primary"):
             st.session_state.s2_step = "running"
             st.rerun()
 
@@ -2225,7 +2774,7 @@ Return ONLY valid JSON:
 "geographic_focus":"string","market_score":integer 1-10 (9-10=large fast-growing >$10bn/>15%CAGR; 7-8=strong $2-10bn/8-15%; 5-6=moderate; 3-4=niche; 1-2=tiny or declining),"market_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}")
-            market = repair_and_parse_json(raw)
+            market = json.loads(raw.strip().replace("```json","").replace("```","").strip())
         except:
             market = {"market_name":"N/A","market_size_2024":"N/A","market_size_2030":"N/A","cagr":"N/A",
                       "growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
@@ -2239,7 +2788,7 @@ Every company must have a source. Return ONLY valid JSON:
 "competition_score":integer 1-10 openness (9-10=very open/few players; 7-8=some room; 5-6=moderate; 3-4=crowded; 1-2=saturated),"competition_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}{web_ctx}")
-            comp = repair_and_parse_json(raw)
+            comp = json.loads(raw.strip().replace("```json","").replace("```","").strip())
         except:
             comp = {"competitors":[],"competitive_intensity":"N/A","white_space":"N/A",
                     "schaeffler_advantage":"N/A","competition_score":5,"competition_score_rationale":""}
@@ -2255,7 +2804,7 @@ Return ONLY valid JSON:
 Sector fit score rubric: Average the top 3 sector scores. If primary sector scores 9-10 = sector_fit 9-10; if 7-8 = 7-8; etc."""
         try:
             raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}")
-            sectors = repair_and_parse_json(raw)
+            sectors = json.loads(raw.strip().replace("```json","").replace("```","").strip())
         except:
             sectors = {"sector_scores":{},"primary_sectors":[],"sector_fit_score":5,"sector_fit_rationale":""}
 
@@ -2434,36 +2983,20 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
 
         # ── Download report ──────────────────────────────────
         st.markdown("---")
-        if "s2_report_buf" not in st.session_state:
-            st.session_state.s2_report_buf = None
-
-        if st.session_state.s2_report_buf is None:
-            if st.button("⬇️ Download Market Intelligence Report", type="primary"):
-                with st.spinner("Generating your report — this takes about 20 seconds..."):
-                    try:
-                        st.session_state.s2_report_buf = generate_market_report(
-                            idea, quadrant, s1c, market, comp, sectors, weights, final
-                        )
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Report generation error: {e}")
-        else:
-            st.download_button(
-                label="⬇️ Download Market Intelligence Report",
-                data=st.session_state.s2_report_buf,
-                file_name=f"Schaeffler_Market_Intelligence_{datetime.now().strftime('%Y%m%d')}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                type="primary"
-            )
+        _one_click_dl(
+            T("dl_market"),
+            lambda: generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, final),
+            f"Schaeffler_Market_Intelligence_{datetime.now().strftime('%Y%m%d')}.docx"
+        )
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
-        st.subheader("💬 Questions about the market analysis?")
+        st.subheader(T("s2_chat_header"))
         for msg in st.session_state.s2_chat:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        user_q = st.chat_input("Ask about the market, sectors, competitors...")
+        user_q = st.chat_input(T("s2_chat_ph"))
         if user_q:
             st.session_state.s2_chat.append({"role":"user","content":user_q})
             with st.chat_message("user"):
@@ -2483,12 +3016,12 @@ Be specific, cite sources where possible, 3-4 sentences max."""
 
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
-        st.success(f"✓ Market Intelligence complete. Final score: **{final}/10**")
-        if st.button("Continue to Stage 03: Patent Intelligence →", type="primary", key="s2_continue"):
+        st.success(T("s2_success").format(score=final))
+        if st.button(T("s2_continue"), type="primary", key="s2_continue"):
             st.session_state.active_stage = 3
             st.rerun()
 
-        if st.button("← Re-run analysis", key="s2_rerun"):
+        if st.button(T("s2_rerun"), key="s2_rerun"):
             st.session_state.s2_step = "intro"
             st.session_state.s2_data = {}
             st.session_state.s2_chat = []
@@ -2503,11 +3036,11 @@ Be specific, cite sources where possible, 3-4 sentences max."""
 # STAGE 03 — PATENT INTELLIGENCE
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 3:
-    st.markdown("## Stage 03 · Patent Intelligence")
-    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
-<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Maps the patent landscape for your idea's core technology — who is filing, whether they are competitors or potential customers, where the IP white spaces are, and how Schaeffler's existing patent portfolio relates to the idea.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Patent Ansoff map with all key filers plotted · IP white spaces · Schaeffler IP gap analysis · Patent Intelligence Score (0–10)</div>
+    st.markdown(f"## {T('s3_title')}")
+    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">{T('s1_what_label')}</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">{T('s3_what')}</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;">{T('s3_you_get')}</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -2524,7 +3057,7 @@ elif st.session_state.active_stage == 3:
     if st.session_state.s3_step == "intro":
         st.info(f"**Idea:** {idea}")
         st.markdown(f"**Quadrant:** {quadrant}")
-        if st.button("Run Patent Intelligence →", type="primary"):
+        if st.button(T("s3_run_btn"), type="primary"):
             st.session_state.s3_step = "running"
             st.rerun()
 
@@ -2569,8 +3102,11 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_landscape,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2500)
-            landscape = repair_and_parse_json(raw)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2000)
+            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+            if fb >= 0: raw_clean = raw_clean[fb:lb]
+            landscape = json.loads(raw_clean)
         except Exception as e:
             landscape = {"technology_keywords":[],"landscape_summary":"Analysis unavailable.",
                         "activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"",
@@ -2639,7 +3175,10 @@ Return ONLY valid JSON:
                 f"IMPORTANT: You MUST map ALL {len(key_filers)} filers listed below. Do not skip any.\n"
                 f"Key filers (map every single one): {filers_full_context}",
                 max_tokens=max(1800, len(key_filers) * 200 + 800))
-            ansoff_data = repair_and_parse_json(raw2)
+            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
+            fb2 = raw2_clean.find("{"); lb2 = raw2_clean.rfind("}") + 1
+            if fb2 >= 0: raw2_clean = raw2_clean[fb2:lb2]
+            ansoff_data = json.loads(raw2_clean)
         except Exception as e:
             ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},
                           "idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
@@ -2958,36 +3497,20 @@ Return ONLY valid JSON:
 
         # ── Download report ───────────────────────────────────
         st.markdown("---")
-        if "s3_report_buf" not in st.session_state:
-            st.session_state.s3_report_buf = None
-
-        if st.session_state.s3_report_buf is None:
-            if st.button("⬇️ Download Patent Intelligence Report", type="primary"):
-                with st.spinner("Generating report..."):
-                    try:
-                        st.session_state.s3_report_buf = generate_patent_report(
-                            idea, quadrant, s1c, landscape, ansoff_data, d
-                        )
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Report error: {e}")
-        else:
-            st.download_button(
-                label="⬇️ Download Patent Intelligence Report",
-                data=st.session_state.s3_report_buf,
-                file_name=f"Schaeffler_Patent_Intelligence_{datetime.now().strftime('%Y%m%d')}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                type="primary"
-            )
+        _one_click_dl(
+            T("dl_patent"),
+            lambda: generate_patent_report(idea, quadrant, s1c, landscape, ansoff_data, d),
+            f"Schaeffler_Patent_Intelligence_{datetime.now().strftime('%Y%m%d')}.docx"
+        )
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
-        st.subheader("💬 Questions about the patent landscape?")
+        st.subheader(T("s3_chat_header"))
         for msg in st.session_state.s3_chat:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        user_q = st.chat_input("Ask about patents, IP position, competitors...")
+        user_q = st.chat_input(T("s3_chat_ph"))
         if user_q:
             st.session_state.s3_chat.append({"role":"user","content":user_q})
             with st.chat_message("user"):
@@ -3008,12 +3531,12 @@ Be specific and concise — 2-4 sentences."""
 
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
-        st.success(f"✓ Patent Intelligence complete. Score: **{final}/10**")
-        if st.button("Continue to Stage 04: Technical Feasibility →", type="primary", key="s3_continue"):
+        st.success(T("s3_success").format(score=final))
+        if st.button(T("s3_continue"), type="primary", key="s3_continue"):
             st.session_state.active_stage = 4
             st.rerun()
 
-        if st.button("← Re-run analysis", key="s3_rerun"):
+        if st.button(T("s3_rerun"), key="s3_rerun"):
             st.session_state.s3_step = "intro"
             st.session_state.s3_data = {}
             st.session_state.s3_chat = []
@@ -3026,11 +3549,11 @@ Be specific and concise — 2-4 sentences."""
 # STAGE 04 — TECHNICAL FEASIBILITY
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 4:
-    st.markdown("## Stage 04 · Technical Feasibility")
-    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
-<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Checks whether the core technology has actually been demonstrated anywhere — in labs, startups, pilots, or adjacent industries. Rates maturity using a Schaeffler-adapted version of NASA's TRL scale (1–9) and identifies the key technical risks to address.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> TRL rating with rationale · Evidence from research & industry · Technology keyword map · Risk register · Feasibility Score (0–10)</div>
+    st.markdown(f"## {T('s4_title')}")
+    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">{T('s1_what_label')}</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">{T('s4_what')}</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;">{T('s4_you_get')}</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3046,7 +3569,7 @@ elif st.session_state.active_stage == 4:
     if st.session_state.s4_step == "intro":
         st.info(f"**Idea:** {idea}")
         st.markdown(f"**Quadrant:** {quadrant}")
-        if st.button("Run Technical Feasibility Analysis →", type="primary"):
+        if st.button(T("s4_run_btn"), type="primary"):
             st.session_state.s4_step = "running"
             st.rerun()
 
@@ -3093,8 +3616,15 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_existence,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=3000)
-            existence = repair_and_parse_json(raw)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
+            # Strip everything before first { and after last }
+            raw_clean = raw.strip()
+            raw_clean = raw_clean.replace("```json","").replace("```","").strip()
+            first_brace = raw_clean.find("{")
+            last_brace  = raw_clean.rfind("}") + 1
+            if first_brace >= 0:
+                raw_clean = raw_clean[first_brace:last_brace]
+            existence = json.loads(raw_clean)
         except Exception as e:
             st.warning(f"Evidence parsing issue: {e} — using fallback")
             existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"",
@@ -3142,7 +3672,12 @@ Return ONLY valid JSON:
             raw2 = call_claude(system_trl,
                 f"Idea: {idea}\nExistence verdict: {existence.get('existence_verdict','')}\nEvidence: {json.dumps(existence.get('evidence',[])[:3])}\nGaps: {existence.get('technology_gaps',[])}",
                 max_tokens=1500)
-            trl = repair_and_parse_json(raw2)
+            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
+            first_brace = raw2_clean.find("{")
+            last_brace  = raw2_clean.rfind("}") + 1
+            if first_brace >= 0:
+                raw2_clean = raw2_clean[first_brace:last_brace]
+            trl = json.loads(raw2_clean)
         except Exception as e:
             st.warning(f"TRL parsing issue: {e} — using fallback")
             trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept",
@@ -3357,36 +3892,20 @@ Return ONLY valid JSON:
 
         # ── Download report ───────────────────────────────────
         st.markdown("---")
-        if "s4_report_buf" not in st.session_state:
-            st.session_state.s4_report_buf = None
-
-        if st.session_state.s4_report_buf is None:
-            if st.button("⬇️ Download Technical Feasibility Report", type="primary"):
-                with st.spinner("Generating report..."):
-                    try:
-                        st.session_state.s4_report_buf = generate_feasibility_report(
-                            idea, quadrant, s1c, existence, trl, d
-                        )
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Report error: {e}")
-        else:
-            st.download_button(
-                label="⬇️ Download Technical Feasibility Report",
-                data=st.session_state.s4_report_buf,
-                file_name=f"Schaeffler_Technical_Feasibility_{datetime.now().strftime('%Y%m%d')}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                type="primary"
-            )
+        _one_click_dl(
+            T("dl_feasib"),
+            lambda: generate_feasibility_report(idea, quadrant, s1c, existence, trl, d),
+            f"Schaeffler_Technical_Feasibility_{datetime.now().strftime('%Y%m%d')}.docx"
+        )
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
-        st.subheader("💬 Questions about technical feasibility?")
+        st.subheader(T("s4_chat_header"))
         for msg in st.session_state.s4_chat:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        user_q = st.chat_input("Ask about TRL, evidence, risks, or readiness...")
+        user_q = st.chat_input(T("s4_chat_ph"))
         if user_q:
             st.session_state.s4_chat.append({"role":"user","content":user_q})
             with st.chat_message("user"):
@@ -3408,12 +3927,12 @@ Be specific, reference evidence where relevant, keep to 3-4 sentences."""
 
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
-        st.success(f"✓ Technical Feasibility complete. Score: **{final}/10**")
-        if st.button("Continue to Stage 05: Organisational Readiness →", type="primary", key="s4_continue"):
+        st.success(T("s4_success").format(score=final))
+        if st.button(T("s4_continue"), type="primary", key="s4_continue"):
             st.session_state.active_stage = 5
             st.rerun()
 
-        if st.button("← Re-run analysis", key="s4_rerun"):
+        if st.button(T("s4_rerun"), key="s4_rerun"):
             st.session_state.s4_step = "intro"
             st.session_state.s4_data = {}
             st.session_state.s4_chat = []
@@ -3426,11 +3945,11 @@ Be specific, reference evidence where relevant, keep to 3-4 sentences."""
 # STAGE 05 — ORGANISATIONAL READINESS
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 5:
-    st.markdown("## Stage 05 · Organisational Readiness")
-    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
-<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Assesses whether Schaeffler is organisationally ready to pursue this idea — grounded in Schaeffler's own P³ formula: <b style="color:#60a5fa;">Performance = Portfolio × People × Process</b>. The market may be real and the technology proven, but if the internal capabilities, assets, and partnerships are not in place, the idea will stall before it reaches the Innovation pipeline.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Competency fit · Asset leverage · Partnership readiness · Org gap register · Build-or-partner recommendation · Organisational Readiness Score (0–10)</div>
+    st.markdown(f"## {T('s5_title')}")
+    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">{T('s1_what_label')}</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">{T('s5_what')}</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;">{T('s5_you_get')}</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3449,7 +3968,7 @@ elif st.session_state.active_stage == 5:
         # Pull context from previous stages for enriched prompt
         s3_landscape = st.session_state.get("s3_data",{}).get("landscape",{})
         s4_existence = st.session_state.get("s4_data",{}).get("existence",{})
-        if st.button("Run Organisational Readiness →", type="primary"):
+        if st.button(T("s5_run_btn"), type="primary"):
             st.session_state.s5_step = "running"
             st.rerun()
 
@@ -3545,7 +4064,10 @@ Return ONLY valid JSON:
             raw = call_claude(system_readiness,
                 f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL level: {trl_level}",
                 max_tokens=2500)
-            org_data = repair_and_parse_json(raw)
+            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
+            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
+            if fb >= 0: raw_clean = raw_clean[fb:lb]
+            org_data = json.loads(raw_clean)
         except Exception as e:
             org_data = {
                 "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
@@ -3686,12 +4208,12 @@ Return ONLY valid JSON:
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
-        st.subheader("💬 Questions about organisational readiness?")
+        st.subheader(T("s5_chat_header"))
         for msg in st.session_state.s5_chat:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        user_q = st.chat_input("Ask about competencies, assets, partnerships...")
+        user_q = st.chat_input(T("s5_chat_ph"))
         if user_q:
             st.session_state.s5_chat.append({"role":"user","content":user_q})
             with st.chat_message("user"):
@@ -3711,31 +4233,18 @@ Be specific to Schaeffler's context (Vitesco integration, E-Mobility shift, OEM 
 
         # ── Continue ──────────────────────────────────────────
         st.markdown("---")
-        if "s5_report_buf" not in st.session_state:
-            st.session_state.s5_report_buf = None
-        if st.session_state.s5_report_buf is None:
-            if st.button("⬇️ Download Organisational Readiness Report", type="primary", key="s5_dl"):
-                with st.spinner("Generating report — this takes about 20 seconds..."):
-                    try:
-                        st.session_state.s5_report_buf = generate_org_report(idea, quadrant, s1c, d)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Report error: {e}")
-        else:
-            st.download_button(
-                label="⬇️ Download Organisational Readiness Report",
-                data=st.session_state.s5_report_buf,
-                file_name=f"Schaeffler_Org_Readiness_{datetime.now().strftime('%Y%m%d')}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                type="primary"
-            )
+        _one_click_dl(
+            T("dl_org"),
+            lambda: generate_org_report(idea, quadrant, s1c, d),
+            f"Schaeffler_Org_Readiness_{datetime.now().strftime('%Y%m%d')}.docx"
+        )
         st.markdown("---")
-        st.success(f"✓ Organisational Readiness complete. Score: **{final}/10**")
-        if st.button("Continue to Stage 06: Scoring & Synthesis →", type="primary", key="s5_continue"):
+        st.success(T("s5_success").format(score=final))
+        if st.button(T("s5_continue"), type="primary", key="s5_continue"):
             st.session_state.active_stage = 6
             st.rerun()
 
-        if st.button("← Re-run analysis", key="s5_rerun"):
+        if st.button(T("s5_rerun"), key="s5_rerun"):
             st.session_state.s5_step = "intro"
             st.session_state.s5_data = {}
             st.session_state.s5_chat = []
@@ -3747,11 +4256,11 @@ Be specific to Schaeffler's context (Vitesco integration, E-Mobility shift, OEM 
 # STAGE 06 — SCORING & SYNTHESIS
 # ════════════════════════════════════════════════════════════
 elif st.session_state.active_stage == 6:
-    st.markdown("## Stage 06 · Scoring & Synthesis")
-    st.markdown("""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
-<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">WHAT THIS STAGE DOES</div>
-<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">Combines scores from Stages 02, 03, 04, and 05 into a single Innovation Potential Index (IPI). You set the weights. The assistant generates a final recommendation, strategic synthesis, and a downloadable master report covering the full pipeline analysis.</div>
-<div style="color:#94a3b8;font-size:12px;margin-top:8px;"><b style="color:#e2e8f0;">You get:</b> Weighted IPI score · Radar chart · PROCEED / DEFER / REJECT recommendation · Strongest signals & concerns · Next steps · Full Innovation Assessment Report</div>
+    st.markdown(f"## {T('s6_title')}")
+    st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
+<div style="color:#60a5fa;font-size:11px;letter-spacing:1px;font-weight:600;">{T('s1_what_label')}</div>
+<div style="color:#e2e8f0;font-size:13px;margin-top:6px;">{T('s6_what')}</div>
+<div style="color:#94a3b8;font-size:12px;margin-top:8px;">{T('s6_you_get')}</div>
 </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -3926,8 +4435,11 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
   "next_steps": ["concrete Schaeffler-specific action step 1", "concrete action step 2", "concrete action step 3", "concrete action step 4"]
 }"""
         raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
+        raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
+        fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
+        if fb >= 0: raw1_clean = raw1_clean[fb:lb]
         try:
-            synthesis_structured = repair_and_parse_json(raw1)
+            synthesis_structured = json.loads(raw1_clean)
         except:
             synthesis_structured = {
                 "headline": f"IPI score of {ipi}/10 — {'strong' if ipi>=7 else 'moderate' if ipi>=4 else 'weak'} opportunity in {s2d.get('market',{}).get('market_name','this market')}.",
@@ -4003,6 +4515,44 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         }
         rec_col = rec_colours.get(rec, "#f59e0b")
         ipi_col = "#22c55e" if ipi>=7 else "#f59e0b" if ipi>=4 else "#ef4444"
+
+        # ── Auto-save to Google Sheets (once per session) ─────
+        if not st.session_state.get("_s6_saved_to_sheets"):
+            s2d_sv = st.session_state.get("s2_data", {})
+            s3d_sv = st.session_state.get("s3_data", {})
+            s4d_sv = st.session_state.get("s4_data", {})
+            s5d_sv = st.session_state.get("s5_data", {})
+            qa_pairs = []
+            for q, a in zip(st.session_state.get("s1_questions",[]), st.session_state.get("s1_answers",[])):
+                qa_pairs.append(f"Q: {q} / A: {a}")
+            row = {
+                "Date":                  datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "Submitter Name":        st.session_state.get("user_name",""),
+                "Position":              st.session_state.get("user_position",""),
+                "Department":            st.session_state.get("user_dept",""),
+                "Full Idea Description": st.session_state.get("s1_idea",""),
+                "Clarifying Q&A":        " | ".join(qa_pairs),
+                "Quadrant":              quadrant,
+                "Innovation Cluster":    s1c.get("innovation_cluster",""),
+                "Product Family":        s1c.get("product_family",""),
+                "Market Score":          str(scores.get("market","")),
+                "Patent Score":          str(scores.get("patent","")),
+                "Feasibility Score":     str(scores.get("feasibility","")),
+                "Org Readiness Score":   str(scores.get("org","")),
+                "IPI Score":             str(ipi),
+                "Recommendation":        rec,
+                "Key Concerns":          " | ".join(synthesis.get("key_concerns",[])[:3]),
+                "Next Steps":            " | ".join(synthesis.get("next_steps",[])[:4]),
+                "Market Name":           s2d_sv.get("market",{}).get("market_name",""),
+                "Market Size 2024":      s2d_sv.get("market",{}).get("market_size_2024",""),
+                "CAGR":                  s2d_sv.get("market",{}).get("cagr",""),
+                "TRL Level":             str(s4d_sv.get("trl",{}).get("trl_level","")),
+                "Build Strategy":        s5d_sv.get("org_data",{}).get("build_or_partner",{}).get("recommendation",""),
+            }
+            saved = save_idea_to_sheets(row)
+            st.session_state["_s6_saved_to_sheets"] = True
+            if saved:
+                st.success("✅ Idea automatically saved to the Innovation Ideas Log.")
 
         # ── IPI banner ────────────────────────────────────────
         st.markdown(f"""
@@ -4126,7 +4676,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
             st.session_state.s6_mockup_image = None
 
         if st.session_state.s6_mockup_image is None:
-            if st.button("🖼️ Generate Solution Image", type="secondary", key="s6_image"):
+            if st.button(T("s6_image_btn"), type="secondary", key="s6_image"):
                 with st.spinner("Generating image — this takes 10–20 seconds..."):
                     try:
                         # Step 1: Claude writes a precise image prompt
@@ -4165,49 +4715,32 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         else:
             st.image(st.session_state.s6_mockup_image, use_container_width=True)
             st.caption(f"Prompt used: {st.session_state.get('s5_mockup_prompt_used','')}")
-            if st.button("🔄 Generate different image", key="s6_image_redo"):
+            if st.button(T("s6_image_redo"), key="s6_image_redo"):
                 st.session_state.s6_mockup_image = None
                 st.session_state.s6_mockup_prompt_used = None
                 st.rerun()
 
         # ── Master report download ────────────────────────────
         st.markdown("---")
-        if "s5_report_buf" not in st.session_state:
-            st.session_state.s6_report_buf = None
-
-        if st.session_state.s6_report_buf is None:
-            if st.button("⬇️ Download Full Innovation Assessment Report", type="primary"):
-                with st.spinner("Generating master report — this covers all 5 stages..."):
-                    try:
-                        st.session_state.s6_report_buf = generate_master_report(
-                            idea, quadrant, s1c,
-                            st.session_state.s2_data,
-                            st.session_state.s3_data,
-                            st.session_state.s4_data,
-                            st.session_state.s5_data,
-                            d
-                        )
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Report error: {e}")
-        else:
-            st.download_button(
-                label="⬇️ Download Full Innovation Assessment Report",
-                data=st.session_state.s6_report_buf,
-                file_name=f"Schaeffler_Innovation_Assessment_{datetime.now().strftime('%Y%m%d')}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                type="primary"
-            )
-            st.caption("Covers all 5 stages: Market Intelligence · Patent Intelligence · Technical Feasibility · Organisational Readiness · Innovation Potential Index")
+        _s2d = st.session_state.s2_data
+        _s3d = st.session_state.s3_data
+        _s4d = st.session_state.s4_data
+        _s5d = st.session_state.s5_data
+        _one_click_dl(
+            T("dl_master"),
+            lambda: generate_master_report(idea, quadrant, s1c, _s2d, _s3d, _s4d, _s5d, d),
+            f"Schaeffler_Innovation_Assessment_{datetime.now().strftime('%Y%m%d')}.docx"
+        )
+        st.caption(T("dl_caption"))
 
         # ── Chat ──────────────────────────────────────────────
         st.markdown("---")
-        st.subheader("💬 Questions about the overall assessment?")
+        st.subheader(T("s6_chat_header"))
         for msg in st.session_state.s6_chat:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        user_q = st.chat_input("Ask about the IPI score, recommendation, or next steps...")
+        user_q = st.chat_input(T("s6_chat_ph"))
         if user_q:
             st.session_state.s6_chat.append({"role":"user","content":user_q})
             with st.chat_message("user"):
@@ -4230,7 +4763,7 @@ Be direct and specific. Reference Schaeffler's context where relevant. 3-4 sente
 
         # ── Re-run with different weights ─────────────────────
         st.markdown("---")
-        if st.button("← Adjust weights and re-run", key="s6_rerun"):
+        if st.button(T("s6_rerun"), key="s6_rerun"):
             st.session_state.s6_step = "intro"
             st.session_state.s6_data = {}
             st.session_state.s6_chat = []
