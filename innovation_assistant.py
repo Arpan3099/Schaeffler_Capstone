@@ -182,32 +182,12 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Sidebar toggle: hide ligature text, show unicode arrow ── */
+/* ── Sidebar toggle button shell ── */
 button[data-testid="baseButton-headerNoPadding"] {
-    position: relative !important;
     background: rgba(255,255,255,0.15) !important;
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
-}
-button[data-testid="baseButton-headerNoPadding"] * {
-    visibility: hidden !important;
-}
-button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "\00AB";
-    visibility: visible !important;
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #FFFFFF;
-    font-size: 16px;
-    font-family: Arial, sans-serif;
-    font-weight: 700;
-}
-[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
-    content: "\00BB";
 }
 
 
@@ -316,6 +296,20 @@ code, pre, .stCode {
 
 <script>
 
+
+// ── Sidebar toggle: replace Material Icon text nodes with unicode arrows ──
+(function() {
+    function fix() {
+        if (!document.body) return;
+        var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        var node;
+        while (node = walker.nextNode()) {
+            if (node.nodeValue.indexOf('keyboard_double_arrow_right') !== -1) node.nodeValue = '»';
+            else if (node.nodeValue.indexOf('keyboard_double_arrow_left') !== -1) node.nodeValue = '«';
+        }
+    }
+    setInterval(fix, 300);
+})();
 
 // Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
