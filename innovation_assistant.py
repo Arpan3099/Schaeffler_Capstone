@@ -21,11 +21,21 @@ TAVILY_KEY = ""  # optional
 
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered")
 
-# ── API key — secrets for deployment, hardcoded fallback for local ────────────
+# ── API key — loaded from Streamlit secrets ───────────────────────────────────
 try:
     ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
+    if not ANTHROPIC_KEY or not ANTHROPIC_KEY.startswith("sk-"):
+        raise ValueError("Key looks invalid")
 except Exception:
-    ANTHROPIC_KEY = "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"
+    st.error(
+        "⚠️ **Anthropic API key not found or invalid.**\n\n"
+        "Add your key to Streamlit secrets:\n"
+        "1. Open your app on Streamlit Cloud → **Settings → Secrets**\n"
+        "2. Add: `ANTHROPIC_API_KEY = \"sk-ant-...your-key...\"`\n"
+        "3. Save and reboot the app.\n\n"
+        "For local dev, create `.streamlit/secrets.toml` with the same line."
+    )
+    st.stop()
 
 # ── Google Sheets — Idea Log ──────────────────────────────────────────────────
 SHEET_ID = "1Ya-z55BtzRS7NYiKiM8U8E0-NChueTVprJovvUrvZ6s"
@@ -162,8 +172,9 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 }
 
 /* ── Fix sidebar collapse/expand toggle button ── */
-button[data-testid="baseButton-headerNoPadding"],
-button[data-testid="stBaseButton-headerNoPadding"] {
+/* Streamlit renders a Material icon name as text when the font isn't loaded.
+   We hide all children and inject a unicode arrow via ::after instead. */
+button[data-testid="baseButton-headerNoPadding"] {
     overflow: hidden !important;
     position: relative !important;
     width: 32px !important;
@@ -172,44 +183,26 @@ button[data-testid="stBaseButton-headerNoPadding"] {
     border: none !important;
     border-radius: 4px !important;
     cursor: pointer !important;
-    font-size: 0 !important;
-    color: transparent !important;
 }
-button[data-testid="baseButton-headerNoPadding"] span,
-button[data-testid="stBaseButton-headerNoPadding"] span,
 button[data-testid="baseButton-headerNoPadding"] svg,
-button[data-testid="stBaseButton-headerNoPadding"] svg,
-button[data-testid="baseButton-headerNoPadding"] p,
-button[data-testid="stBaseButton-headerNoPadding"] p {
-    font-size: 0 !important;
-    width: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    opacity: 0 !important;
-    position: absolute !important;
-    pointer-events: none !important;
-    display: block !important;
-    max-width: 0 !important;
-    max-height: 0 !important;
+button[data-testid="baseButton-headerNoPadding"] span,
+button[data-testid="baseButton-headerNoPadding"] p {
+    display: none !important;
 }
-button[data-testid="baseButton-headerNoPadding"]::after,
-button[data-testid="stBaseButton-headerNoPadding"]::after {
+button[data-testid="baseButton-headerNoPadding"]::after {
     content: "«";
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    position: absolute !important;
-    inset: 0 !important;
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    color: #FFFFFF !important;
-    font-family: Arial, sans-serif !important;
-    visibility: visible !important;
-    opacity: 1 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    inset: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #FFFFFF;
+    font-family: Arial, sans-serif;
 }
-[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after,
-[data-testid="collapsedControl"] button[data-testid="stBaseButton-headerNoPadding"]::after {
-    content: "»" !important;
+[data-testid="collapsedControl"] button[data-testid="baseButton-headerNoPadding"]::after {
+    content: "»";
 }
 
 /* ── Sidebar selectbox — match sidebar style ── */
@@ -2846,63 +2839,63 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         st.markdown("#### 📊 Market")
 
         def extract_value_and_sources(field_str):
-            """Return (display_value, [(source_name, url_or_none), ...])"""
+            """Return (display_value, [source_str, ...])"""
             if not field_str or field_str == "N/A":
                 return field_str, []
-            # Strip source annotation for display
             val = field_str.split("[Source:")[0].strip().rstrip(",").strip()
-            sources = []
-            # Find all [Source: ...] blocks
             import re
-            for m in re.finditer(r'\[Source:\s*([^\]]+)\]', field_str):
-                raw_src = m.group(1).strip()
-                sources.append(raw_src)
+            sources = [m.group(1).strip() for m in re.finditer(r'\[Source:\s*([^\]]+)\]', field_str)]
             return val, sources
 
-        def render_source_links(sources):
-            """Render sources as clickable links — map known orgs to their search pages, fallback to Google."""
+        def build_source_pills(sources, idea_ctx):
+            """Return HTML string of pill-shaped <a> tags for each source."""
             if not sources:
                 return ""
             import re, urllib.parse
-            # Known org → their site search URL template
             ORG_SEARCH = {
-                "mckinsey":      "https://www.mckinsey.com/search?q={q}",
-                "gartner":       "https://www.gartner.com/en/search#/?term={q}",
-                "bloomberg":     "https://www.bloomberg.com/search?query={q}",
-                "bloombergnef":  "https://about.bnef.com/search/?q={q}",
-                "iea":           "https://www.iea.org/search?q={q}",
-                "statista":      "https://www.statista.com/search/#searchContent={q}",
-                "roland berger": "https://www.rolandberger.com/en/Insights/search/?q={q}",
-                "frost":         "https://www.frost.com/search/?q={q}",
+                "mckinsey":         "https://www.mckinsey.com/search?q={q}",
+                "gartner":          "https://www.gartner.com/en/search#/?term={q}",
+                "bloomberg":        "https://www.bloomberg.com/search?query={q}",
+                "bloombergnef":     "https://about.bnef.com/search/?q={q}",
+                "iea":              "https://www.iea.org/search?q={q}",
+                "statista":         "https://www.statista.com/search/#searchContent={q}",
+                "roland berger":    "https://www.rolandberger.com/en/Insights/search/?q={q}",
                 "frost & sullivan": "https://www.frost.com/search/?q={q}",
-                "deloitte":      "https://www.deloitte.com/global/en/search.html?q={q}",
-                "pwc":           "https://www.pwc.com/gx/en/search.html?q={q}",
-                "ihs markit":    "https://ihsmarkit.com/index.html#q={q}",
-                "mordor":        "https://www.mordorintelligence.com/search?q={q}",
-                "grand view":    "https://www.grandviewresearch.com/industry-analysis/search?keyword={q}",
-                "allied market": "https://www.alliedmarketresearch.com/search?query={q}",
+                "frost":            "https://www.frost.com/search/?q={q}",
+                "deloitte":         "https://www.deloitte.com/global/en/search.html?q={q}",
+                "pwc":              "https://www.pwc.com/gx/en/search.html?q={q}",
+                "ihs markit":       "https://ihsmarkit.com/index.html#q={q}",
+                "mordor":           "https://www.mordorintelligence.com/search?q={q}",
+                "grand view":       "https://www.grandviewresearch.com/industry-analysis/search?keyword={q}",
+                "allied market":    "https://www.alliedmarketresearch.com/search?query={q}",
             }
-            parts = []
+            pills = []
             for s in sources:
                 url_match = re.search(r'https?://\S+', s)
                 if url_match:
-                    url = url_match.group(0).rstrip(')')
-                    label = s[:s.find('http')].strip().rstrip(',').strip() or url
-                    parts.append(f"[{label}]({url})")
+                    url   = url_match.group(0).rstrip(')')
+                    label = s[:s.find('http')].strip().rstrip(',').strip() or url[:30]
                 else:
-                    # Try to match against known org names
                     s_lower = s.lower()
-                    search_url = None
+                    url = None
                     for org_key, url_tpl in ORG_SEARCH.items():
                         if org_key in s_lower:
-                            q = urllib.parse.quote(idea[:50] + " " + s.strip())
-                            search_url = url_tpl.format(q=q)
+                            q   = urllib.parse.quote(idea_ctx[:50] + " " + s.strip())
+                            url = url_tpl.format(q=q)
                             break
-                    if not search_url:
-                        # fallback: Google Scholar
-                        search_url = f"https://scholar.google.com/scholar?q={urllib.parse.quote(s.strip())}"
-                    parts.append(f"[{s.strip()}]({search_url})")
-            return "  ·  ".join(parts)
+                    if not url:
+                        url = f"https://scholar.google.com/scholar?q={urllib.parse.quote(s.strip())}"
+                    label = s.strip()
+                # Trim label to keep pills compact
+                label = label[:35] + "…" if len(label) > 35 else label
+                pills.append(
+                    f'<a href="{url}" target="_blank" '
+                    f'style="display:inline-block;background:#1e3a5f;color:#93c5fd;'
+                    f'font-size:10px;padding:3px 10px;border-radius:12px;margin:3px 2px;'
+                    f'text-decoration:none;border:1px solid #2a4a70;white-space:nowrap;'
+                    f'line-height:1.4;">{label}</a>'
+                )
+            return "".join(pills)
 
         size_2024_raw = market.get("market_size_2024", "N/A")
         size_2030_raw = market.get("market_size_2030", "N/A")
@@ -2912,29 +2905,29 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
         val_2030, src_2030 = extract_value_and_sources(size_2030_raw)
         val_cagr,  src_cagr  = extract_value_and_sources(cagr_raw)
 
-        # Styled metric cards for market figures
+        pills_2024 = build_source_pills(src_2024, idea)
+        pills_2030 = build_source_pills(src_2030, idea)
+        pills_cagr = build_source_pills(src_cagr,  idea)
+
+        # ── Big-number metric cards with inline source pills ───
         mc1, mc2, mc3 = st.columns(3)
-        for col, label, val in [(mc1,"Market Size (2024)",val_2024),(mc2,"Market Size (2030)",val_2030),(mc3,"CAGR",val_cagr)]:
+        card_data = [
+            (mc1, "MARKET SIZE (2024)", val_2024, pills_2024),
+            (mc2, "MARKET SIZE (2030)", val_2030, pills_2030),
+            (mc3, "CAGR",               val_cagr,  pills_cagr),
+        ]
+        for col, label, val, pills_html in card_data:
             col.markdown(f"""
-<div style="background:#1a2d45;border-radius:8px;padding:14px 16px;text-align:center;">
-  <div style="color:#94a3b8;font-size:11px;letter-spacing:1px;margin-bottom:6px;">{label.upper()}</div>
-  <div style="color:#60a5fa;font-size:20px;font-weight:700;line-height:1.2;">{val}</div>
+<div style="background:#1a2d45;border-radius:8px;padding:18px 14px 14px;text-align:center;min-height:130px;">
+  <div style="color:#94a3b8;font-size:10px;letter-spacing:1.5px;font-weight:600;margin-bottom:10px;">{label}</div>
+  <div style="color:#60a5fa;font-size:30px;font-weight:700;line-height:1.15;word-break:break-word;">{val}</div>
+  <div style="margin-top:10px;line-height:1.8;">{pills_html}</div>
 </div>""", unsafe_allow_html=True)
 
-        # Render source links per field
-        link_lines = []
-        if src_2024:
-            link_lines.append(f"**2024 size** — {render_source_links(src_2024)}")
-        if src_2030:
-            link_lines.append(f"**2030 projection** — {render_source_links(src_2030)}")
-        if src_cagr:
-            link_lines.append(f"**CAGR** — {render_source_links(src_cagr)}")
-        if link_lines:
-            with st.expander("Sources for market figures"):
-                for line in link_lines:
-                    st.markdown(f"- {line}")
-                st.caption("Figures shown as ranges where multiple sources differ. Verify independently before investment decisions.")
-        col_l,col_r = st.columns(2)
+        st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
+        st.caption("↑ Source pills link to the org's search page for the topic — click to verify the figures independently.")
+
+        col_l, col_r = st.columns(2)
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
         col_r.markdown(f"**Geography** · {market.get('geographic_focus','')}")
         if market.get("growth_drivers"):
