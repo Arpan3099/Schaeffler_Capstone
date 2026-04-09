@@ -196,6 +196,15 @@ button[data-testid="baseButton-headerNoPadding"] {
     pointer-events: auto !important;
     font-size: 0 !important; /* hide broken icon ligature text fallback */
 }
+[data-testid="collapsedControl"] button span,
+[data-testid="collapsedControl"] button p,
+[data-testid="stSidebarCollapsedControl"] button span,
+[data-testid="stSidebarCollapsedControl"] button p,
+button[data-testid="baseButton-headerNoPadding"] span,
+button[data-testid="baseButton-headerNoPadding"] p {
+    font-size: 0 !important;
+    color: transparent !important;
+}
 [data-testid="collapsedControl"] button::before {
     content: "◀";
     font-size: 14px !important;
@@ -382,6 +391,49 @@ code, pre, .stCode {
     }
     var shortcut = document.querySelector("link[rel='shortcut icon']");
     if (shortcut) shortcut.href = svgFavicon;
+})();
+
+// ── Keep Streamlit sidebar toggle clickable + icon-safe ───────────
+(function fixSidebarToggleControl() {
+    var SELECTORS = [
+        '[data-testid="collapsedControl"] button',
+        '[data-testid="stSidebarCollapsedControl"] button',
+        'button[data-testid="baseButton-headerNoPadding"]'
+    ];
+
+    function setImportantStyle(el, prop, value) {
+        if (!el || !el.style) return;
+        el.style.setProperty(prop, value, "important");
+    }
+
+    function patchOneButton(btn) {
+        if (!btn) return;
+
+        // Force functional click target
+        setImportantStyle(btn, "display", "inline-flex");
+        setImportantStyle(btn, "visibility", "visible");
+        setImportantStyle(btn, "pointer-events", "auto");
+        setImportantStyle(btn, "align-items", "center");
+        setImportantStyle(btn, "justify-content", "center");
+        setImportantStyle(btn, "font-size", "0");
+        setImportantStyle(btn, "color", "transparent");
+
+        // Hide broken ligature fallback text (e.g., keyboard_double_arrow_left)
+        btn.querySelectorAll("span, p").forEach(function(node) {
+            setImportantStyle(node, "font-size", "0");
+            setImportantStyle(node, "color", "transparent");
+            setImportantStyle(node, "line-height", "0");
+        });
+    }
+
+    function patchAll() {
+        SELECTORS.forEach(function(sel) {
+            document.querySelectorAll(sel).forEach(patchOneButton);
+        });
+    }
+
+    patchAll();
+    new MutationObserver(patchAll).observe(document.body, { childList: true, subtree: true });
 })();
 
 </script>
@@ -4946,4 +4998,3 @@ Be direct and specific. Reference Schaeffler's context where relevant. 3-4 sente
             st.session_state.s6_chat = []
             st.session_state.s6_report_buf = None
             st.rerun()
-
