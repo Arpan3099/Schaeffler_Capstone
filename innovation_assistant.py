@@ -292,17 +292,12 @@ code, pre, .stCode {
 
 <script>
 // ── Sidebar toggle text fix ──────────────────────────────────
-// Replace Material Icon ligature text with plain unicode arrows
-(function fixToggle() {
-    function run() {
-        document.querySelectorAll('button span').forEach(function(el) {
-            if (el.textContent.indexOf('keyboard_double_arrow_right') !== -1) el.textContent = '»';
-            if (el.textContent.indexOf('keyboard_double_arrow_left')  !== -1) el.textContent = '«';
-        });
-    }
-    run();
-    new MutationObserver(run).observe(document.body || document.documentElement, {childList: true, subtree: true});
-})();
+setInterval(function() {
+    document.querySelectorAll('button span, button p').forEach(function(el) {
+        if (el.textContent.indexOf('keyboard_double_arrow_right') !== -1) el.textContent = '»';
+        if (el.textContent.indexOf('keyboard_double_arrow_left')  !== -1) el.textContent = '«';
+    });
+}, 300);
 
 // Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
