@@ -746,6 +746,34 @@ def tavily_search(query):
         return []
 
 
+import re as _re_global
+
+def _parse_json(raw: str) -> dict:
+    """Robustly parse JSON from a Claude response, handling common failure modes:
+    1. Preamble/postamble text around the JSON block
+    2. ```json ... ``` fences
+    3. Inline rubric annotations on numeric fields, e.g.
+       "market_score": 7 (strong, $2-10bn)  →  "market_score": 7
+    4. Trailing commas before } or ]
+    """
+    if not raw:
+        raise ValueError("Empty response")
+    text = raw.strip()
+    # Strip markdown fences
+    text = _re_global.sub(r"```json\s*", "", text)
+    text = _re_global.sub(r"```\s*", "", text).strip()
+    # Extract outermost { … }
+    fb = text.find("{"); lb = text.rfind("}")
+    if fb >= 0 and lb > fb:
+        text = text[fb:lb+1]
+    # Strip inline rubric annotations on numeric values:
+    #   "field": 7 (some text)  →  "field": 7
+    text = _re_global.sub(r'("[\w_]+"\s*:\s*)(\d+(?:\.\d+)?)\s*\([^)]*\)', r'\1\2', text)
+    # Remove trailing commas before } or ]
+    text = _re_global.sub(r',\s*([}\]])', r'\1', text)
+    return json.loads(text)
+
+
 # ── Session state ─────────────────────────────────────────────
 defaults = {
     "active_stage": 1,
@@ -2205,37 +2233,31 @@ def run_stage2(idea, quadrant, s1c):
     system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
 RULES:
 - Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global.
-- For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array — never combine two sources into one object.
-- For URLs: provide the EXACT deep-link URL to the specific report page (e.g. https://www.iea.org/reports/global-ev-outlook-2024), NOT just the homepage. If you do not know the exact URL, omit the url field entirely.
-- market_size_current = most recent available year (2024 or 2025). market_size_forecast = 5-7 year projection. cagr = compound annual growth rate for that period.
-Return ONLY valid JSON with NO extra text:
+- For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array.
+- For URLs: provide the EXACT deep-link URL. If you do not know it, omit the url field entirely.
+- market_score: integer 1-10. Guide: 9-10=large fast-growing; 7-8=strong; 5-6=moderate; 3-4=niche; 1-2=tiny/declining.
+Return ONLY valid JSON with NO extra text, NO inline comments:
 {"market_name":"string",
-"market_size_current":{"value":"$X.XB–$Y.YB","year":"2024","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
-"market_size_forecast":{"value":"$X.XB–$Y.YB","year":"2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
-"cagr":{"value":"X%–Y%","period":"2024–2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
+"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
+"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
+"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
 "growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
-"geographic_focus":"string","market_score":1-10,"market_score_rationale":"2 sentences"}"""
+"geographic_focus":"string","market_score":7,"market_score_rationale":"2 sentences"}"""
     raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1400)
     try:
-        rc = raw.strip().replace("```json","").replace("```","").strip()
-        fb = rc.find("{"); lb = rc.rfind("}") + 1
-        if fb >= 0: rc = rc[fb:lb]
-        market = json.loads(rc)
-    except:
+        market = _parse_json(raw)
+    except Exception:
         market = {"market_name":"N/A","market_size_current":{"value":"N/A","year":"2024","sources":[]},"market_size_forecast":{"value":"N/A","year":"2030","sources":[]},"cagr":{"value":"N/A","period":"","sources":[]},"growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
 
     system_comp = """You are a competitive intelligence analyst. Identify key competitors for this idea.
-Every company must have a source. Return ONLY valid JSON:
+Every company must have a source. Return ONLY valid JSON with NO inline comments:
 {"competitors":[{"name":"string","type":"Incumbent/Startup/Research","relevance":"one sentence","source":"Source: X, Y"}],
 "competitive_intensity":"Low/Medium/High/Very High","white_space":"one sentence","schaeffler_advantage":"one sentence",
-"competition_score":1-10,"competition_score_rationale":"2 sentences"}"""
+"competition_score":7,"competition_score_rationale":"2 sentences"}"""
     raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}", max_tokens=1000)
     try:
-        rc = raw.strip().replace("```json","").replace("```","").strip()
-        fb = rc.find("{"); lb = rc.rfind("}") + 1
-        if fb >= 0: rc = rc[fb:lb]
-        comp = json.loads(rc)
-    except:
+        comp = _parse_json(raw)
+    except Exception:
         comp = {"competitors":[],"competitive_intensity":"N/A","white_space":"N/A","schaeffler_advantage":"N/A","competition_score":5,"competition_score_rationale":""}
 
     system_sectors = """You are a Schaeffler strategist. Score fit against Schaeffler's 10 sector clusters (0-10 each).
@@ -2852,35 +2874,34 @@ elif st.session_state.active_stage == 2:
 RULES:
 - Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global.
 - For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array — never combine two sources into one object.
-- For URLs: provide the EXACT deep-link URL to the specific report page (e.g. https://www.iea.org/reports/global-ev-outlook-2024), NOT just the homepage. If you do not know the exact URL, omit the url field entirely.
+- For URLs: provide the EXACT deep-link URL to the specific report page. If you do not know the exact URL, omit the url field entirely.
 - market_size_current = most recent available year (2024 or 2025). market_size_forecast = 5-7 year projection. cagr = compound annual growth rate for that period.
-Return ONLY valid JSON with NO extra text:
+- market_score: integer 1-10. Rubric: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny or declining.
+Return ONLY valid JSON with NO extra text, NO comments inside the JSON:
 {"market_name":"string",
-"market_size_current":{"value":"$X.XB–$Y.YB","year":"2024","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
-"market_size_forecast":{"value":"$X.XB–$Y.YB","year":"2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
-"cagr":{"value":"X%–Y%","period":"2024–2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
+"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
+"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
+"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
 "growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
-"geographic_focus":"string","market_score":integer 1-10 (9-10=large fast-growing >$10bn/>15%CAGR; 7-8=strong $2-10bn/8-15%; 5-6=moderate; 3-4=niche; 1-2=tiny or declining),"market_score_rationale":"2 sentences"}"""
+"geographic_focus":"string","market_score":7,"market_score_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}", max_tokens=1400)
-            rc = raw.strip().replace("```json","").replace("```","").strip()
-            fb = rc.find("{"); lb = rc.rfind("}") + 1
-            if fb >= 0: rc = rc[fb:lb]
-            market = json.loads(rc)
-        except:
+            market = _parse_json(raw)
+        except Exception:
             market = {"market_name":"N/A","market_size_current":{"value":"N/A","year":"2024","sources":[]},"market_size_forecast":{"value":"N/A","year":"2030","sources":[]},"cagr":{"value":"N/A","period":"","sources":[]},"growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
 
         status.markdown("🏢 Mapping competitive landscape...")
         progress.progress(55)
         system_comp = """You are a competitive intelligence analyst. Identify key competitors for this idea.
-Every company must have a source. Return ONLY valid JSON:
+Every company must have a source. Return ONLY valid JSON with NO inline comments or annotations:
 {"competitors":[{"name":"string","type":"Incumbent/Startup/Research","relevance":"one sentence","source":"Source: X, Y"}],
 "competitive_intensity":"Low/Medium/High/Very High","white_space":"one sentence","schaeffler_advantage":"one sentence",
-"competition_score":integer 1-10 openness (9-10=very open/few players; 7-8=some room; 5-6=moderate; 3-4=crowded; 1-2=saturated),"competition_score_rationale":"2 sentences"}"""
+"competition_score":7,"competition_score_rationale":"2 sentences"}
+Scoring guide (do NOT include in the JSON): 9-10=very open/few players; 7-8=some room; 5-6=moderate; 3-4=crowded; 1-2=saturated."""
         try:
             raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}{web_ctx}")
-            comp = json.loads(raw.strip().replace("```json","").replace("```","").strip())
-        except:
+            comp = _parse_json(raw)
+        except Exception:
             comp = {"competitors":[],"competitive_intensity":"N/A","white_space":"N/A",
                     "schaeffler_advantage":"N/A","competition_score":5,"competition_score_rationale":""}
 
@@ -2889,14 +2910,13 @@ Every company must have a source. Return ONLY valid JSON:
         system_sectors = """You are a Schaeffler strategist. Score fit against Schaeffler's 10 sector clusters (0-10 each).
 Clusters: Passenger Cars, Commercial Vehicles, Industrial Machinery, Rail, Aerospace, Two-Wheelers, Construction & Agriculture, Medical Equipment, Conventional Energy, Renewable Energy.
 0-2=No relevance, 3-4=Low, 5-6=Moderate, 7-8=High, 9-10=Primary target.
-Return ONLY valid JSON:
-{"sector_scores":{"Passenger Cars":{"score":0-10,"rationale":"one sentence"},"Commercial Vehicles":{"score":0-10,"rationale":"one sentence"},"Industrial Machinery":{"score":0-10,"rationale":"one sentence"},"Rail":{"score":0-10,"rationale":"one sentence"},"Aerospace":{"score":0-10,"rationale":"one sentence"},"Two-Wheelers":{"score":0-10,"rationale":"one sentence"},"Construction & Agriculture":{"score":0-10,"rationale":"one sentence"},"Medical Equipment":{"score":0-10,"rationale":"one sentence"},"Conventional Energy":{"score":0-10,"rationale":"one sentence"},"Renewable Energy":{"score":0-10,"rationale":"one sentence"}},
-"primary_sectors":["top 2-3 sector names"],"sector_fit_score":0-10,"sector_fit_rationale":"2 sentences"}
-Sector fit score rubric: Average the top 3 sector scores. If primary sector scores 9-10 = sector_fit 9-10; if 7-8 = 7-8; etc."""
+Return ONLY valid JSON with NO inline comments:
+{"sector_scores":{"Passenger Cars":{"score":5,"rationale":"one sentence"},"Commercial Vehicles":{"score":5,"rationale":"one sentence"},"Industrial Machinery":{"score":5,"rationale":"one sentence"},"Rail":{"score":5,"rationale":"one sentence"},"Aerospace":{"score":5,"rationale":"one sentence"},"Two-Wheelers":{"score":5,"rationale":"one sentence"},"Construction & Agriculture":{"score":5,"rationale":"one sentence"},"Medical Equipment":{"score":5,"rationale":"one sentence"},"Conventional Energy":{"score":5,"rationale":"one sentence"},"Renewable Energy":{"score":5,"rationale":"one sentence"}},
+"primary_sectors":["sector name 1","sector name 2"],"sector_fit_score":7,"sector_fit_rationale":"2 sentences"}"""
         try:
             raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}")
-            sectors = json.loads(raw.strip().replace("```json","").replace("```","").strip())
-        except:
+            sectors = _parse_json(raw)
+        except Exception:
             sectors = {"sector_scores":{},"primary_sectors":[],"sector_fit_score":5,"sector_fit_rationale":""}
 
         # Final weighted score
