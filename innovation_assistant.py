@@ -17,6 +17,13 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment as XlAlign
 
 # Load API key — Streamlit secrets take priority, fallback to hardcoded for local dev
+
+def _mval(field):
+    """Get display string from market field — handles both new dict and legacy string format."""
+    if isinstance(field, dict):
+        return field.get("value", "N/A")
+    return str(field) if field else "N/A"
+
 TAVILY_KEY = ""  # optional
 
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered")
@@ -1080,7 +1087,7 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
     master_ctx = (
         f"Idea: {idea}\nQuadrant: {quadrant}\nIPI: {ipi}/10\nRecommendation: {synthesis.get('recommendation','')}\n\n"
         f"STAGE 02 — Market ({weights.get('market',35)}%): {scores.get('market',5)}/10\n"
-        f"Market: {market.get('market_name','')}  Size 2024: {market.get('market_size_2024','')}  CAGR: {market.get('cagr','')}\n"
+        f"Market: {market.get('market_name','')}  Size 2024: {_mval(market.get('market_size_current') or market.get('market_size_2024',''))}  CAGR: {_mval(market.get('cagr',''))}\n"
         f"Primary sectors: {', '.join(s2d.get('sectors',{}).get('primary_sectors',[]))}\n"
         f"Competition: {comp.get('competitive_intensity','')}  White space: {comp.get('white_space','')}\n\n"
         f"STAGE 03 — Patent ({weights.get('patent',25)}%): {scores.get('patent',5)}/10\n"
@@ -1123,7 +1130,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         enr = {
             "executive_summary": f"This innovation idea ({idea[:80]}) has been assessed across four dimensions of Schaeffler\'s Innovation Pipeline, yielding an Innovation Potential Index (IPI) of {ipi}/10. The recommendation is: {synthesis.get('recommendation','PROCEED WITH CONDITIONS')}. {synthesis.get('recommendation_rationale','')} The strongest signal is: {synthesis.get('strongest_signals',['market opportunity'])[0] if synthesis.get('strongest_signals') else 'market opportunity'}. The primary concern is: {synthesis.get('key_concerns',['technical maturity'])[0] if synthesis.get('key_concerns') else 'technical maturity'}.",
             "strategic_narrative": synthesis.get("narrative", f"The idea targets {market.get('market_name','a growing market')} and sits in Schaeffler\'s {quadrant} innovation quadrant. {synthesis.get('strategic_fit','')}"),
-            "market_highlights": f"Market size: {market.get('market_size_2024','')} (2024), growing to {market.get('market_size_2030','')} by 2030 at {market.get('cagr','')} CAGR. Primary sector fit: {', '.join(s2d.get('sectors',{}).get('primary_sectors',[]))}. Competitive intensity: {comp.get('competitive_intensity','')}.",
+            "market_highlights": f"Market size: {_mval(market.get('market_size_current') or market.get('market_size_2024',''))} (2024), growing to {_mval(market.get('market_size_forecast') or market.get('market_size_2030',''))} by 2030 at {_mval(market.get('cagr',''))} CAGR. Primary sector fit: {', '.join(s2d.get('sectors',{}).get('primary_sectors',[]))}. Competitive intensity: {comp.get('competitive_intensity','')}.",
             "ip_highlights": f"Novelty signal: {ansoff_d.get('novelty_signal','Moderate')}. IP risk: {ansoff_d.get('ip_risk','Medium')}. White spaces: {'; '.join(landscape.get('white_spaces',[])[:2])}.",
             "feasibility_highlights": f"TRL {trl.get('trl_level',3)}: {trl.get('trl_label','')}. Existence: {existence.get('existence_verdict','')}. Time to production: {existence.get('time_to_readiness','')}.",
             "org_highlights": f"Org readiness: {scores.get('org',5)}/10. Strategy: {bop.get('recommendation','Co-develop')}. Critical gap: {people.get('competency_gap','')}.",
@@ -1254,8 +1261,8 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     body(doc, enr.get("market_highlights",""))
     doc.add_paragraph()
     kv(doc,"Market", market.get("market_name",""))
-    kv(doc,"Size (2024)", market.get("market_size_2024",""))
-    kv(doc,"Projected (2030)", market.get("market_size_2030",""))
+    kv(doc,"Size (2024)", _mval(market.get("market_size_current") or market.get("market_size_2024","")))
+    kv(doc,"Projected (2030)", _mval(market.get("market_size_forecast") or market.get("market_size_2030","")))
     kv(doc,"CAGR", market.get("cagr",""))
     kv(doc,"Maturity", market.get("market_maturity",""))
     kv(doc,"Geography", market.get("geographic_focus",""))
@@ -1864,8 +1871,8 @@ def generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, 
     """Generate a formatted Word document market intelligence report."""
     mkt_ctx = (
         f"Idea: {idea}\nQuadrant: {quadrant}\nMarket: {market.get('market_name','')}\n"
-        f"Size 2024: {market.get('market_size_2024','')}  Size 2030: {market.get('market_size_2030','')}\n"
-        f"CAGR: {market.get('cagr','')}  Maturity: {market.get('market_maturity','')}\n"
+        f"Size 2024: {_mval(market.get('market_size_current') or market.get('market_size_2024',''))}  Size 2030: {_mval(market.get('market_size_forecast') or market.get('market_size_2030',''))}\n"
+        f"CAGR: {_mval(market.get('cagr',''))}  Maturity: {market.get('market_maturity','')}\n"
         f"Geography: {market.get('geographic_focus','')}\n"
         f"Growth drivers: {chr(59).join(market.get('growth_drivers',[])[:4])}\n"
         f"Competitive intensity: {comp.get('competitive_intensity','')}  White space: {comp.get('white_space','')}\n"
@@ -2039,9 +2046,9 @@ Write substantive, specific content using the data provided. Return ONLY valid J
 
     # ── Market size ───────────────────────────────────────────
     h1(doc,"Market Size & Growth")
-    kv(doc,"Market size (2024)",market.get("market_size_2024","N/A"))
-    kv(doc,"Projected (2030)",market.get("market_size_2030","N/A"))
-    kv(doc,"CAGR",market.get("cagr","N/A"))
+    kv(doc,"Market size (2024)",_mval(market.get("market_size_current") or market.get("market_size_2024","N/A")))
+    kv(doc,"Projected (2030)",_mval(market.get("market_size_forecast") or market.get("market_size_2030","N/A")))
+    kv(doc,"CAGR",_mval(market.get("cagr","N/A")))
     kv(doc,"Maturity",market.get("market_maturity","N/A"))
     kv(doc,"Geography",market.get("geographic_focus","N/A"))
     doc.add_paragraph()
@@ -2131,22 +2138,25 @@ def run_stage2(idea, quadrant, s1c):
     web_ctx = ""
     system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
 RULES:
-- Every numeric data point MUST include [Source: Org, Year, URL] where URL is the actual report/page URL if publicly accessible, or omit URL if behind paywall.
-- Use only credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights.
-- For market_size_2024, market_size_2030, cagr: return ONLY the numeric value/range first (e.g. "$4.2B"), then source annotation. Do NOT put descriptive text in the value.
-- If uncertain, give a range with two sources.
-Return ONLY valid JSON:
-{"market_name":"string","market_size_2024":"$X.XB [Source: Org, Year, https://url-if-public]","market_size_2030":"$X.XB [Source: Org, Year, https://url-if-public]",
-"cagr":"X%–Y% [Source: Org, Year, https://url-if-public]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
+- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global.
+- For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array — never combine two sources into one object.
+- For URLs: provide the EXACT deep-link URL to the specific report page (e.g. https://www.iea.org/reports/global-ev-outlook-2024), NOT just the homepage. If you do not know the exact URL, omit the url field entirely.
+- market_size_current = most recent available year (2024 or 2025). market_size_forecast = 5-7 year projection. cagr = compound annual growth rate for that period.
+Return ONLY valid JSON with NO extra text:
+{"market_name":"string",
+"market_size_current":{"value":"$X.XB–$Y.YB","year":"2024","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
+"market_size_forecast":{"value":"$X.XB–$Y.YB","year":"2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
+"cagr":{"value":"X%–Y%","period":"2024–2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
+"growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":1-10,"market_score_rationale":"2 sentences"}"""
-    raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1200)
+    raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1400)
     try:
         rc = raw.strip().replace("```json","").replace("```","").strip()
         fb = rc.find("{"); lb = rc.rfind("}") + 1
         if fb >= 0: rc = rc[fb:lb]
         market = json.loads(rc)
     except:
-        market = {"market_name":"N/A","market_size_2024":"N/A","market_size_2030":"N/A","cagr":"N/A","growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
+        market = {"market_name":"N/A","market_size_current":{"value":"N/A","year":"2024","sources":[]},"market_size_forecast":{"value":"N/A","year":"2030","sources":[]},"cagr":{"value":"N/A","period":"","sources":[]},"growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
 
     system_comp = """You are a competitive intelligence analyst. Identify key competitors for this idea.
 Every company must have a source. Return ONLY valid JSON:
@@ -2765,20 +2775,25 @@ elif st.session_state.active_stage == 2:
         progress.progress(35)
         system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
 RULES:
-- Every numeric data point MUST include [Source: Org, Year, URL] where URL is the actual report/page URL if publicly accessible, or omit URL if behind paywall.
-- Use only credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global.
-- For market_size_2024, market_size_2030, cagr: return ONLY the numeric value/range first (e.g. "$4.2B–$5.8B"), then the source annotation. Do NOT include descriptive text in the value itself.
-- If uncertain, give a range with two sources.
-Return ONLY valid JSON:
-{"market_name":"string","market_size_2024":"$X.XB [Source: Org, Year, https://url-if-public]","market_size_2030":"$X.XB [Source: Org, Year, https://url-if-public]",
-"cagr":"X%–Y% [Source: Org, Year, https://url-if-public]","growth_drivers":["driver with source x3"],"market_maturity":"Emerging/Growing/Mature/Declining",
+- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global.
+- For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array — never combine two sources into one object.
+- For URLs: provide the EXACT deep-link URL to the specific report page (e.g. https://www.iea.org/reports/global-ev-outlook-2024), NOT just the homepage. If you do not know the exact URL, omit the url field entirely.
+- market_size_current = most recent available year (2024 or 2025). market_size_forecast = 5-7 year projection. cagr = compound annual growth rate for that period.
+Return ONLY valid JSON with NO extra text:
+{"market_name":"string",
+"market_size_current":{"value":"$X.XB–$Y.YB","year":"2024","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
+"market_size_forecast":{"value":"$X.XB–$Y.YB","year":"2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
+"cagr":{"value":"X%–Y%","period":"2024–2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://exact-report-url-or-omit"}]},
+"growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":integer 1-10 (9-10=large fast-growing >$10bn/>15%CAGR; 7-8=strong $2-10bn/8-15%; 5-6=moderate; 3-4=niche; 1-2=tiny or declining),"market_score_rationale":"2 sentences"}"""
         try:
-            raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}")
-            market = json.loads(raw.strip().replace("```json","").replace("```","").strip())
+            raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}", max_tokens=1400)
+            rc = raw.strip().replace("```json","").replace("```","").strip()
+            fb = rc.find("{"); lb = rc.rfind("}") + 1
+            if fb >= 0: rc = rc[fb:lb]
+            market = json.loads(rc)
         except:
-            market = {"market_name":"N/A","market_size_2024":"N/A","market_size_2030":"N/A","cagr":"N/A",
-                      "growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
+            market = {"market_name":"N/A","market_size_current":{"value":"N/A","year":"2024","sources":[]},"market_size_forecast":{"value":"N/A","year":"2030","sources":[]},"cagr":{"value":"N/A","period":"","sources":[]},"growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
 
         status.markdown("🏢 Mapping competitive landscape...")
         progress.progress(55)
@@ -2848,135 +2863,147 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
 
         import re as _re, urllib.parse as _up
 
-        def extract_number_and_sources(field_str):
+        # Known org → stable publications page (fallback when no deep URL provided)
+        _ORG_PAGES = {
+            "mckinsey":             "https://www.mckinsey.com/mgi/research",
+            "mckinsey global":      "https://www.mckinsey.com/mgi/research",
+            "gartner":              "https://www.gartner.com/en/research/publications",
+            "bloomberg":            "https://www.bloomberg.com/professional/insights/",
+            "bloombergnef":         "https://about.bnef.com/insights/",
+            "bnef":                 "https://about.bnef.com/insights/",
+            "iea":                  "https://www.iea.org/reports",
+            "statista":             "https://www.statista.com/markets/",
+            "roland berger":        "https://www.rolandberger.com/en/Insights/Publications/",
+            "frost & sullivan":     "https://store.frost.com/reports.html",
+            "frost":                "https://store.frost.com/reports.html",
+            "deloitte":             "https://www2.deloitte.com/global/en/insights.html",
+            "pwc":                  "https://www.pwc.com/gx/en/industries/",
+            "ihs markit":           "https://ihsmarkit.com/research-analysis/",
+            "s&p global":           "https://www.spglobal.com/marketintelligence/en/news-insights/research",
+            "wood mackenzie":       "https://www.woodmac.com/reports/",
+            "mordor":               "https://www.mordorintelligence.com/industry-reports",
+            "mordor intelligence":  "https://www.mordorintelligence.com/industry-reports",
+            "grand view":           "https://www.grandviewresearch.com/industry-analysis",
+            "grand view research":  "https://www.grandviewresearch.com/industry-analysis",
+            "allied market":        "https://www.alliedmarketresearch.com/market-research-report",
+            "allied market research": "https://www.alliedmarketresearch.com/market-research-report",
+            "marketsandmarkets":    "https://www.marketsandmarkets.com/Market-Reports/",
+            "fortune business":     "https://www.fortunebusinessinsights.com/reports",
+            "fortune business insights": "https://www.fortunebusinessinsights.com/reports",
+            "idc":                  "https://www.idc.com/research/viewtoc",
+            "precedence":           "https://www.precedenceresearch.com/",
+            "technavio":            "https://www.technavio.com/report-store",
+            "ibisworld":            "https://www.ibisworld.com/global/",
+            "euromonitor":          "https://www.euromonitor.com/reports",
+        }
+
+        def _resolve_url(src_obj):
             """
-            Returns (number_only, [{"label": str, "url": str}, ...])
-            number_only  — just the numeric value/range, no parenthetical text
-            sources list — each entry has a clean label and a best-available URL
+            Test Claude's URL with a HEAD request.
+            Returns (url, is_direct) where is_direct=True means the link lands on the actual page.
+            Falls back to a targeted Google Search if the URL fails or is missing.
             """
-            if not field_str or field_str == "N/A":
-                return field_str, []
+            import urllib.parse as _up2
+            raw_url = src_obj.get("url", "").strip()
 
-            # 1. Pull out all [Source: ...] blocks first
-            raw_sources = [m.group(1).strip() for m in _re.finditer(r'\[Source:\s*([^\]]+)\]', field_str)]
+            # Build the Google Search fallback first — always works
+            q_parts = [src_obj.get("org",""), src_obj.get("title",""), src_obj.get("year","")]
+            q = " ".join(p for p in q_parts if p).strip()
+            google_url = f"https://www.google.com/search?q={_up2.quote(q)}"
 
-            # 2. Strip everything from first "[Source:" onwards to get the value
-            val_part = field_str.split("[Source:")[0].strip().rstrip(",;").strip()
+            if not raw_url or not raw_url.startswith("http"):
+                # No URL provided — try org page first, then Google
+                org_lower = src_obj.get("org", "").lower()
+                for org_key, org_page in _ORG_PAGES.items():
+                    if org_key in org_lower:
+                        return org_page, False
+                return google_url, False
 
-            # 3. Strip parenthetical descriptions — keep only the leading number/range
-            #    e.g. "$1.2B–$1.8B (addressable segment ...)" → "$1.2B–$1.8B"
-            #    e.g. "18%–24% (neuromorphic...); 12%–16% (industrial...)" → "18%–24%"
-            number_only = val_part.split("(")[0].split(";")[0].strip()
+            # Check the URL has a real path (not just homepage)
+            try:
+                from urllib.parse import urlparse as _ulp
+                _parsed = _ulp(raw_url)
+                path = _parsed.path.strip("/")
+                if not path or len(path) <= 3:
+                    return google_url, False
+            except Exception:
+                return google_url, False
 
-            # 4. Known org → their canonical publications/research page (real, stable URLs)
-            ORG_PAGES = {
-                "mckinsey":             "https://www.mckinsey.com/mgi/research",
-                "mckinsey global":      "https://www.mckinsey.com/mgi/research",
-                "gartner":              "https://www.gartner.com/en/research/publications",
-                "bloomberg":            "https://www.bloomberg.com/professional/insights/",
-                "bloombergnef":         "https://about.bnef.com/insights/",
-                "bnef":                 "https://about.bnef.com/insights/",
-                "iea":                  "https://www.iea.org/reports",
-                "statista":             "https://www.statista.com/markets/",
-                "roland berger":        "https://www.rolandberger.com/en/Insights/Publications/",
-                "frost & sullivan":     "https://store.frost.com/reports.html",
-                "frost":                "https://store.frost.com/reports.html",
-                "deloitte":             "https://www2.deloitte.com/global/en/insights.html",
-                "pwc":                  "https://www.pwc.com/gx/en/industries/",
-                "ihs markit":           "https://ihsmarkit.com/research-analysis/",
-                "s&p global":           "https://www.spglobal.com/marketintelligence/en/news-insights/research",
-                "wood mackenzie":       "https://www.woodmac.com/reports/",
-                "mordor":               "https://www.mordorintelligence.com/industry-reports",
-                "mordor intelligence":  "https://www.mordorintelligence.com/industry-reports",
-                "grand view":           "https://www.grandviewresearch.com/industry-analysis",
-                "grand view research":  "https://www.grandviewresearch.com/industry-analysis",
-                "allied market":        "https://www.alliedmarketresearch.com/market-research-report",
-                "allied market research": "https://www.alliedmarketresearch.com/market-research-report",
-                "marketsandmarkets":    "https://www.marketsandmarkets.com/Market-Reports/",
-                "fortune business":     "https://www.fortunebusinessinsights.com/reports",
-                "fortune business insights": "https://www.fortunebusinessinsights.com/reports",
-                "idc":                  "https://www.idc.com/research/viewtoc",
-                "precedence":           "https://www.precedenceresearch.com/",
-                "technavio":            "https://www.technavio.com/report-store",
-                "ibisworld":            "https://www.ibisworld.com/global/",
-                "euromonitor":          "https://www.euromonitor.com/reports",
-            }
+            # Live HEAD check — 4 second timeout
+            try:
+                resp = requests.head(raw_url, timeout=4, allow_redirects=True,
+                                     headers={"User-Agent": "Mozilla/5.0"})
+                if resp.status_code < 400:
+                    return raw_url, True
+            except Exception:
+                pass
 
-            # 5. Parse each raw source into {label, url}
-            parsed = []
-            for s in raw_sources:
-                # Split on commas to get parts: Org, Year, URL
-                parts = [p.strip() for p in s.split(",")]
-                url_in_src = None
-                label_parts = []
-                for p in parts:
-                    if p.startswith("http"):
-                        url_in_src = p.rstrip(")")
-                    else:
-                        label_parts.append(p)
+            return google_url, False
 
-                label = ", ".join(label_parts).strip()
+        def _pill_label(src_obj):
+            """Short display label for a source pill."""
+            org = src_obj.get("org", "")
+            year = src_obj.get("year", "")
+            title = src_obj.get("title", "")
+            if org and year:
+                return f"{org}, {year}"
+            elif org:
+                return org
+            elif title:
+                return title[:35] + ("…" if len(title) > 35 else "")
+            return "Source"
 
-                if url_in_src:
-                    # Claude provided a direct URL — use it
-                    url = url_in_src
-                else:
-                    # Look up org publications page
-                    s_lower = s.lower()
-                    url = None
-                    for org_key, org_url in ORG_PAGES.items():
-                        if org_key in s_lower:
-                            url = org_url
-                            break
-                    if not url:
-                        # Fallback: Google Scholar search with exact source label
-                        url = f"https://scholar.google.com/scholar?q={_up.quote(label or s)}"
-
-                parsed.append({"label": label or s, "url": url})
-
-            return number_only, parsed
-
-        def render_pills(sources):
-            """Return HTML for individual pill <a> tags, one per source."""
-            if not sources:
-                return ""
+        def render_pills_structured(sources_list):
+            """Return HTML for individual pill <a> tags from a list of source dicts.
+            🔗 = direct link verified live. 🔍 = Google Search (guaranteed to open)."""
+            if not sources_list:
+                return '<span style="color:#4a6fa5;font-size:10px;">no source available</span>'
             html = ""
-            for src in sources:
-                lbl = src["label"][:40] + "…" if len(src["label"]) > 40 else src["label"]
+            for src in sources_list:
+                url, is_direct = _resolve_url(src)
+                lbl = _pill_label(src)
+                icon = "🔗" if is_direct else "🔍"
                 html += (
-                    f'<a href="{src["url"]}" target="_blank" '
+                    f'<a href="{url}" target="_blank" '
                     f'style="display:inline-block;background:#1e3a5f;color:#93c5fd;'
                     f'font-size:10px;padding:3px 10px;border-radius:12px;margin:3px 2px 0;'
                     f'text-decoration:none;border:1px solid #2a4a70;'
-                    f'white-space:nowrap;line-height:1.5;">{lbl}</a>'
+                    f'white-space:nowrap;line-height:1.5;">{icon} {lbl}</a>'
                 )
             return html
 
-        size_2024_raw = market.get("market_size_2024", "N/A")
-        size_2030_raw = market.get("market_size_2030", "N/A")
-        cagr_raw      = market.get("cagr", "N/A")
+        def _compat_field(field_val, fallback_key=None):
+            """Handle both new structured format and legacy string format gracefully."""
+            if isinstance(field_val, dict):
+                return field_val
+            # Legacy string format — wrap it
+            raw = str(field_val) if field_val else "N/A"
+            val = raw.split("[Source:")[0].strip().split("(")[0].split(";")[0].strip()
+            return {"value": val, "year": "", "period": "", "sources": []}
 
-        num_2024, src_2024 = extract_number_and_sources(size_2024_raw)
-        num_2030, src_2030 = extract_number_and_sources(size_2030_raw)
-        num_cagr,  src_cagr  = extract_number_and_sources(cagr_raw)
+        cur_obj  = _compat_field(market.get("market_size_current") or market.get("market_size_2024"))
+        fore_obj = _compat_field(market.get("market_size_forecast") or market.get("market_size_2030"))
+        cagr_obj = _compat_field(market.get("cagr"))
 
-        # ── Big-number cards: number prominent, pills inline below ──
+        # ── Big-number cards ──────────────────────────────────
         mc1, mc2, mc3 = st.columns(3)
-        for col, label, num, srcs in [
-            (mc1, "MARKET SIZE (2024)", num_2024, src_2024),
-            (mc2, "MARKET SIZE (2030)", num_2030, src_2030),
-            (mc3, "CAGR",               num_cagr,  src_cagr),
-        ]:
-            pills_html = render_pills(srcs)
+        cards = [
+            (mc1, "CURRENT MARKET SIZE",  cur_obj["value"],  cur_obj.get("year",""),         cur_obj.get("sources",[])),
+            (mc2, "FORECAST MARKET SIZE", fore_obj["value"], fore_obj.get("year",""),         fore_obj.get("sources",[])),
+            (mc3, "CAGR",                 cagr_obj["value"], cagr_obj.get("period",""),       cagr_obj.get("sources",[])),
+        ]
+        for col, top_label, num_val, sub_label, srcs in cards:
+            pills_html = render_pills_structured(srcs)
             col.markdown(f"""
-<div style="background:#1a2d45;border-radius:8px;padding:18px 14px 14px;text-align:center;min-height:120px;">
-  <div style="color:#94a3b8;font-size:10px;letter-spacing:1.5px;font-weight:600;margin-bottom:10px;">{label}</div>
-  <div style="color:#60a5fa;font-size:32px;font-weight:700;line-height:1.1;">{num}</div>
-  <div style="margin-top:10px;line-height:2.0;">{pills_html if pills_html else '<span style="color:#4a6fa5;font-size:10px;">no source available</span>'}</div>
+<div style="background:#1a2d45;border-radius:8px;padding:18px 14px 14px;text-align:center;min-height:140px;">
+  <div style="color:#94a3b8;font-size:10px;letter-spacing:1.5px;font-weight:600;margin-bottom:6px;">{top_label}</div>
+  <div style="color:#60a5fa;font-size:36px;font-weight:700;line-height:1.1;">{num_val}</div>
+  <div style="color:#64748b;font-size:11px;margin-top:4px;margin-bottom:8px;">{sub_label}</div>
+  <div style="margin-top:8px;line-height:2.0;">{pills_html}</div>
 </div>""", unsafe_allow_html=True)
 
         st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
-        st.caption("Source pills link to the org's publications page — click to find the cited report.")
+        st.caption("🔗 = direct link verified · 🔍 = Google Search to find the report (both always open)")
 
         col_l, col_r = st.columns(2)
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
@@ -3049,7 +3076,7 @@ Sector fit score rubric: Average the top 3 sector scores. If primary sector scor
                 with st.spinner("Thinking..."):
                     ctx = f"""You are a senior market analyst discussing market intelligence results for a Schaeffler innovation idea.
 Idea: {idea} | Quadrant: {quadrant}
-Market: {market.get('market_name','')} | Size 2024: {market.get('market_size_2024','')} | CAGR: {market.get('cagr','')}
+Market: {market.get('market_name','')} | Size 2024: {_mval(market.get('market_size_current') or market.get('market_size_2024',''))} | CAGR: {_mval(market.get('cagr',''))}
 Competitive intensity: {comp.get('competitive_intensity','')} | White space: {comp.get('white_space','')}
 Primary sectors (Schaeffler's 10 clusters): {', '.join(primary)} | Final score: {final}/10
 Be specific, cite sources where possible, 3-4 sentences max."""
@@ -4435,7 +4462,7 @@ Trend Alignment: {', '.join(st.session_state.s1_classification.get('trend_alignm
 
 Stage 02 — Market Intelligence ({weights['market']}% weight): {market_score}/10
 - Market: {s2d.get('market',{}).get('market_name','')}
-- Size: {s2d.get('market',{}).get('market_size_2024','')}
+- Size: {_mval(s2d.get('market',{}).get('market_size_current') or s2d.get('market',{}).get('market_size_2024',''))}
 - CAGR: {s2d.get('market',{}).get('cagr','')}
 - Maturity: {s2d.get('market',{}).get('market_maturity','')}
 - Primary sectors: {', '.join(s2d.get('sectors',{}).get('primary_sectors',[]))}
@@ -4588,7 +4615,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                 "Key Concerns":          " | ".join(synthesis.get("key_concerns",[])[:3]),
                 "Next Steps":            " | ".join(synthesis.get("next_steps",[])[:4]),
                 "Market Name":           s2d_sv.get("market",{}).get("market_name",""),
-                "Market Size 2024":      s2d_sv.get("market",{}).get("market_size_2024",""),
+                "Market Size 2024":      _mval(s2d_sv.get("market",{}).get("market_size_current") or s2d_sv.get("market",{}).get("market_size_2024","")),
                 "CAGR":                  s2d_sv.get("market",{}).get("cagr",""),
                 "TRL Level":             str(s4d_sv.get("trl",{}).get("trl_level","")),
                 "Build Strategy":        s5d_sv.get("org_data",{}).get("build_or_partner",{}).get("recommendation",""),
