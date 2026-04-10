@@ -292,32 +292,66 @@ code, pre, .stCode {
 
 <script>
 (function() {
-    // ── Favicon ──
+    // ── Favicon ──────────────────────────────────────────────────
     var svgFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23007A3D'/%3E%3Ctext x='16' y='24' font-family='Arial,Helvetica,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E";
     var existing = document.querySelector("link[rel*='icon']");
     if (existing) { existing.href = svgFavicon; }
     else {
-        var link = document.createElement('link');
-        link.rel = 'icon'; link.type = 'image/svg+xml'; link.href = svgFavicon;
-        document.head.appendChild(link);
+        var lnk = document.createElement('link');
+        lnk.rel = 'icon'; lnk.type = 'image/svg+xml'; lnk.href = svgFavicon;
+        document.head.appendChild(lnk);
     }
-    var shortcut = document.querySelector("link[rel='shortcut icon']");
-    if (shortcut) shortcut.href = svgFavicon;
+    var sc = document.querySelector("link[rel='shortcut icon']");
+    if (sc) sc.href = svgFavicon;
 
-    // ── Force-load Material Symbols font so Streamlit's icon ligatures render ──
-    // When this font is absent the raw text ("keyboard_double_arrow_left") shows.
-    // Loading it here guarantees the sidebar toggle always shows as a proper arrow.
-    if (!document.querySelector('link[href*="Material+Symbols"]')) {
-        var msfont = document.createElement('link');
-        msfont.rel  = 'stylesheet';
-        msfont.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200';
-        document.head.appendChild(msfont);
-    }
-    if (!document.querySelector('link[href*="Material+Icons"]')) {
-        var miFont = document.createElement('link');
-        miFont.rel  = 'stylesheet';
-        miFont.href = 'https://fonts.googleapis.com/icon?family=Material+Icons';
-        document.head.appendChild(miFont);
+    // ── Sidebar toggle fix — injected into <head> so Streamlit NEVER removes it ──
+    // st.markdown CSS lives in the app body and gets wiped on every Streamlit rerun.
+    // document.head is never touched by Streamlit's React render loop, so a <style>
+    // tag appended there persists for the entire session regardless of reruns.
+    if (!document.getElementById('sc-sidebar-fix')) {
+        var s = document.createElement('style');
+        s.id = 'sc-sidebar-fix';
+        s.textContent = [
+            // Hide the Material icon text node and any SVG/span children
+            'button[data-testid="baseButton-headerNoPadding"] span,',
+            'button[data-testid="baseButton-headerNoPadding"] svg,',
+            'button[data-testid="baseButton-headerNoPadding"] p',
+            '{ display:none !important; }',
+
+            // Inject << on the collapse button (sidebar is open)
+            'button[data-testid="baseButton-headerNoPadding"]::after {',
+            '  content: "<<" !important;',
+            '  font-family: Arial, Helvetica, sans-serif !important;',
+            '  font-size: 13px !important;',
+            '  font-weight: 700 !important;',
+            '  color: #ffffff !important;',
+            '  display: flex !important;',
+            '  align-items: center !important;',
+            '  justify-content: center !important;',
+            '  width: 100% !important;',
+            '  height: 100% !important;',
+            '}',
+
+            // Inject >> on the expand control (sidebar is closed)
+            '[data-testid="collapsedControl"] button span,',
+            '[data-testid="collapsedControl"] button svg,',
+            '[data-testid="collapsedControl"] button p',
+            '{ display:none !important; }',
+
+            '[data-testid="collapsedControl"] button::after {',
+            '  content: ">>" !important;',
+            '  font-family: Arial, Helvetica, sans-serif !important;',
+            '  font-size: 13px !important;',
+            '  font-weight: 700 !important;',
+            '  color: #007A3D !important;',
+            '  display: flex !important;',
+            '  align-items: center !important;',
+            '  justify-content: center !important;',
+            '  width: 100% !important;',
+            '  height: 100% !important;',
+            '}',
+        ].join(' ');
+        document.head.appendChild(s);
     }
 })();
 </script>
