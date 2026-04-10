@@ -28,6 +28,54 @@ TAVILY_KEY = ""  # optional
 
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered", initial_sidebar_state="expanded")
 
+# ── Permanently hide sidebar toggle on desktop via parent document head ───────
+# st.markdown CSS is wiped on every Streamlit rerun.
+# components.v1.html runs in an iframe with window.parent access to the real
+# page — styles injected into window.parent.document.head survive all reruns.
+import streamlit.components.v1 as _sc
+_sc.html("""
+<script>
+(function() {
+    var pd = window.parent.document;
+    if (pd.getElementById('sc-sidebar-fix')) return;
+    var s = pd.createElement('style');
+    s.id = 'sc-sidebar-fix';
+    s.textContent =
+        '@media (min-width: 769px) {' +
+        '  button[data-testid="baseButton-headerNoPadding"],' +
+        '  [data-testid="collapsedControl"],' +
+        '  [data-testid="stSidebarCollapsedControl"] {' +
+        '    display: none !important;' +
+        '    pointer-events: none !important;' +
+        '  }' +
+        '}' +
+        '@media (max-width: 768px) {' +
+        '  button[data-testid="baseButton-headerNoPadding"] span,' +
+        '  button[data-testid="baseButton-headerNoPadding"] svg,' +
+        '  button[data-testid="baseButton-headerNoPadding"] p,' +
+        '  [data-testid="collapsedControl"] button span,' +
+        '  [data-testid="collapsedControl"] button svg,' +
+        '  [data-testid="collapsedControl"] button p { display:none !important; }' +
+        '  button[data-testid="baseButton-headerNoPadding"]::after {' +
+        '    content:"<<" !important; font-family:Arial,sans-serif !important;' +
+        '    font-size:13px !important; font-weight:700 !important;' +
+        '    color:#fff !important; display:flex !important;' +
+        '    align-items:center !important; justify-content:center !important;' +
+        '    width:100% !important; height:100% !important;' +
+        '  }' +
+        '  [data-testid="collapsedControl"] button::after {' +
+        '    content:">>" !important; font-family:Arial,sans-serif !important;' +
+        '    font-size:13px !important; font-weight:700 !important;' +
+        '    color:#007A3D !important; display:flex !important;' +
+        '    align-items:center !important; justify-content:center !important;' +
+        '    width:100% !important; height:100% !important;' +
+        '  }' +
+        '}';
+    pd.head.appendChild(s);
+})();
+</script>
+""", height=0)
+
 # ── API key — loaded from Streamlit secrets ───────────────────────────────────
 try:
     ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
@@ -291,68 +339,26 @@ code, pre, .stCode {
 </style>
 
 <script>
+
+
+// Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
-    // ── Favicon ──────────────────────────────────────────────────
     var svgFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23007A3D'/%3E%3Ctext x='16' y='24' font-family='Arial,Helvetica,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E";
     var existing = document.querySelector("link[rel*='icon']");
-    if (existing) { existing.href = svgFavicon; }
-    else {
-        var lnk = document.createElement('link');
-        lnk.rel = 'icon'; lnk.type = 'image/svg+xml'; lnk.href = svgFavicon;
-        document.head.appendChild(lnk);
+    if (existing) {
+        existing.href = svgFavicon;
+    } else {
+        var link = document.createElement('link');
+        link.rel = 'icon';
+        link.type = 'image/svg+xml';
+        link.href = svgFavicon;
+        document.head.appendChild(link);
     }
-    var sc = document.querySelector("link[rel='shortcut icon']");
-    if (sc) sc.href = svgFavicon;
-
-    // ── Sidebar toggle: hide on desktop, fix text on mobile ──────
-    // Injected into <head> — Streamlit never touches <head> so this
-    // survives every rerun, stage change, and language switch.
-    if (!document.getElementById('sc-sidebar-fix')) {
-        var s = document.createElement('style');
-        s.id = 'sc-sidebar-fix';
-        s.textContent =
-            // ── DESKTOP (>768px): hide toggle entirely, sidebar always open ──
-            '@media (min-width: 769px) {' +
-            '  button[data-testid="baseButton-headerNoPadding"],' +
-            '  [data-testid="collapsedControl"],' +
-            '  [data-testid="stSidebarCollapsedControl"] {' +
-            '    display: none !important;' +
-            '    pointer-events: none !important;' +
-            '  }' +
-            '}' +
-
-            // ── MOBILE (<=768px): keep toggle, fix icon-name text ──
-            '@media (max-width: 768px) {' +
-            '  button[data-testid="baseButton-headerNoPadding"] span,' +
-            '  button[data-testid="baseButton-headerNoPadding"] svg,' +
-            '  button[data-testid="baseButton-headerNoPadding"] p,' +
-            '  [data-testid="collapsedControl"] button span,' +
-            '  [data-testid="collapsedControl"] button svg,' +
-            '  [data-testid="collapsedControl"] button p {' +
-            '    display: none !important;' +
-            '  }' +
-            '  button[data-testid="baseButton-headerNoPadding"]::after {' +
-            '    content: "<<" !important;' +
-            '    font-family: Arial, Helvetica, sans-serif !important;' +
-            '    font-size: 13px !important; font-weight: 700 !important;' +
-            '    color: #ffffff !important;' +
-            '    display: flex !important; align-items: center !important;' +
-            '    justify-content: center !important;' +
-            '    width: 100% !important; height: 100% !important;' +
-            '  }' +
-            '  [data-testid="collapsedControl"] button::after {' +
-            '    content: ">>" !important;' +
-            '    font-family: Arial, Helvetica, sans-serif !important;' +
-            '    font-size: 13px !important; font-weight: 700 !important;' +
-            '    color: #007A3D !important;' +
-            '    display: flex !important; align-items: center !important;' +
-            '    justify-content: center !important;' +
-            '    width: 100% !important; height: 100% !important;' +
-            '  }' +
-            '}';
-        document.head.appendChild(s);
-    }
+    var shortcut = document.querySelector("link[rel='shortcut icon']");
+    if (shortcut) shortcut.href = svgFavicon;
 })();
+
+
 </script>
 """, unsafe_allow_html=True)
 
