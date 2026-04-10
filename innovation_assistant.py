@@ -165,49 +165,35 @@ section[data-testid="stSidebar"] > div {
 section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
 }
-/* ── Sidebar toggle: all known Streamlit testid variants ── */
-button[data-testid="baseButton-headerNoPadding"],
-button[data-testid="stBaseButton-headerNoPadding"],
-[data-testid="collapsedControl"] button,
-[data-testid="stSidebarCollapsedControl"] button {
-    overflow: hidden !important;
-    position: relative !important;
-    width: 32px !important;
-    height: 32px !important;
-    background: rgba(255,255,255,0.15) !important;
-    border: none !important;
-    border-radius: 4px !important;
-    cursor: pointer !important;
+/* ── Sidebar toggle: target icon span by class, not testid ── */
+.material-symbols-rounded,
+.material-symbols-outlined,
+.material-icons {
+    font-size: 0 !important;
+    color: transparent !important;
 }
-button[data-testid="baseButton-headerNoPadding"] svg,
-button[data-testid="baseButton-headerNoPadding"] span,
-button[data-testid="stBaseButton-headerNoPadding"] svg,
-button[data-testid="stBaseButton-headerNoPadding"] span,
-[data-testid="collapsedControl"] button svg,
-[data-testid="collapsedControl"] button span,
-[data-testid="stSidebarCollapsedControl"] button svg,
-[data-testid="stSidebarCollapsedControl"] button span {
-    display: none !important;
-}
-button[data-testid="baseButton-headerNoPadding"]::after,
-button[data-testid="stBaseButton-headerNoPadding"]::after,
-[data-testid="collapsedControl"] button::after,
-[data-testid="stSidebarCollapsedControl"] button::after {
+/* Collapse button (inside open sidebar) = « */
+section[data-testid="stSidebar"] .material-symbols-rounded::after,
+section[data-testid="stSidebar"] .material-symbols-outlined::after,
+section[data-testid="stSidebar"] .material-icons::after {
     content: "«";
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    inset: 0;
-    font-size: 16px;
-    font-weight: 700;
-    color: #FFFFFF;
-    font-family: Arial, sans-serif;
-    visibility: visible !important;
+    font-size: 16px !important;
+    font-family: Arial, sans-serif !important;
+    color: #FFFFFF !important;
+    font-style: normal !important;
 }
-[data-testid="collapsedControl"] button::after,
-[data-testid="stSidebarCollapsedControl"] button::after {
+/* Expand button (collapsed control outside sidebar) = » */
+[data-testid="collapsedControl"] .material-symbols-rounded::after,
+[data-testid="collapsedControl"] .material-symbols-outlined::after,
+[data-testid="collapsedControl"] .material-icons::after,
+[data-testid="stSidebarCollapsedControl"] .material-symbols-rounded::after,
+[data-testid="stSidebarCollapsedControl"] .material-symbols-outlined::after,
+[data-testid="stSidebarCollapsedControl"] .material-icons::after {
     content: "»";
+    font-size: 16px !important;
+    font-family: Arial, sans-serif !important;
+    color: #000000 !important;
+    font-style: normal !important;
 }
 
 section[data-testid="stSidebar"] .stButton > button {
