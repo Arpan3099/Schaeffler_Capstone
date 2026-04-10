@@ -165,35 +165,12 @@ section[data-testid="stSidebar"] > div {
 section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
 }
-/* ── Sidebar toggle: target icon span by class, not testid ── */
-.material-symbols-rounded,
-.material-symbols-outlined,
-.material-icons {
+/* ── Sidebar toggle: nuclear — hide ALL button spans globally ── */
+button span {
+    visibility: hidden !important;
     font-size: 0 !important;
-    color: transparent !important;
-}
-/* Collapse button (inside open sidebar) = « */
-section[data-testid="stSidebar"] .material-symbols-rounded::after,
-section[data-testid="stSidebar"] .material-symbols-outlined::after,
-section[data-testid="stSidebar"] .material-icons::after {
-    content: "«";
-    font-size: 16px !important;
-    font-family: Arial, sans-serif !important;
-    color: #FFFFFF !important;
-    font-style: normal !important;
-}
-/* Expand button (collapsed control outside sidebar) = » */
-[data-testid="collapsedControl"] .material-symbols-rounded::after,
-[data-testid="collapsedControl"] .material-symbols-outlined::after,
-[data-testid="collapsedControl"] .material-icons::after,
-[data-testid="stSidebarCollapsedControl"] .material-symbols-rounded::after,
-[data-testid="stSidebarCollapsedControl"] .material-symbols-outlined::after,
-[data-testid="stSidebarCollapsedControl"] .material-icons::after {
-    content: "»";
-    font-size: 16px !important;
-    font-family: Arial, sans-serif !important;
-    color: #000000 !important;
-    font-style: normal !important;
+    width: 0 !important;
+    overflow: hidden !important;
 }
 
 section[data-testid="stSidebar"] .stButton > button {
