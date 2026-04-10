@@ -153,8 +153,6 @@ def generate_ideas_excel():
 # ── Styling — sidebar identity + sidebar-toggle arrow fix ────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
-@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 /* ── Sidebar: Schaeffler green identity ── */
 section[data-testid="stSidebar"] {
     background-color: #007A3D !important;
@@ -167,10 +165,49 @@ section[data-testid="stSidebar"] > div {
 section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
 }
-/* ── Hide sidebar toggle completely ── */
+/* ── Sidebar toggle: all known Streamlit testid variants ── */
 button[data-testid="baseButton-headerNoPadding"],
-[data-testid="collapsedControl"] {
+button[data-testid="stBaseButton-headerNoPadding"],
+[data-testid="collapsedControl"] button,
+[data-testid="stSidebarCollapsedControl"] button {
+    overflow: hidden !important;
+    position: relative !important;
+    width: 32px !important;
+    height: 32px !important;
+    background: rgba(255,255,255,0.15) !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+}
+button[data-testid="baseButton-headerNoPadding"] svg,
+button[data-testid="baseButton-headerNoPadding"] span,
+button[data-testid="stBaseButton-headerNoPadding"] svg,
+button[data-testid="stBaseButton-headerNoPadding"] span,
+[data-testid="collapsedControl"] button svg,
+[data-testid="collapsedControl"] button span,
+[data-testid="stSidebarCollapsedControl"] button svg,
+[data-testid="stSidebarCollapsedControl"] button span {
     display: none !important;
+}
+button[data-testid="baseButton-headerNoPadding"]::after,
+button[data-testid="stBaseButton-headerNoPadding"]::after,
+[data-testid="collapsedControl"] button::after,
+[data-testid="stSidebarCollapsedControl"] button::after {
+    content: "«";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    inset: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #FFFFFF;
+    font-family: Arial, sans-serif;
+    visibility: visible !important;
+}
+[data-testid="collapsedControl"] button::after,
+[data-testid="stSidebarCollapsedControl"] button::after {
+    content: "»";
 }
 
 section[data-testid="stSidebar"] .stButton > button {
