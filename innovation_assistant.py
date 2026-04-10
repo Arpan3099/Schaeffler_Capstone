@@ -165,36 +165,7 @@ section[data-testid="stSidebar"] > div {
 section[data-testid="stSidebar"] * {
     color: #FFFFFF !important;
 }
-/* ── Sidebar toggle fix ── */
-/* Step 1: hide the ligature text on ALL button spans */
-button span {
-    font-size: 0 !important;
-    visibility: hidden !important;
-}
-/* Step 2: restore sidebar nav button text (they're inside .stButton) */
-.stButton button span,
-.stDownloadButton button span {
-    font-size: inherit !important;
-    visibility: visible !important;
-}
-/* Step 3: inject arrow via ::after on the toggle buttons */
-section[data-testid="stSidebar"] button::after {
-    content: "‹";
-    font-size: 20px !important;
-    font-family: Arial, sans-serif !important;
-    color: #FFFFFF !important;
-    visibility: visible !important;
-    font-weight: 700 !important;
-}
-[data-testid="collapsedControl"] button::after,
-[data-testid="stSidebarCollapsedControl"] button::after {
-    content: "›";
-    font-size: 20px !important;
-    font-family: Arial, sans-serif !important;
-    color: #FFFFFF !important;
-    visibility: visible !important;
-    font-weight: 700 !important;
-}
+
 
 section[data-testid="stSidebar"] .stButton > button {
     background: transparent !important;
