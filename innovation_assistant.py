@@ -289,74 +289,116 @@ code, pre, .stCode {
     font-family: 'Courier New', Courier, monospace !important;
 }
 
-/* ── Sidebar toggle: suppress raw icon-name text on first paint ── */
-/* Hides all children so the Material icon ligature name never flashes,
-   JS then injects the real << / >> text as a clean span. */
-section[data-testid="stSidebar"] button[data-testid="baseButton-headerNoPadding"] > *:not(span.sc-arrow),
-[data-testid="collapsedControl"] button > *:not(span.sc-arrow),
-[data-testid="stSidebarCollapsedControl"] button > *:not(span.sc-arrow) {
-    font-size: 0px !important;
+/* ══════════════════════════════════════════════════════════════
+   SIDEBAR TOGGLE BUTTONS — << and >>
+   Strategy: make all existing icon-name text invisible (color:
+   transparent + font-size:0 + visibility:hidden on children),
+   then inject clean arrows via ::after pseudo-elements.
+   CSS pseudo-elements are NEVER overwritten by Streamlit's JS.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Collapse button (inside sidebar, closes it) ── */
+section[data-testid="stSidebar"] button[data-testid="baseButton-headerNoPadding"] {
+    position: relative !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    background: rgba(255,255,255,0.18) !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    /* Make the button's own text invisible */
+    color: transparent !important;
+    font-size: 0 !important;
+}
+/* Hide all child nodes (SVG, span, p) — icon name text disappears */
+section[data-testid="stSidebar"] button[data-testid="baseButton-headerNoPadding"] * {
+    visibility: hidden !important;
+    font-size: 0 !important;
+    color: transparent !important;
     width: 0 !important;
     height: 0 !important;
+}
+/* Inject «« over the top — CSS pseudo-element, immune to Streamlit re-renders */
+section[data-testid="stSidebar"] button[data-testid="baseButton-headerNoPadding"]::after {
+    content: "\00AB\00AB" !important;   /* «« */
+    position: absolute !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    color: #ffffff !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+}
+
+/* ── Expand button (outside sidebar, opens it) ── */
+[data-testid="collapsedControl"] button,
+[data-testid="stSidebarCollapsedControl"] button {
+    position: relative !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    background: #e8f5ee !important;
+    border: 2px solid #007A3D !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    padding: 0 !important;
     overflow: hidden !important;
-    display: none !important;
+    color: transparent !important;
+    font-size: 0 !important;
+}
+[data-testid="collapsedControl"] button *,
+[data-testid="stSidebarCollapsedControl"] button * {
+    visibility: hidden !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+[data-testid="collapsedControl"] button::after,
+[data-testid="stSidebarCollapsedControl"] button::after {
+    content: "\00BB\00BB" !important;   /* »» */
+    position: absolute !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    color: #007A3D !important;
+    visibility: visible !important;
+    pointer-events: none !important;
 }
 </style>
 
 <script>
-// Inject favicon
+
+
+// Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
     var svgFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23007A3D'/%3E%3Ctext x='16' y='24' font-family='Arial,Helvetica,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E";
     var existing = document.querySelector("link[rel*='icon']");
-    if (existing) { existing.href = svgFavicon; }
-    else {
+    if (existing) {
+        existing.href = svgFavicon;
+    } else {
         var link = document.createElement('link');
-        link.rel = 'icon'; link.type = 'image/svg+xml'; link.href = svgFavicon;
+        link.rel = 'icon';
+        link.type = 'image/svg+xml';
+        link.href = svgFavicon;
         document.head.appendChild(link);
     }
     var shortcut = document.querySelector("link[rel='shortcut icon']");
     if (shortcut) shortcut.href = svgFavicon;
 })();
 
-// ── Sidebar toggle: replace icon-name text with proper << / >> symbols ──────
-// Streamlit renders a Material Icons ligature ("keyboard_double_arrow_left" etc.)
-// as raw text when the icon font isn't loaded. We intercept every DOM mutation
-// and replace the button content with plain unicode arrows instead.
-(function patchSidebarToggle() {
-    function patch() {
-        // The collapse button lives inside the sidebar
-        var collapseBtn = document.querySelector(
-            'section[data-testid="stSidebar"] button[data-testid="baseButton-headerNoPadding"]'
-        );
-        if (collapseBtn) {
-            collapseBtn.innerHTML = '';
-            collapseBtn.textContent = '';
-            var span = document.createElement('span');
-            span.textContent = '\u00AB\u00AB'; // «« (collapse left)
-            span.style.cssText = 'font-size:15px;font-weight:700;font-family:Arial,sans-serif;color:#fff;line-height:1;pointer-events:none;';
-            collapseBtn.appendChild(span);
-            collapseBtn.style.cssText = 'background:rgba(255,255,255,0.18)!important;border:none!important;border-radius:4px!important;width:34px!important;height:34px!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;padding:0!important;overflow:hidden!important;';
-        }
-        // The expand button lives outside the sidebar (collapsedControl)
-        var expandBtn = document.querySelector(
-            '[data-testid="collapsedControl"] button, [data-testid="stSidebarCollapsedControl"] button'
-        );
-        if (expandBtn) {
-            expandBtn.innerHTML = '';
-            expandBtn.textContent = '';
-            var span2 = document.createElement('span');
-            span2.textContent = '\u00BB\u00BB'; // »» (expand right)
-            span2.style.cssText = 'font-size:15px;font-weight:700;font-family:Arial,sans-serif;color:#007A3D;line-height:1;pointer-events:none;';
-            expandBtn.appendChild(span2);
-            expandBtn.style.cssText = 'background:#e8f5ee!important;border:1px solid #007A3D!important;border-radius:4px!important;width:34px!important;height:34px!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;padding:0!important;overflow:hidden!important;';
-        }
-    }
-    // Run immediately and on every DOM change
-    patch();
-    new MutationObserver(patch).observe(document.body || document.documentElement, {
-        childList: true, subtree: true
-    });
-})();
+
 </script>
 """, unsafe_allow_html=True)
 
