@@ -291,8 +291,8 @@ code, pre, .stCode {
 </style>
 
 <script>
-// Inject favicon
 (function() {
+    // ── Favicon ──
     var svgFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23007A3D'/%3E%3Ctext x='16' y='24' font-family='Arial,Helvetica,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E";
     var existing = document.querySelector("link[rel*='icon']");
     if (existing) { existing.href = svgFavicon; }
@@ -303,60 +303,22 @@ code, pre, .stCode {
     }
     var shortcut = document.querySelector("link[rel='shortcut icon']");
     if (shortcut) shortcut.href = svgFavicon;
-})();
 
-// Replace Streamlit's Material icon text nodes with plain < / > characters.
-// Streamlit hard-codes "keyboard_double_arrow_left" / "keyboard_double_arrow_right"
-// as text content inside the sidebar toggle buttons. When the Material Icons font
-// fails to load those ligatures, the raw text shows. We walk every text node in
-// the button and swap the strings — this runs after every DOM update.
-(function fixSidebarArrows() {
-    var MAP = {
-        'keyboard_double_arrow_left':  '<',
-        'keyboard_double_arrow_right': '>',
-        'keyboard_arrow_left':         '<',
-        'keyboard_arrow_right':        '>',
-        'chevron_left':                '<',
-        'chevron_right':               '>',
-    };
-
-    function fixTextNodes(root) {
-        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
-        var node;
-        while ((node = walker.nextNode())) {
-            var t = node.nodeValue && node.nodeValue.trim();
-            if (t && MAP[t] !== undefined) {
-                node.nodeValue = MAP[t];
-                // Style the parent element nicely
-                var parent = node.parentElement;
-                if (parent) {
-                    parent.style.fontFamily = 'Arial, Helvetica, sans-serif';
-                    parent.style.fontSize   = '14px';
-                    parent.style.fontWeight = '700';
-                }
-            }
-        }
+    // ── Force-load Material Symbols font so Streamlit's icon ligatures render ──
+    // When this font is absent the raw text ("keyboard_double_arrow_left") shows.
+    // Loading it here guarantees the sidebar toggle always shows as a proper arrow.
+    if (!document.querySelector('link[href*="Material+Symbols"]')) {
+        var msfont = document.createElement('link');
+        msfont.rel  = 'stylesheet';
+        msfont.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200';
+        document.head.appendChild(msfont);
     }
-
-    function fix() {
-        // Target both the collapse button (inside sidebar) and expand control (outside)
-        var targets = document.querySelectorAll(
-            'button[data-testid="baseButton-headerNoPadding"], ' +
-            '[data-testid="collapsedControl"], ' +
-            '[data-testid="stSidebarCollapsedControl"]'
-        );
-        targets.forEach(fixTextNodes);
+    if (!document.querySelector('link[href*="Material+Icons"]')) {
+        var miFont = document.createElement('link');
+        miFont.rel  = 'stylesheet';
+        miFont.href = 'https://fonts.googleapis.com/icon?family=Material+Icons';
+        document.head.appendChild(miFont);
     }
-
-    fix();
-    new MutationObserver(function(mutations) {
-        mutations.forEach(function(m) {
-            m.addedNodes.forEach(function(n) {
-                if (n.nodeType === 1) fixTextNodes(n);
-            });
-        });
-        fix();
-    }).observe(document.documentElement, { childList: true, subtree: true });
 })();
 </script>
 """, unsafe_allow_html=True)
