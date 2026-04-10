@@ -304,53 +304,52 @@ code, pre, .stCode {
     var sc = document.querySelector("link[rel='shortcut icon']");
     if (sc) sc.href = svgFavicon;
 
-    // ── Sidebar toggle fix — injected into <head> so Streamlit NEVER removes it ──
-    // st.markdown CSS lives in the app body and gets wiped on every Streamlit rerun.
-    // document.head is never touched by Streamlit's React render loop, so a <style>
-    // tag appended there persists for the entire session regardless of reruns.
+    // ── Sidebar toggle: hide on desktop, fix text on mobile ──────
+    // Injected into <head> — Streamlit never touches <head> so this
+    // survives every rerun, stage change, and language switch.
     if (!document.getElementById('sc-sidebar-fix')) {
         var s = document.createElement('style');
         s.id = 'sc-sidebar-fix';
-        s.textContent = [
-            // Hide the Material icon text node and any SVG/span children
-            'button[data-testid="baseButton-headerNoPadding"] span,',
-            'button[data-testid="baseButton-headerNoPadding"] svg,',
-            'button[data-testid="baseButton-headerNoPadding"] p',
-            '{ display:none !important; }',
+        s.textContent =
+            // ── DESKTOP (>768px): hide toggle entirely, sidebar always open ──
+            '@media (min-width: 769px) {' +
+            '  button[data-testid="baseButton-headerNoPadding"],' +
+            '  [data-testid="collapsedControl"],' +
+            '  [data-testid="stSidebarCollapsedControl"] {' +
+            '    display: none !important;' +
+            '    pointer-events: none !important;' +
+            '  }' +
+            '}' +
 
-            // Inject << on the collapse button (sidebar is open)
-            'button[data-testid="baseButton-headerNoPadding"]::after {',
-            '  content: "<<" !important;',
-            '  font-family: Arial, Helvetica, sans-serif !important;',
-            '  font-size: 13px !important;',
-            '  font-weight: 700 !important;',
-            '  color: #ffffff !important;',
-            '  display: flex !important;',
-            '  align-items: center !important;',
-            '  justify-content: center !important;',
-            '  width: 100% !important;',
-            '  height: 100% !important;',
-            '}',
-
-            // Inject >> on the expand control (sidebar is closed)
-            '[data-testid="collapsedControl"] button span,',
-            '[data-testid="collapsedControl"] button svg,',
-            '[data-testid="collapsedControl"] button p',
-            '{ display:none !important; }',
-
-            '[data-testid="collapsedControl"] button::after {',
-            '  content: ">>" !important;',
-            '  font-family: Arial, Helvetica, sans-serif !important;',
-            '  font-size: 13px !important;',
-            '  font-weight: 700 !important;',
-            '  color: #007A3D !important;',
-            '  display: flex !important;',
-            '  align-items: center !important;',
-            '  justify-content: center !important;',
-            '  width: 100% !important;',
-            '  height: 100% !important;',
-            '}',
-        ].join(' ');
+            // ── MOBILE (<=768px): keep toggle, fix icon-name text ──
+            '@media (max-width: 768px) {' +
+            '  button[data-testid="baseButton-headerNoPadding"] span,' +
+            '  button[data-testid="baseButton-headerNoPadding"] svg,' +
+            '  button[data-testid="baseButton-headerNoPadding"] p,' +
+            '  [data-testid="collapsedControl"] button span,' +
+            '  [data-testid="collapsedControl"] button svg,' +
+            '  [data-testid="collapsedControl"] button p {' +
+            '    display: none !important;' +
+            '  }' +
+            '  button[data-testid="baseButton-headerNoPadding"]::after {' +
+            '    content: "<<" !important;' +
+            '    font-family: Arial, Helvetica, sans-serif !important;' +
+            '    font-size: 13px !important; font-weight: 700 !important;' +
+            '    color: #ffffff !important;' +
+            '    display: flex !important; align-items: center !important;' +
+            '    justify-content: center !important;' +
+            '    width: 100% !important; height: 100% !important;' +
+            '  }' +
+            '  [data-testid="collapsedControl"] button::after {' +
+            '    content: ">>" !important;' +
+            '    font-family: Arial, Helvetica, sans-serif !important;' +
+            '    font-size: 13px !important; font-weight: 700 !important;' +
+            '    color: #007A3D !important;' +
+            '    display: flex !important; align-items: center !important;' +
+            '    justify-content: center !important;' +
+            '    width: 100% !important; height: 100% !important;' +
+            '  }' +
+            '}';
         document.head.appendChild(s);
     }
 })();
