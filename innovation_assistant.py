@@ -28,54 +28,6 @@ TAVILY_KEY = ""  # optional
 
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered", initial_sidebar_state="expanded")
 
-# ── Permanently hide sidebar toggle on desktop via parent document head ───────
-# st.markdown CSS is wiped on every Streamlit rerun.
-# components.v1.html runs in an iframe with window.parent access to the real
-# page — styles injected into window.parent.document.head survive all reruns.
-import streamlit.components.v1 as _sc
-_sc.html("""
-<script>
-(function() {
-    var pd = window.parent.document;
-    if (pd.getElementById('sc-sidebar-fix')) return;
-    var s = pd.createElement('style');
-    s.id = 'sc-sidebar-fix';
-    s.textContent =
-        '@media (min-width: 769px) {' +
-        '  button[data-testid="baseButton-headerNoPadding"],' +
-        '  [data-testid="collapsedControl"],' +
-        '  [data-testid="stSidebarCollapsedControl"] {' +
-        '    display: none !important;' +
-        '    pointer-events: none !important;' +
-        '  }' +
-        '}' +
-        '@media (max-width: 768px) {' +
-        '  button[data-testid="baseButton-headerNoPadding"] span,' +
-        '  button[data-testid="baseButton-headerNoPadding"] svg,' +
-        '  button[data-testid="baseButton-headerNoPadding"] p,' +
-        '  [data-testid="collapsedControl"] button span,' +
-        '  [data-testid="collapsedControl"] button svg,' +
-        '  [data-testid="collapsedControl"] button p { display:none !important; }' +
-        '  button[data-testid="baseButton-headerNoPadding"]::after {' +
-        '    content:"<<" !important; font-family:Arial,sans-serif !important;' +
-        '    font-size:13px !important; font-weight:700 !important;' +
-        '    color:#fff !important; display:flex !important;' +
-        '    align-items:center !important; justify-content:center !important;' +
-        '    width:100% !important; height:100% !important;' +
-        '  }' +
-        '  [data-testid="collapsedControl"] button::after {' +
-        '    content:">>" !important; font-family:Arial,sans-serif !important;' +
-        '    font-size:13px !important; font-weight:700 !important;' +
-        '    color:#007A3D !important; display:flex !important;' +
-        '    align-items:center !important; justify-content:center !important;' +
-        '    width:100% !important; height:100% !important;' +
-        '  }' +
-        '}';
-    pd.head.appendChild(s);
-})();
-</script>
-""", height=0)
-
 # ── API key — loaded from Streamlit secrets ───────────────────────────────────
 try:
     ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
@@ -358,7 +310,28 @@ code, pre, .stCode {
     if (shortcut) shortcut.href = svgFavicon;
 })();
 
-
+// ── Hide sidebar toggle on desktop — setInterval approach ────────────────────
+// setInterval lives in the browser JS engine, NOT in the DOM.
+// Streamlit reruns re-render the DOM but NEVER reset window or running intervals.
+// So this interval fires every 150ms forever, regardless of how many reruns occur.
+if (!window._scSidebarFixed) {
+    window._scSidebarFixed = true;
+    setInterval(function() {
+        // Only hide on desktop (> 768px wide)
+        if (window.innerWidth <= 768) return;
+        var selectors = [
+            'button[data-testid="baseButton-headerNoPadding"]',
+            '[data-testid="collapsedControl"]',
+            '[data-testid="stSidebarCollapsedControl"]'
+        ];
+        selectors.forEach(function(sel) {
+            document.querySelectorAll(sel).forEach(function(el) {
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('pointer-events', 'none', 'important');
+            });
+        });
+    }, 150);
+}
 </script>
 """, unsafe_allow_html=True)
 
