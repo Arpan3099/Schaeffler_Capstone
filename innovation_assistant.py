@@ -2706,17 +2706,10 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
                     idea_fa  = st.session_state.s1_idea
                     s1c_fa   = st.session_state.s1_classification
                     quad_fa  = s1c_fa.get("quadrant","RADICAL")
+                    st.session_state._full_run_active = True
                     with st.spinner("Running full pipeline — Stage 02: Market Intelligence..."):
                         run_stage2(idea_fa, quad_fa, s1c_fa)
-                    with st.spinner("Stage 03: Patent Intelligence..."):
-                        run_stage3(idea_fa, quad_fa, s1c_fa)
-                    with st.spinner("Stage 04: Technical Feasibility..."):
-                        run_stage4(idea_fa, quad_fa, s1c_fa)
-                    with st.spinner("Stage 05: P³ Perspective..."):
-                        run_stage5(idea_fa, quad_fa, s1c_fa)
-                    with st.spinner("Stage 06: Scoring & Synthesis..."):
-                        run_stage6_synthesis(idea_fa, quad_fa, s1c_fa)
-                    st.session_state.active_stage = 6
+                    st.session_state.active_stage = 2
                     st.rerun()
 
         # Post-result chat
@@ -2861,6 +2854,16 @@ Return ONLY valid JSON with NO inline comments:
 
     # Results
     elif st.session_state.s2_step == "done":
+        # ── Auto-continue full run chain ──────────────────────
+        if not st.session_state.get("s3_data") and st.session_state.get("_full_run_active"):
+            idea_fr = st.session_state.s1_idea
+            s1c_fr  = st.session_state.s1_classification
+            quad_fr = s1c_fr.get("quadrant","RADICAL")
+            with st.spinner("Stage 03: Patent Intelligence..."):
+                run_stage3(idea_fr, quad_fr, s1c_fr)
+            st.session_state.active_stage = 3
+            st.rerun()
+
         d       = st.session_state.s2_data
         market  = d["market"]; comp = d["comp"]; sectors = d["sectors"]
         weights = d["weights"]; final = d["final_score"]
@@ -3070,7 +3073,7 @@ Return ONLY valid JSON with NO inline comments:
             st.caption(f"Primary sectors: {', '.join(primary)}")
         st.markdown("---")
 
-        # ── Competitive landscape ─────────────────────────────
+        # ── Competitive landscape — summary only ──────────────
         st.markdown("#### 🏢 Competitive Landscape")
         cc1,cc2,cc3 = st.columns(3)
         cc1.metric("Intensity", comp.get("competitive_intensity",""))
@@ -3080,12 +3083,13 @@ Return ONLY valid JSON with NO inline comments:
         st.markdown(f"**Schaeffler edge** · {comp.get('schaeffler_advantage','')}")
         competitors = comp.get("competitors", [])
         if competitors:
-            type_cols = {"Incumbent":"#60a5fa","Startup":"#22c55e","Research":"#a78bfa"}
-            for ci in competitors:
-                tc = type_cols.get(ci.get("type","Incumbent"), "#60a5fa")
-                st.markdown(f"""
+            with st.expander(f"View all {len(competitors)} key players"):
+                type_cols = {"Incumbent":"#60a5fa","Startup":"#22c55e","Research":"#a78bfa"}
+                for ci in competitors:
+                    tc = type_cols.get(ci.get("type","Incumbent"), "#60a5fa")
+                    st.markdown(f"""
 <div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;display:flex;align-items:center;gap:12px;">
-  <div style="color:{WHITE};font-weight:600;font-size:13px;min-width:150px;">{ci.get("name","")}</div>
+  <div style="color:#e2e8f0;font-weight:600;font-size:13px;min-width:150px;">{ci.get("name","")}</div>
   <div style="background:{tc}22;color:{tc};font-size:11px;padding:2px 8px;border-radius:10px;min-width:90px;text-align:center;">{ci.get("type","")}</div>
   <div style="color:#94a3b8;font-size:12px;flex:1;">{ci.get("relevance","")} <span style="color:#4a6fa5;font-size:11px;">{ci.get("source","")}</span></div>
 </div>
@@ -3353,6 +3357,16 @@ Return ONLY valid JSON:
 
     # ── Results ───────────────────────────────────────────────
     elif st.session_state.s3_step == "done":
+        # ── Auto-continue full run chain ──────────────────────
+        if not st.session_state.get("s4_data") and st.session_state.get("_full_run_active"):
+            idea_fr = st.session_state.s1_idea
+            s1c_fr  = st.session_state.s1_classification
+            quad_fr = s1c_fr.get("quadrant","RADICAL")
+            with st.spinner("Stage 04: Technical Feasibility..."):
+                run_stage4(idea_fr, quad_fr, s1c_fr)
+            st.session_state.active_stage = 4
+            st.rerun()
+
         d            = st.session_state.s3_data
         landscape    = d["landscape"]
         ansoff_data  = d["ansoff_data"]
@@ -3828,6 +3842,16 @@ Return ONLY valid JSON:
 
     # ── Results ───────────────────────────────────────────────
     elif st.session_state.s4_step == "done":
+        # ── Auto-continue full run chain ──────────────────────
+        if not st.session_state.get("s5_data") and st.session_state.get("_full_run_active"):
+            idea_fr = st.session_state.s1_idea
+            s1c_fr  = st.session_state.s1_classification
+            quad_fr = s1c_fr.get("quadrant","RADICAL")
+            with st.spinner("Stage 05: P³ Perspective..."):
+                run_stage5(idea_fr, quad_fr, s1c_fr)
+            st.session_state.active_stage = 5
+            st.rerun()
+
         d         = st.session_state.s4_data
         existence = d["existence"]
         trl       = d["trl"]
@@ -3905,19 +3929,17 @@ Return ONLY valid JSON:
             (8,"System complete and qualified","Full production design, limited production run"),
             (9,"Proven in operational environment","Commercial deployment at scale"),
         ]
-        # Always show the current TRL level highlighted
-        current_entry = next(((lvl,label,desc) for lvl,label,desc in trl_descriptions if lvl == trl_level), None)
+        current_entry = next(((lvl,lbl,dsc) for lvl,lbl,dsc in trl_descriptions if lvl == trl_level), None)
         if current_entry:
-            lvl, label, desc = current_entry
+            lvl_c, lbl_c, dsc_c = current_entry
             st.markdown(f"""
 <div style="background:#1F3864;border-radius:4px;padding:8px 14px;margin:4px 0;display:flex;gap:12px;align-items:center;border:1px solid #2E75B6;">
-  <div style="color:{trl_colours.get(lvl,'#f59e0b')};font-weight:700;min-width:40px;">TRL {lvl}</div>
-  <div style="color:{WHITE};font-size:13px;font-weight:600;min-width:220px;">▶ {label}</div>
-  <div style="color:#60a5fa;font-size:12px;">{desc}</div>
+  <div style="color:{trl_colours.get(lvl_c,'#f59e0b')};font-weight:700;min-width:40px;">TRL {lvl_c}</div>
+  <div style="color:#e2e8f0;font-size:13px;font-weight:600;min-width:220px;">▶ {lbl_c}</div>
+  <div style="color:#60a5fa;font-size:12px;">{dsc_c}</div>
 </div>
 """, unsafe_allow_html=True)
-        # Full list in expander
-        with st.expander("📋 View full Schaeffler-adapted TRL scale"):
+        with st.expander("View full TRL scale reference"):
             for lvl, label, desc in trl_descriptions:
                 is_current = (lvl == trl_level)
                 bg_col = "#1F3864" if is_current else "#1a2d45"
@@ -3925,7 +3947,7 @@ Return ONLY valid JSON:
                 st.markdown(f"""
 <div style="background:{bg_col};border-radius:4px;padding:6px 12px;margin:3px 0;display:flex;gap:12px;align-items:center;">
   <div style="color:{trl_colours.get(lvl,'#f59e0b')};font-weight:700;min-width:40px;">TRL {lvl}</div>
-  <div style="color:{WHITE if is_current else '#e2e8f0'};font-size:13px;min-width:220px;">{"▶ " if is_current else ""}{label}</div>
+  <div style="color:{'#e2e8f0' if is_current else '#e2e8f0'};font-size:13px;min-width:220px;">{"▶ " if is_current else ""}{label}</div>
   <div style="color:{text_col_inner};font-size:12px;">{desc}</div>
 </div>
 """, unsafe_allow_html=True)
@@ -4230,6 +4252,17 @@ Return ONLY valid JSON:
 
     # ── Results ───────────────────────────────────────────────
     elif st.session_state.s5_step == "done":
+        # ── Auto-continue full run chain ──────────────────────
+        if not st.session_state.get("s6_data") and st.session_state.get("_full_run_active"):
+            idea_fr = st.session_state.s1_idea
+            s1c_fr  = st.session_state.s1_classification
+            quad_fr = s1c_fr.get("quadrant","RADICAL")
+            with st.spinner("Stage 06: Scoring & Synthesis..."):
+                run_stage6_synthesis(idea_fr, quad_fr, s1c_fr)
+            st.session_state.active_stage = 6
+            st.session_state._full_run_active = False
+            st.rerun()
+
         d        = st.session_state.s5_data
         org_data = d["org_data"]
         final    = d["final_score"]
@@ -4791,60 +4824,75 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         st.markdown("---")
 
         # ── Full narrative ────────────────────────────────────
-        with st.expander("📖 Full Narrative Synthesis — click to expand"):
-            st.markdown(synthesis.get("narrative",""))
+        st.markdown("#### 📖 Full Narrative Synthesis")
+        st.markdown(synthesis.get("narrative",""))
 
-        # ── Visual mockup generation ──────────────────────────
+        # ── Solution Blueprint ────────────────────────────────
         st.markdown("---")
-        st.markdown("#### 🎨 Solution Visualisation")
-        st.caption("Generate an AI image showing how this solution could look in a real-world context.")
+        st.markdown("#### 🎨 Solution Blueprint")
+        st.caption("Claude generates a structured technical blueprint — component breakdown, integration points, and deployment context.")
 
-        if "s5_mockup_image" not in st.session_state:
-            st.session_state.s6_mockup_image = None
+        if "s6_blueprint" not in st.session_state:
+            st.session_state.s6_blueprint = None
 
-        if st.session_state.s6_mockup_image is None:
-            if st.button(T("s6_image_btn"), type="secondary", key="s6_image"):
-                with st.spinner("Generating image — this takes 10–20 seconds..."):
+        if st.session_state.s6_blueprint is None:
+            if st.button(T("s6_image_btn"), type="secondary", key="s6_blueprint_btn"):
+                with st.spinner("Generating blueprint..."):
                     try:
-                        # Step 1: Claude writes a precise image prompt
-                        img_prompt_raw = call_claude(
-                            "You write precise image generation prompts. Return ONLY the prompt, no quotes, no explanation, no preamble. Maximum 50 words.",
-                            f"Write a photorealistic product visualisation prompt for: {idea}. Show the technology deployed in an industrial/automotive setting. Professional engineering photography style, high detail."
+                        blueprint_raw = call_claude(
+                            """You are a senior Schaeffler engineering strategist. Generate a structured solution blueprint for this innovation idea.
+Return ONLY valid JSON:
+{"core_components":[{"name":"string","function":"one sentence","technology_basis":"string","trl_assumption":"TRL X"}],
+"integration_points":[{"system":"string","interface":"string","complexity":"Low/Medium/High"}],
+"deployment_scenario":{"environment":"string","scale":"string","timeline":"string"},
+"key_risks":[{"risk":"string","mitigation":"string"}],
+"schaeffler_fit":"2 sentences on how this maps to Schaeffler capabilities"}""",
+                            f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {st.session_state.s4_data.get('trl',{}).get('trl_level','')}\nMarket: {st.session_state.s2_data.get('market',{}).get('market_name','')}",
+                            max_tokens=1200
                         )
-                        img_prompt = img_prompt_raw.strip().replace('"','').replace("'","")[:200]
-
-                        # Step 2: Generate image via Pollinations.ai (free, no API key)
-                        import urllib.parse
-                        encoded_prompt = urllib.parse.quote(img_prompt)
-                        image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=960&height=640&nologo=true&seed=42&model=flux"
-
-                        img_response = None
-                        for attempt in range(3):
-                            try:
-                                img_response = requests.get(image_url, timeout=90)
-                                if img_response.status_code == 200 and len(img_response.content) > 5000:
-                                    break
-                            except requests.exceptions.Timeout:
-                                if attempt < 2:
-                                    time.sleep(5)
-                                    continue
-                                else:
-                                    raise
-
-                        if img_response and img_response.status_code == 200 and len(img_response.content) > 5000:
-                            st.session_state.s6_mockup_image = img_response.content
-                            st.session_state.s6_mockup_prompt_used = img_prompt
-                            st.rerun()
-                        else:
-                            st.error("Image generation timed out. Try again — Pollinations.ai can be slow on first request.")
+                        bp = _parse_json(blueprint_raw)
+                        st.session_state.s6_blueprint = bp
+                        st.rerun()
                     except Exception as e:
-                        st.error(f"Image generation error: {e}")
+                        st.error(f"Blueprint generation error: {e}")
         else:
-            st.image(st.session_state.s6_mockup_image, use_container_width=True)
-            st.caption(f"Prompt used: {st.session_state.get('s5_mockup_prompt_used','')}")
-            if st.button(T("s6_image_redo"), key="s6_image_redo"):
-                st.session_state.s6_mockup_image = None
-                st.session_state.s6_mockup_prompt_used = None
+            bp = st.session_state.s6_blueprint
+            # Core components
+            if bp.get("core_components"):
+                st.markdown("**🔩 Core Components**")
+                for comp_item in bp["core_components"]:
+                    trl_c = {"TRL 1":"#ef4444","TRL 2":"#ef4444","TRL 3":"#f59e0b","TRL 4":"#f59e0b","TRL 5":"#f59e0b","TRL 6":"#22c55e","TRL 7":"#22c55e","TRL 8":"#22c55e","TRL 9":"#22c55e"}.get(comp_item.get("trl_assumption",""),"#60a5fa")
+                    st.markdown(f"""
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <span style="color:#e2e8f0;font-weight:600;font-size:13px;">{comp_item.get("name","")}</span>
+    <span style="color:{trl_c};font-size:11px;background:{trl_c}22;padding:2px 8px;border-radius:8px;">{comp_item.get("trl_assumption","")}</span>
+  </div>
+  <div style="color:#94a3b8;font-size:12px;margin-top:4px;">{comp_item.get("function","")} · <span style="color:#60a5fa;">{comp_item.get("technology_basis","")}</span></div>
+</div>
+""", unsafe_allow_html=True)
+            # Integration points
+            if bp.get("integration_points"):
+                st.markdown("**🔗 Integration Points**")
+                cols_bp = st.columns(min(3, len(bp["integration_points"])))
+                for i, ip in enumerate(bp["integration_points"][:3]):
+                    comp_col = {"Low":"#22c55e","Medium":"#f59e0b","High":"#ef4444"}.get(ip.get("complexity","Medium"),"#f59e0b")
+                    cols_bp[i % 3].markdown(f"""
+<div style="background:#1a2d45;border-radius:6px;padding:10px;text-align:center;">
+  <div style="color:#e2e8f0;font-weight:600;font-size:12px;">{ip.get("system","")}</div>
+  <div style="color:#94a3b8;font-size:11px;margin:4px 0;">{ip.get("interface","")}</div>
+  <div style="color:{comp_col};font-size:10px;">{ip.get("complexity","")} complexity</div>
+</div>
+""", unsafe_allow_html=True)
+            # Deployment
+            dep = bp.get("deployment_scenario",{})
+            if dep:
+                st.markdown(f"**🏭 Deployment** · {dep.get('environment','')} · Scale: {dep.get('scale','')} · Timeline: {dep.get('timeline','')}")
+            # Schaeffler fit
+            if bp.get("schaeffler_fit"):
+                st.info(f"**Schaeffler Fit:** {bp['schaeffler_fit']}")
+            if st.button(T("s6_image_redo"), key="s6_blueprint_redo"):
+                st.session_state.s6_blueprint = None
                 st.rerun()
 
         # ── Master report download ────────────────────────────
