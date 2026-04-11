@@ -291,18 +291,26 @@ code, pre, .stCode {
 </style>
 
 <script>
+
+
+// Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
     var svgFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23007A3D'/%3E%3Ctext x='16' y='24' font-family='Arial,Helvetica,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E";
     var existing = document.querySelector("link[rel*='icon']");
-    if (existing) { existing.href = svgFavicon; }
-    else {
+    if (existing) {
+        existing.href = svgFavicon;
+    } else {
         var link = document.createElement('link');
-        link.rel = 'icon'; link.type = 'image/svg+xml'; link.href = svgFavicon;
+        link.rel = 'icon';
+        link.type = 'image/svg+xml';
+        link.href = svgFavicon;
         document.head.appendChild(link);
     }
     var shortcut = document.querySelector("link[rel='shortcut icon']");
     if (shortcut) shortcut.href = svgFavicon;
 })();
+
+
 </script>
 """, unsafe_allow_html=True)
 
