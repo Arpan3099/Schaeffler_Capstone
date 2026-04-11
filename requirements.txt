@@ -1,5 +1,5 @@
 anthropic
-streamlit==1.32.2
+streamlit==1.38.0
 plotly
 requests
 python-docx
