@@ -3070,7 +3070,7 @@ Return ONLY valid JSON with NO inline comments:
             st.caption(f"Primary sectors: {', '.join(primary)}")
         st.markdown("---")
 
-        # ── Competitive landscape — summary only ──────────────
+        # ── Competitive landscape ─────────────────────────────
         st.markdown("#### 🏢 Competitive Landscape")
         cc1,cc2,cc3 = st.columns(3)
         cc1.metric("Intensity", comp.get("competitive_intensity",""))
@@ -3078,7 +3078,18 @@ Return ONLY valid JSON with NO inline comments:
         cc3.metric("Key Players", len(comp.get("competitors",[])))
         st.markdown(f"**White space** · {comp.get('white_space','')}")
         st.markdown(f"**Schaeffler edge** · {comp.get('schaeffler_advantage','')}")
-        st.caption("Full competitor list and detailed analysis in the downloadable report.")
+        competitors = comp.get("competitors", [])
+        if competitors:
+            type_cols = {"Incumbent":"#60a5fa","Startup":"#22c55e","Research":"#a78bfa"}
+            for ci in competitors:
+                tc = type_cols.get(ci.get("type","Incumbent"), "#60a5fa")
+                st.markdown(f"""
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;display:flex;align-items:center;gap:12px;">
+  <div style="color:{WHITE};font-weight:600;font-size:13px;min-width:150px;">{ci.get("name","")}</div>
+  <div style="background:{tc}22;color:{tc};font-size:11px;padding:2px 8px;border-radius:10px;min-width:90px;text-align:center;">{ci.get("type","")}</div>
+  <div style="color:#94a3b8;font-size:12px;flex:1;">{ci.get("relevance","")} <span style="color:#4a6fa5;font-size:11px;">{ci.get("source","")}</span></div>
+</div>
+""", unsafe_allow_html=True)
 
 
         # ── Download report ──────────────────────────────────
@@ -3883,19 +3894,30 @@ Return ONLY valid JSON:
         st.markdown("---")
 
         # ── TRL scale reference ───────────────────────────────
-        st.markdown("**Schaeffler-adapted TRL scale reference**")
-        if True:
-            trl_descriptions = [
-                (1,"Basic principles observed","Theoretical concept only, no testing"),
-                (2,"Technology concept formulated","Application identified, no experimental testing"),
-                (3,"Experimental proof of concept","Lab demonstration, key functions validated"),
-                (4,"Technology validated in lab","Component tested in controlled environment"),
-                (5,"Validated in relevant environment","Prototype tested in industrial-like conditions"),
-                (6,"Demonstrated in relevant environment","System prototype demonstrated"),
-                (7,"Prototype in operational environment","Field trial or industrial pilot"),
-                (8,"System complete and qualified","Full production design, limited production run"),
-                (9,"Proven in operational environment","Commercial deployment at scale"),
-            ]
+        trl_descriptions = [
+            (1,"Basic principles observed","Theoretical concept only, no testing"),
+            (2,"Technology concept formulated","Application identified, no experimental testing"),
+            (3,"Experimental proof of concept","Lab demonstration, key functions validated"),
+            (4,"Technology validated in lab","Component tested in controlled environment"),
+            (5,"Validated in relevant environment","Prototype tested in industrial-like conditions"),
+            (6,"Demonstrated in relevant environment","System prototype demonstrated"),
+            (7,"Prototype in operational environment","Field trial or industrial pilot"),
+            (8,"System complete and qualified","Full production design, limited production run"),
+            (9,"Proven in operational environment","Commercial deployment at scale"),
+        ]
+        # Always show the current TRL level highlighted
+        current_entry = next(((lvl,label,desc) for lvl,label,desc in trl_descriptions if lvl == trl_level), None)
+        if current_entry:
+            lvl, label, desc = current_entry
+            st.markdown(f"""
+<div style="background:#1F3864;border-radius:4px;padding:8px 14px;margin:4px 0;display:flex;gap:12px;align-items:center;border:1px solid #2E75B6;">
+  <div style="color:{trl_colours.get(lvl,'#f59e0b')};font-weight:700;min-width:40px;">TRL {lvl}</div>
+  <div style="color:{WHITE};font-size:13px;font-weight:600;min-width:220px;">▶ {label}</div>
+  <div style="color:#60a5fa;font-size:12px;">{desc}</div>
+</div>
+""", unsafe_allow_html=True)
+        # Full list in expander
+        with st.expander("📋 View full Schaeffler-adapted TRL scale"):
             for lvl, label, desc in trl_descriptions:
                 is_current = (lvl == trl_level)
                 bg_col = "#1F3864" if is_current else "#1a2d45"
@@ -4769,8 +4791,8 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         st.markdown("---")
 
         # ── Full narrative ────────────────────────────────────
-        st.markdown("#### 📖 Full Narrative Synthesis")
-        st.markdown(synthesis.get("narrative",""))
+        with st.expander("📖 Full Narrative Synthesis — click to expand"):
+            st.markdown(synthesis.get("narrative",""))
 
         # ── Visual mockup generation ──────────────────────────
         st.markdown("---")
