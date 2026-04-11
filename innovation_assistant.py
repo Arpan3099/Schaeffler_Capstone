@@ -291,47 +291,18 @@ code, pre, .stCode {
 </style>
 
 <script>
-
-
-// Inject favicon dynamically as an SVG data URI with Schaeffler S logo
 (function() {
     var svgFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23007A3D'/%3E%3Ctext x='16' y='24' font-family='Arial,Helvetica,sans-serif' font-size='22' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E";
     var existing = document.querySelector("link[rel*='icon']");
-    if (existing) {
-        existing.href = svgFavicon;
-    } else {
+    if (existing) { existing.href = svgFavicon; }
+    else {
         var link = document.createElement('link');
-        link.rel = 'icon';
-        link.type = 'image/svg+xml';
-        link.href = svgFavicon;
+        link.rel = 'icon'; link.type = 'image/svg+xml'; link.href = svgFavicon;
         document.head.appendChild(link);
     }
     var shortcut = document.querySelector("link[rel='shortcut icon']");
     if (shortcut) shortcut.href = svgFavicon;
 })();
-
-// ── Hide sidebar toggle on desktop — setInterval approach ────────────────────
-// setInterval lives in the browser JS engine, NOT in the DOM.
-// Streamlit reruns re-render the DOM but NEVER reset window or running intervals.
-// So this interval fires every 150ms forever, regardless of how many reruns occur.
-if (!window._scSidebarFixed) {
-    window._scSidebarFixed = true;
-    setInterval(function() {
-        // Only hide on desktop (> 768px wide)
-        if (window.innerWidth <= 768) return;
-        var selectors = [
-            'button[data-testid="baseButton-headerNoPadding"]',
-            '[data-testid="collapsedControl"]',
-            '[data-testid="stSidebarCollapsedControl"]'
-        ];
-        selectors.forEach(function(sel) {
-            document.querySelectorAll(sel).forEach(function(el) {
-                el.style.setProperty('display', 'none', 'important');
-                el.style.setProperty('pointer-events', 'none', 'important');
-            });
-        });
-    }, 150);
-}
 </script>
 """, unsafe_allow_html=True)
 
