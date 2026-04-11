@@ -169,18 +169,21 @@ section[data-testid="stSidebar"] * {
 
 section[data-testid="stSidebar"] .stButton > button {
     background: transparent !important;
-    color: rgba(255,255,255,0.75) !important;
+    color: rgba(255,255,255,0.65) !important;
     border: none !important;
     border-radius: 4px !important;
-    font-size: 12px !important;
+    font-size: 11px !important;
     font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
     font-weight: 400 !important;
     letter-spacing: 0.3px !important;
-    padding: 8px 12px !important;
+    padding: 7px 12px !important;
     text-align: left !important;
+    justify-content: flex-start !important;
+    display: flex !important;
+    width: 100% !important;
 }
 section[data-testid="stSidebar"] .stButton > button:hover {
-    background: rgba(255,255,255,0.12) !important;
+    background: rgba(255,255,255,0.10) !important;
     color: #FFFFFF !important;
 }
 
@@ -741,13 +744,13 @@ with st.sidebar:
     for num, label in stages:
         active = st.session_state.active_stage
         if num == active:
-            st.markdown(f"""<div style="font-family:Arial,sans-serif;background:rgba(255,255,255,0.15);border-radius:4px;padding:8px 12px;margin:3px 0;font-size:12px;font-weight:700;color:#FFFFFF;border-left:3px solid #FFFFFF;letter-spacing:0.3px;">&#9658; {label}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;background:rgba(255,255,255,0.15);border-radius:4px;padding:7px 12px;margin:2px 0;font-size:11px;font-weight:700;color:#FFFFFF;border-left:3px solid #FFFFFF;letter-spacing:0.3px;text-align:left;">&#9658; {label}</div>""", unsafe_allow_html=True)
         elif num in completed:
             if st.button(f"✓  {label}", key=f"nav_{num}", use_container_width=True):
                 st.session_state.active_stage = num
                 st.rerun()
         else:
-            st.markdown(f"""<div style="font-family:Arial,sans-serif;padding:8px 12px;margin:3px 0;font-size:12px;color:rgba(255,255,255,0.45);">&#9675; {label}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;padding:7px 12px;margin:2px 0;font-size:11px;color:rgba(255,255,255,0.35);text-align:left;">&#9675; {label}</div>""", unsafe_allow_html=True)
 
     if st.session_state.s1_idea:
         st.markdown("---")
@@ -2173,11 +2176,12 @@ Return ONLY valid JSON with NO extra text, NO inline comments:
         market = {"market_name":"N/A","market_size_current":{"value":"N/A","year":"2024","sources":[]},"market_size_forecast":{"value":"N/A","year":"2030","sources":[]},"cagr":{"value":"N/A","period":"","sources":[]},"growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
 
     system_comp = """You are a competitive intelligence analyst. Identify key competitors for this idea.
-Every company must have a source. Return ONLY valid JSON with NO inline comments:
+Every company must have a source. Return ONLY valid JSON with NO inline comments or annotations on numeric fields:
 {"competitors":[{"name":"string","type":"Incumbent/Startup/Research","relevance":"one sentence","source":"Source: X, Y"}],
 "competitive_intensity":"Low/Medium/High/Very High","white_space":"one sentence","schaeffler_advantage":"one sentence",
-"competition_score":7,"competition_score_rationale":"2 sentences"}"""
-    raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}", max_tokens=1000)
+"competition_score":7,"competition_score_rationale":"2 sentences"}
+Scoring guide (do NOT include this line or any annotations in the JSON): 9-10=very open/few players; 7-8=some room; 5-6=moderate; 3-4=crowded; 1-2=saturated."""
+    raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}", max_tokens=1200)
     try:
         comp = _parse_json(raw)
     except Exception:
@@ -2703,16 +2707,65 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
                     st.rerun()
             with btn_col2:
                 if st.button(T("s1_full_run"), type="secondary", key="s1_full_run"):
-                    idea_fa  = st.session_state.s1_idea
-                    s1c_fa   = st.session_state.s1_classification
-                    quad_fa  = s1c_fa.get("quadrant","RADICAL")
-                    st.session_state._full_run_active = True
-                    with st.spinner("Running full pipeline — Stage 02: Market Intelligence..."):
-                        run_stage2(idea_fa, quad_fa, s1c_fa)
-                    st.session_state.active_stage = 2
+                    idea_fa = st.session_state.s1_idea
+                    s1c_fa  = st.session_state.s1_classification
+                    quad_fa = s1c_fa.get("quadrant","RADICAL")
+                    _prog_fr = st.progress(0, text="⚡ Full pipeline starting…")
+                    _stat_fr = st.empty()
+                    _stat_fr.markdown("🔍 **Stage 02:** Market Intelligence…")
+                    _prog_fr.progress(8)
+                    run_stage2(idea_fa, quad_fa, s1c_fa)
+                    _prog_fr.progress(25)
+                    _stat_fr.markdown("🔬 **Stage 03:** Patent Intelligence…")
+                    run_stage3(idea_fa, quad_fa, s1c_fa)
+                    _prog_fr.progress(45)
+                    _stat_fr.markdown("⚙️ **Stage 04:** Technical Feasibility…")
+                    run_stage4(idea_fa, quad_fa, s1c_fa)
+                    _prog_fr.progress(65)
+                    _stat_fr.markdown("🏭 **Stage 05:** P³ Perspective…")
+                    run_stage5(idea_fa, quad_fa, s1c_fa)
+                    _prog_fr.progress(85)
+                    _stat_fr.markdown("📊 **Stage 06:** Scoring & Synthesis…")
+                    run_stage6_synthesis(idea_fa, quad_fa, s1c_fa)
+                    _prog_fr.progress(100, text="✓ Full pipeline complete!")
+                    time.sleep(0.4)
+                    _prog_fr.empty()
+                    _stat_fr.empty()
                     st.rerun()
 
         # Post-result chat
+        # ── Full pipeline complete banner ─────────────────────
+        if (st.session_state.get("s2_data") and st.session_state.get("s3_data") and
+                st.session_state.get("s4_data") and st.session_state.get("s5_data") and
+                st.session_state.get("s6_data")):
+            s2f = st.session_state.s2_data.get("final_score",0)
+            s3f = st.session_state.s3_data.get("final_score",0)
+            s4f = st.session_state.s4_data.get("final_score",0)
+            s5f = st.session_state.s5_data.get("final_score",0)
+            ipi_full = st.session_state.s6_data.get("ipi",0)
+            rec_full = st.session_state.s6_data.get("synthesis",{}).get("recommendation","")
+            ipi_col  = "#22c55e" if ipi_full>=7 else "#f59e0b" if ipi_full>=4 else "#ef4444"
+            rec_col_map2 = {"PROCEED":"#22c55e","PROCEED WITH CONDITIONS":"#f59e0b","DEFER":"#f97316","REJECT":"#ef4444"}
+            rec_c = rec_col_map2.get(rec_full,"#60a5fa")
+            st.markdown(f"""
+<div style="background:#0a1f12;border:1px solid #22c55e55;border-radius:8px;padding:16px 20px;margin:16px 0;">
+  <div style="color:#22c55e;font-size:11px;letter-spacing:1.5px;font-weight:700;margin-bottom:10px;">✓ FULL PIPELINE COMPLETE — USE SIDEBAR TO EXPLORE EACH STAGE</div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+    <div style="text-align:center;background:#0f2d1a;border-radius:6px;padding:8px 14px;min-width:70px;">
+      <div style="color:#94a3b8;font-size:9px;letter-spacing:1px;">IPI SCORE</div>
+      <div style="color:{ipi_col};font-size:26px;font-weight:700;line-height:1.1;">{ipi_full}</div>
+      <div style="color:#64748b;font-size:9px;">/ 10</div>
+    </div>
+    <div style="color:{rec_c};font-size:16px;font-weight:700;flex:1;">{rec_full}</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">02 · Market <span style="color:#60a5fa;font-weight:600;">{s2f:.1f}/10</span></div>
+    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">03 · Patent <span style="color:#60a5fa;font-weight:600;">{s3f:.1f}/10</span></div>
+    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">04 · Feasibility <span style="color:#60a5fa;font-weight:600;">{s4f:.1f}/10</span></div>
+    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">05 · P³ <span style="color:#60a5fa;font-weight:600;">{s5f:.1f}/10</span></div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
         st.markdown("---")
         st.subheader(T("s1_chat_header"))
         for msg in st.session_state.s1_chat:
@@ -2854,16 +2907,6 @@ Return ONLY valid JSON with NO inline comments:
 
     # Results
     elif st.session_state.s2_step == "done":
-        # ── Auto-continue full run chain ──────────────────────
-        if not st.session_state.get("s3_data") and st.session_state.get("_full_run_active"):
-            idea_fr = st.session_state.s1_idea
-            s1c_fr  = st.session_state.s1_classification
-            quad_fr = s1c_fr.get("quadrant","RADICAL")
-            with st.spinner("Stage 03: Patent Intelligence..."):
-                run_stage3(idea_fr, quad_fr, s1c_fr)
-            st.session_state.active_stage = 3
-            st.rerun()
-
         d       = st.session_state.s2_data
         market  = d["market"]; comp = d["comp"]; sectors = d["sectors"]
         weights = d["weights"]; final = d["final_score"]
@@ -3357,16 +3400,6 @@ Return ONLY valid JSON:
 
     # ── Results ───────────────────────────────────────────────
     elif st.session_state.s3_step == "done":
-        # ── Auto-continue full run chain ──────────────────────
-        if not st.session_state.get("s4_data") and st.session_state.get("_full_run_active"):
-            idea_fr = st.session_state.s1_idea
-            s1c_fr  = st.session_state.s1_classification
-            quad_fr = s1c_fr.get("quadrant","RADICAL")
-            with st.spinner("Stage 04: Technical Feasibility..."):
-                run_stage4(idea_fr, quad_fr, s1c_fr)
-            st.session_state.active_stage = 4
-            st.rerun()
-
         d            = st.session_state.s3_data
         landscape    = d["landscape"]
         ansoff_data  = d["ansoff_data"]
@@ -3842,16 +3875,6 @@ Return ONLY valid JSON:
 
     # ── Results ───────────────────────────────────────────────
     elif st.session_state.s4_step == "done":
-        # ── Auto-continue full run chain ──────────────────────
-        if not st.session_state.get("s5_data") and st.session_state.get("_full_run_active"):
-            idea_fr = st.session_state.s1_idea
-            s1c_fr  = st.session_state.s1_classification
-            quad_fr = s1c_fr.get("quadrant","RADICAL")
-            with st.spinner("Stage 05: P³ Perspective..."):
-                run_stage5(idea_fr, quad_fr, s1c_fr)
-            st.session_state.active_stage = 5
-            st.rerun()
-
         d         = st.session_state.s4_data
         existence = d["existence"]
         trl       = d["trl"]
@@ -4252,17 +4275,6 @@ Return ONLY valid JSON:
 
     # ── Results ───────────────────────────────────────────────
     elif st.session_state.s5_step == "done":
-        # ── Auto-continue full run chain ──────────────────────
-        if not st.session_state.get("s6_data") and st.session_state.get("_full_run_active"):
-            idea_fr = st.session_state.s1_idea
-            s1c_fr  = st.session_state.s1_classification
-            quad_fr = s1c_fr.get("quadrant","RADICAL")
-            with st.spinner("Stage 06: Scoring & Synthesis..."):
-                run_stage6_synthesis(idea_fr, quad_fr, s1c_fr)
-            st.session_state.active_stage = 6
-            st.session_state._full_run_active = False
-            st.rerun()
-
         d        = st.session_state.s5_data
         org_data = d["org_data"]
         final    = d["final_score"]
