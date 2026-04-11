@@ -6,3 +6,4 @@ python-docx
 gspread
 google-auth
 openpyxl
+streamlit>=1.32.0
