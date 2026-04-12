@@ -788,39 +788,21 @@ with st.sidebar:
         st.session_state.active_stage = 1
         st.rerun()
     st.markdown('<div style="background:rgba(255,255,255,0.12);height:1px;margin:6px 0 4px;"></div>', unsafe_allow_html=True)
-    import base64 as _b64, streamlit.components.v1 as _stcv1
+    import base64 as _b64
     _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     try:
         _xl_buf = generate_ideas_excel()
         _xl_fn  = f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        st.download_button(
-            label=T("dl_ideas"),
-            data=_xl_buf,
-            file_name=_xl_fn,
-            mime=_XLSX_MIME,
-            key="sidebar_xl",
-            use_container_width=True,
-        )
+        _xl_b64 = _b64.b64encode(_xl_buf.getvalue()).decode()
+        st.markdown(f"""
+<a href="data:{_XLSX_MIME};base64,{_xl_b64}" download="{_xl_fn}"
+   style="display:block;color:rgba(255,255,255,0.5);font-size:10px;font-weight:400;
+          font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;letter-spacing:0.3px;
+          text-decoration:none;padding:4px 0;width:100%;line-height:1.8;">
+  {T("dl_ideas")}
+</a>""", unsafe_allow_html=True)
     except Exception as _exc:
-        st.caption(f"⚠️ Log unavailable: {_exc}")
-    # ── App source download ──────────────────────────────
-    st.markdown('<div style="background:rgba(255,255,255,0.12);height:1px;margin:6px 0 4px;"></div>', unsafe_allow_html=True)
-    try:
-        import os as _os
-        _src_path = _os.path.abspath(__file__)
-        with open(_src_path, "rb") as _src_f:
-            _src_bytes = _src_f.read()
-        _src_b64 = _b64.b64encode(_src_bytes).decode()
-        _src_fn  = f"innovation_assistant_{datetime.now().strftime('%Y%m%d')}.py"
-        _stcv1.html(f"""
-<a id="_appdl" href="data:text/x-python;base64,{_src_b64}" download="{_src_fn}"
-   style="display:inline-block;padding:5px 12px;background:transparent;color:rgba(255,255,255,0.5);
-          font-size:10px;font-weight:400;border-radius:3px;text-decoration:none;
-          font-family:Arial,sans-serif;letter-spacing:0.3px;">↓  Download latest app (.py)</a>
-<script>(function(){{ /* no auto-click — user-initiated only */ }})();</script>
-""", height=32)
-    except Exception:
-        pass  # silently skip if __file__ is unavailable
+        st.caption(f"\u26a0\ufe0f Log unavailable: {_exc}")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Ansoff chart helper ───────────────────────────────────────
