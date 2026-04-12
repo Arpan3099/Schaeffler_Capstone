@@ -76,7 +76,17 @@ def _sheets_client():
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive"
     ]
-    creds = Credentials.from_service_account_info(_SA_INFO, scopes=scopes)
+    # Prefer Streamlit secrets — avoids JWT signature failure caused by
+    # \n vs real-newline corruption in hardcoded private keys.
+    # In Streamlit Cloud → Settings → Secrets, add a [gcp_service_account]
+    # section (see instructions in README / comments below).
+    try:
+        sa_info = dict(st.secrets["gcp_service_account"])
+    except Exception:
+        # Fallback: hardcoded dict — fix literal \n → real newlines in PEM key
+        sa_info = dict(_SA_INFO)
+        sa_info["private_key"] = sa_info["private_key"].replace("\\n", "\n")
+    creds = Credentials.from_service_account_info(sa_info, scopes=scopes)
     return gspread.authorize(creds)
 
 def load_past_ideas():
@@ -2850,41 +2860,12 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
                     time.sleep(0.4)
                     _prog_fr.empty()
                     _stat_fr.empty()
+                    # Navigate to Stage 6 so results are immediately visible
+                    # and all stages appear as ✓ in the sidebar navigator
+                    st.session_state.active_stage = 6
                     st.rerun()
 
         # Post-result chat
-        # ── Full pipeline complete banner ─────────────────────
-        if (st.session_state.get("s2_data") and st.session_state.get("s3_data") and
-                st.session_state.get("s4_data") and st.session_state.get("s5_data") and
-                st.session_state.get("s6_data")):
-            s2f = st.session_state.s2_data.get("final_score",0)
-            s3f = st.session_state.s3_data.get("final_score",0)
-            s4f = st.session_state.s4_data.get("final_score",0)
-            s5f = st.session_state.s5_data.get("final_score",0)
-            ipi_full = st.session_state.s6_data.get("ipi",0)
-            rec_full = st.session_state.s6_data.get("synthesis",{}).get("recommendation","")
-            ipi_col  = "#22c55e" if ipi_full>=7 else "#f59e0b" if ipi_full>=4 else "#ef4444"
-            rec_col_map2 = {"PROCEED":"#22c55e","PROCEED WITH CONDITIONS":"#f59e0b","DEFER":"#f97316","REJECT":"#ef4444"}
-            rec_c = rec_col_map2.get(rec_full,"#60a5fa")
-            st.markdown(f"""
-<div style="background:#0a1f12;border:1px solid #22c55e55;border-radius:8px;padding:16px 20px;margin:16px 0;">
-  <div style="color:#22c55e;font-size:11px;letter-spacing:1.5px;font-weight:700;margin-bottom:10px;">✓ FULL PIPELINE COMPLETE — USE SIDEBAR TO EXPLORE EACH STAGE</div>
-  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-    <div style="text-align:center;background:#0f2d1a;border-radius:6px;padding:8px 14px;min-width:70px;">
-      <div style="color:#94a3b8;font-size:9px;letter-spacing:1px;">IPI SCORE</div>
-      <div style="color:{ipi_col};font-size:26px;font-weight:700;line-height:1.1;">{ipi_full}</div>
-      <div style="color:#64748b;font-size:9px;">/ 10</div>
-    </div>
-    <div style="color:{rec_c};font-size:16px;font-weight:700;flex:1;">{rec_full}</div>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">02 · Market <span style="color:#60a5fa;font-weight:600;">{s2f:.1f}/10</span></div>
-    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">03 · Patent <span style="color:#60a5fa;font-weight:600;">{s3f:.1f}/10</span></div>
-    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">04 · Feasibility <span style="color:#60a5fa;font-weight:600;">{s4f:.1f}/10</span></div>
-    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">05 · P³ <span style="color:#60a5fa;font-weight:600;">{s5f:.1f}/10</span></div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
         st.markdown("---")
         st.subheader(T("s1_chat_header"))
         for msg in st.session_state.s1_chat:
