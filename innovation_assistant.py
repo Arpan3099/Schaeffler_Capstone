@@ -91,13 +91,20 @@ def save_idea_to_sheets(row_data: dict):
         sh = _sheets_client().open_by_key(SHEET_ID)
         ws = sh.sheet1
         existing = ws.get_all_values()
-        if not existing:
-            ws.append_row(SHEET_COLUMNS)
+        # Ensure header row exists and matches expected columns
+        if not existing or existing[0] != SHEET_COLUMNS:
+            if not existing:
+                ws.append_row(SHEET_COLUMNS, value_input_option="RAW")
+            # If headers exist but are wrong, we still proceed — just log data
         row = [str(row_data.get(col, "")) for col in SHEET_COLUMNS]
-        ws.append_row(row)
-        return True
+        # Use explicit next-row index for guaranteed new-row insertion,
+        # immune to Google Sheets' unreliable "table range" detection.
+        next_row_index = len(existing) + 1
+        ws.insert_row(row, next_row_index, value_input_option="USER_ENTERED")
+        return True, None
     except Exception as e:
-        return False
+        return False, str(e)
+
 
 def check_similar_ideas(new_idea, past_ideas):
     if not past_ideas:
@@ -783,21 +790,37 @@ with st.sidebar:
     st.markdown('<div style="background:rgba(255,255,255,0.12);height:1px;margin:6px 0 4px;"></div>', unsafe_allow_html=True)
     import base64 as _b64, streamlit.components.v1 as _stcv1
     _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    if st.button(T("dl_ideas"), key="sidebar_xl", use_container_width=True):
-        with st.spinner(""):
-            try:
-                _xl_buf = generate_ideas_excel()
-                _xl_b64 = _b64.b64encode(_xl_buf.getvalue()).decode()
-                _xl_fn  = f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                _stcv1.html(f"""
-<a id="_xdl" href="data:{_XLSX_MIME};base64,{_xl_b64}" download="{_xl_fn}"
-   style="display:inline-block;padding:7px 14px;background:#005a2d;color:#fff;
-          font-size:12px;font-weight:600;border-radius:4px;text-decoration:none;
-          font-family:Arial,sans-serif;">{_xl_fn}</a>
-<script>(function(){{var a=document.getElementById('_xdl');if(a)a.click();}})();</script>
-""", height=44)
-            except Exception as exc:
-                st.error(str(exc))
+    try:
+        _xl_buf = generate_ideas_excel()
+        _xl_fn  = f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        st.download_button(
+            label=T("dl_ideas"),
+            data=_xl_buf,
+            file_name=_xl_fn,
+            mime=_XLSX_MIME,
+            key="sidebar_xl",
+            use_container_width=True,
+        )
+    except Exception as _exc:
+        st.caption(f"⚠️ Log unavailable: {_exc}")
+    # ── App source download ──────────────────────────────
+    st.markdown('<div style="background:rgba(255,255,255,0.12);height:1px;margin:6px 0 4px;"></div>', unsafe_allow_html=True)
+    try:
+        import os as _os
+        _src_path = _os.path.abspath(__file__)
+        with open(_src_path, "rb") as _src_f:
+            _src_bytes = _src_f.read()
+        _src_b64 = _b64.b64encode(_src_bytes).decode()
+        _src_fn  = f"innovation_assistant_{datetime.now().strftime('%Y%m%d')}.py"
+        _stcv1.html(f"""
+<a id="_appdl" href="data:text/x-python;base64,{_src_b64}" download="{_src_fn}"
+   style="display:inline-block;padding:5px 12px;background:transparent;color:rgba(255,255,255,0.5);
+          font-size:10px;font-weight:400;border-radius:3px;text-decoration:none;
+          font-family:Arial,sans-serif;letter-spacing:0.3px;">↓  Download latest app (.py)</a>
+<script>(function(){{ /* no auto-click — user-initiated only */ }})();</script>
+""", height=32)
+    except Exception:
+        pass  # silently skip if __file__ is unavailable
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Ansoff chart helper ───────────────────────────────────────
@@ -2181,7 +2204,7 @@ Every company must have a source. Return ONLY valid JSON with NO inline comments
 "competitive_intensity":"Low/Medium/High/Very High","white_space":"one sentence","schaeffler_advantage":"one sentence",
 "competition_score":7,"competition_score_rationale":"2 sentences"}
 Scoring guide (do NOT include this line or any annotations in the JSON): 9-10=very open/few players; 7-8=some room; 5-6=moderate; 3-4=crowded; 1-2=saturated."""
-    raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}", max_tokens=1200)
+    raw = call_claude(system_comp, f"Idea: {idea}\nMarket: {market.get('market_name','')}\nQuadrant: {quadrant}", max_tokens=2000)
     try:
         comp = _parse_json(raw)
     except Exception:
@@ -2427,7 +2450,7 @@ P³ Score ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partner',
 "risks":["risk 1 with mitigation","risk 2","risk 3"],
 "next_steps":["action 1","action 2","action 3","action 4"]}"""
 
-    raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
+    raw1 = call_claude(system_structured, synthesis_context, max_tokens=2000)
     raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
     fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
     if fb >= 0: raw1_clean = raw1_clean[fb:lb]
@@ -2437,7 +2460,7 @@ P³ Score ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partner',
         synthesis_structured = {"headline":f"IPI {ipi}/10","recommendation":"PROCEED WITH CONDITIONS" if ipi>=5 else "DEFER","recommendation_rationale":"Based on pipeline analysis.","strongest_signals":[],"key_concerns":[],"conditions":[],"strategic_fit":"","risks":[],"next_steps":[]}
 
     system_narrative = "Write a 4-paragraph narrative synthesis for this Schaeffler innovation assessment. Flowing prose, no bullets. Cover: market opportunity, IP landscape, technical maturity, P³ Perspective, and recommendation. Reference Schaeffler P³ formula and electrification context."
-    raw2 = call_claude(system_narrative, synthesis_context + f"\nRecommendation: {synthesis_structured.get('recommendation','')}\nIPI: {ipi}/10", max_tokens=600)
+    raw2 = call_claude(system_narrative, synthesis_context + f"\nRecommendation: {synthesis_structured.get('recommendation','')}\nIPI: {ipi}/10", max_tokens=1400)
     narrative_text = raw2.strip().replace("```","").strip()
 
     synthesis = {**synthesis_structured, "narrative": narrative_text}
@@ -2560,89 +2583,148 @@ if st.session_state.active_stage == 1:
             st.session_state.s1_step = 3
             st.rerun()
 
-    # Step 3 — Classify
+    # Step 3 — Classify (70% idea · 30% Q&A weighted, fully deterministic)
     if st.session_state.s1_step == 3 and not st.session_state.s1_classification:
         with st.spinner(T("s1_spinner_classify")):
             q = st.session_state.s1_questions
             a = st.session_state.s1_answers
-            system = """You are a senior innovation strategist at Schaeffler Group.
-Classify using Schaeffler's Modified Innovation Matrix (Lau et al., ISPIM 2023).
 
-The matrix uses 4 levels on BOTH axes (NOT a simple 2x2):
-- Technology axis: Established → Adjacent → New to Schaeffler → New to the World
-- Market axis: Established → Adjacent → New to Schaeffler → New to the World
+            # ── Pass 1: idea-only axis scoring (Q&A not shown to LLM) ─────────
+            system_idea = """You are a senior Schaeffler innovation strategist.
+Score this innovation idea on Schaeffler's Modified Innovation Matrix axes (Lau et al. ISPIM 2023).
 
-Four quadrants (each spanning 2 levels in each direction):
-EXPLOIT    — Established/Adjacent tech + Established/Adjacent market → Product Development
-EXTEND     — Established/Adjacent tech + New to Schaeffler/World market → Product Development
-RADICAL    — New to Schaeffler/World tech + Established/Adjacent market → Innovation pipeline
-DISRUPTIVE — New to Schaeffler/World tech + New to Schaeffler/World market → Innovation pipeline
+AXIS DEFINITIONS (0-10 each):
+Technology axis:
+  0-2.5 = Established (commercially deployed, off-the-shelf components or standard industrial processes)
+  2.5-5 = Adjacent (technology is commercially known but novel in this specific application)
+  5-7.5 = New to Schaeffler (novel mechanism proven in research/lab but not commercialised at scale)
+  7.5-10 = New to the World (theoretical or experimental only; no commercial deployment exists anywhere)
 
-CRITICAL CLASSIFICATION RULES:
-1. The IDEA DESCRIPTION is your PRIMARY and most authoritative signal. Base your classification on what the idea actually IS and what market it serves.
-2. The three Q&A answers are SUPPLEMENTARY CONTEXT only — they help resolve genuine ambiguity in the idea description, but they must NEVER override a clear signal in the idea itself.
-3. Q2 ("Is the target customer new?") is particularly dangerous — Schaeffler serves automotive OEMs, industrial machinery, rail, aerospace, EV drivetrains, energy, etc. An idea for any of these is EXISTING MARKET even if the user says "new customer" due to unfamiliarity with Schaeffler's portfolio. Do not flip to DISRUPTIVE just because the user answered Q2 as "new customer".
-4. If the idea technology is clearly novel/breakthrough → lean RADICAL or DISRUPTIVE regardless of Q&A.
-5. If both the idea AND the answers strongly point to existing tech + existing market → EXPLOIT. If mixed → EXTEND.
-6. RADICAL vs DISRUPTIVE distinction: RADICAL targets markets Schaeffler already serves (automotive, industrial, rail, energy, EV drivetrains). DISRUPTIVE targets markets entirely outside Schaeffler's current scope (e.g. consumer electronics, healthcare devices, retail).
-7. The proceed field MUST follow this strict rule: EXPLOIT and EXTEND → proceed:false. RADICAL and DISRUPTIVE → proceed:true. This is mandatory.
+Market axis:
+  0-2.5 = Established (core Schaeffler markets: automotive ICE/EV powertrains, industrial bearings, rail, conventional energy)
+  2.5-5 = Adjacent (sectors Schaeffler partially serves: aerospace, two-wheelers, construction & agriculture, renewable energy)
+  5-7.5 = New to Schaeffler (outside current scope: medical devices, consumer electronics, defence)
+  7.5-10 = New to the World (entirely new market category with no established demand or business models)
 
-For EXPLOIT/EXTEND: name the relevant Schaeffler product division:
-E-Mobility / Powertrain & Chassis / Vehicle Lifetime Solutions / Bearings & Industrial Solutions
-
-For RADICAL/DISRUPTIVE: also assign:
-- innovation_cluster: most relevant of Schaeffler's 8 clusters from Lau et al. 2023:
-  Energy Solutions, Material Solutions, Mobility Solutions, E-Drive Solutions,
-  Robotics Solutions, Digital Solutions, Advanced Manufacturing, New Production Concepts
-- trend_alignment: 1-2 of Schaeffler's 5 strategic trends (Lau 2023):
-  Sustainability & Climate Change, New Mobility & Electrification,
-  Autonomous Production, Data Economy & Digitalization, Demographic Change
-- product_family: most relevant of Schaeffler's 8 Motion Product Families (Enders 2026):
-  Guide Motion, Transmit Motion, Control Motion, Generate Motion,
-  Power Motion, Drive Motion, Energize Motion, Sustain Motion
-- project_type: FIP (Research & Innovation Project — high uncertainty, long horizon)
-  or VEP (Advanced Development Project — technology partially validated)
-- innovation_model: Integrated (SHARE network — internal) or Accelerator (open innovation — external partners)
-- technology_level: exact level on the axis (Established/Adjacent/New to Schaeffler/New to the World)
-- market_level: exact level on the axis (Established/Adjacent/New to Schaeffler/New to the World)
+Assign innovation metadata based on the idea content.
 
 Return ONLY valid JSON:
 {
-  "quadrant":"RADICAL/DISRUPTIVE/EXPLOIT/EXTEND",
-  "confidence":"High/Medium/Low",
-  "technology_level":"one of the 4 axis levels",
-  "market_level":"one of the 4 axis levels",
-  "technology_novelty":"one sentence",
-  "market_position":"one sentence",
-  "reasoning":"2-3 sentences explaining the classification primarily from the idea description. If Q&A answers conflicted with the idea, explain why you prioritised the idea.",
-  "proceed":true/false,
-  "schaeffler_division":"division name or empty string",
-  "redirect_message":"one sentence if EXPLOIT/EXTEND else empty string",
-  "innovation_cluster":"cluster name or empty string",
-  "trend_alignment":["trend 1","trend 2"],
-  "product_family":"Motion family name or empty string",
-  "project_type":"FIP or VEP or empty string",
-  "innovation_model":"Integrated or Accelerator or empty string"
+  "tech_score": <float 0-10>,
+  "market_score": <float 0-10>,
+  "technology_level": "Established or Adjacent or New to Schaeffler or New to the World",
+  "market_level": "Established or Adjacent or New to Schaeffler or New to the World",
+  "technology_novelty": "one sentence describing what makes the technology novel or established",
+  "market_position": "one sentence describing the target market relative to Schaeffler's current scope",
+  "idea_reasoning": "2-3 sentences explaining the axis scores from the idea description alone",
+  "confidence": "High/Medium/Low",
+  "innovation_cluster": "one of: Energy Solutions, Material Solutions, Mobility Solutions, E-Drive Solutions, Robotics Solutions, Digital Solutions, Advanced Manufacturing, New Production Concepts — or empty string",
+  "trend_alignment": ["1-2 of: Sustainability & Climate Change, New Mobility & Electrification, Autonomous Production, Data Economy & Digitalization, Demographic Change"],
+  "product_family": "one of: Guide Motion, Transmit Motion, Control Motion, Generate Motion, Power Motion, Drive Motion, Energize Motion, Sustain Motion — or empty string",
+  "project_type": "FIP or VEP or empty string",
+  "innovation_model": "Integrated or Accelerator or empty string"
 }"""
             try:
-                raw = call_claude(system,
-                    f"IDEA DESCRIPTION (primary classification signal):\n{st.session_state.s1_idea}\n\n"
-                    f"SUPPLEMENTARY Q&A (use only to resolve genuine ambiguity — do not override the idea):\n"
-                    f"Q: {q[0]} A: {a[0]}\n"
-                    f"Q: {q[1]} A: {a[1]}\n"
-                    f"Q: {q[2]} A: {a[2]}")
-                raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-                fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-                if fb >= 0: raw_clean = raw_clean[fb:lb]
-                classification = json.loads(raw_clean)
-                # Hard-code proceed based on quadrant — never trust Claude's value here
-                # EXPLOIT and EXTEND must always redirect; RADICAL and DISRUPTIVE always proceed
-                q_result = classification.get("quadrant","").upper()
-                classification["proceed"] = q_result in ("RADICAL", "DISRUPTIVE")
-                st.session_state.s1_classification = classification
+                raw_idea = call_claude(system_idea,
+                    f"IDEA DESCRIPTION:\n{st.session_state.s1_idea}",
+                    max_tokens=1000)
+                raw_idea_c = raw_idea.strip().replace("```json","").replace("```","").strip()
+                fbi = raw_idea_c.find("{"); lbi = raw_idea_c.rfind("}") + 1
+                if fbi >= 0: raw_idea_c = raw_idea_c[fbi:lbi]
+                idea_scores = json.loads(raw_idea_c)
             except Exception as e:
                 st.error(f"Classification error: {e}")
                 st.stop()
+
+            idea_tech   = float(idea_scores.get("tech_score",   5.0))
+            idea_market = float(idea_scores.get("market_score", 5.0))
+
+            # ── Pass 2: Q&A → implied axis scores (deterministic, no LLM) ────
+            # Q1 "Has the core technology been demonstrated anywhere?"
+            #   Yes (demonstrated) → suggests established tech  → qa_tech = 3.5
+            #   No  (novel)        → suggests new-to-world tech → qa_tech = 7.5
+            qa_tech = 3.5 if a[0].startswith("Yes") else 7.5
+
+            # Q2 "Does this target markets Schaeffler currently operates in?"
+            #   Yes (existing)     → suggests established market → qa_market = 3.0
+            #   No  (new)          → suggests new market         → qa_market = 7.5
+            qa_market = 3.0 if a[1].startswith("Yes") else 7.5
+
+            # Q3 "Is the problem already recognised by industry?" (minor secondary ±0.4)
+            #   Yes (recognised problem) → slightly more established on both axes
+            #   No  (novel problem)      → slightly more novel on both axes
+            qa_adj = -0.4 if a[2].startswith("Yes") else 0.4
+
+            # ── Weighted combination: 70% idea · 30% Q&A ─────────────────────
+            # Q&A can only shift a borderline idea (scoring 4-6) across the threshold.
+            # A clearly novel idea (score 8+) or clearly established idea (score 2-)
+            # cannot be flipped by Q&A answers at 30% weight.
+            final_tech   = round(min(9.5, max(0.5,
+                idea_tech   * 0.70 + (qa_tech   + qa_adj) * 0.30)), 1)
+            final_market = round(min(9.5, max(0.5,
+                idea_market * 0.70 + (qa_market + qa_adj) * 0.30)), 1)
+
+            # ── Axis label from final numeric score ───────────────────────────
+            def _score_to_level(s):
+                if s < 2.5: return "Established"
+                if s < 5.0: return "Adjacent"
+                if s < 7.5: return "New to Schaeffler"
+                return "New to the World"
+
+            # ── Quadrant mapping (Lau 2023 · OnePager definitions) ────────────
+            # RADICAL    = New tech (≥5) + Established/Adjacent market (<5)
+            # DISRUPTIVE = New tech (≥5) + New market (≥5)
+            # EXTEND     = Established tech (<5) + New market (≥5)
+            # EXPLOIT    = Established tech (<5) + Established market (<5)
+            tech_new   = final_tech   >= 5.0
+            market_new = final_market >= 5.0
+            if   tech_new and not market_new:   q_result = "RADICAL"
+            elif tech_new and market_new:       q_result = "DISRUPTIVE"
+            elif not tech_new and market_new:   q_result = "EXTEND"
+            else:                               q_result = "EXPLOIT"
+
+            proceed = q_result in ("RADICAL", "DISRUPTIVE")
+
+            # ── Q&A impact note (shown in reasoning for transparency) ─────────
+            tech_shift   = round(final_tech   - idea_tech,   1)
+            market_shift = round(final_market - idea_market, 1)
+            sign = lambda v: ("+" if v >= 0 else "") + str(v)
+            qa_note = (
+                f"Idea-only axis scores: tech {idea_tech}/10 · market {idea_market}/10. "
+                f"Q&A signals (30% weight) adjusted tech to {final_tech} ({sign(tech_shift)}) "
+                f"and market to {final_market} ({sign(market_shift)})."
+            )
+
+            # ── Assemble final classification dict ────────────────────────────
+            classification = {
+                "quadrant":            q_result,
+                "confidence":          idea_scores.get("confidence", "Medium"),
+                "technology_level":    _score_to_level(final_tech),
+                "market_level":        _score_to_level(final_market),
+                "tech_score_raw":      idea_tech,
+                "market_score_raw":    idea_market,
+                "tech_score_final":    final_tech,
+                "market_score_final":  final_market,
+                "technology_novelty":  idea_scores.get("technology_novelty", ""),
+                "market_position":     idea_scores.get("market_position", ""),
+                "reasoning":           idea_scores.get("idea_reasoning", "") + " " + qa_note,
+                "proceed":             proceed,
+                "schaeffler_division": "" if proceed else (
+                    "E-Mobility or Vehicle Lifetime Solutions" if market_new
+                    else "Bearings & Industrial Solutions or Powertrain & Chassis"
+                ),
+                "redirect_message": "" if proceed else (
+                    f"This idea applies {'adjacent' if final_tech < 5 else 'established'} technology "
+                    f"to {'new-to-Schaeffler' if market_new else 'existing'} markets — "
+                    f"best evaluated by Schaeffler Product Development."
+                ),
+                "innovation_cluster": idea_scores.get("innovation_cluster", ""),
+                "trend_alignment":    idea_scores.get("trend_alignment", []),
+                "product_family":     idea_scores.get("product_family", ""),
+                "project_type":       idea_scores.get("project_type", ""),
+                "innovation_model":   idea_scores.get("innovation_model", ""),
+            }
+            st.session_state.s1_classification = classification
         st.rerun()
 
     # Step 3 — Show result
@@ -2674,7 +2756,12 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
             st.success(f"{emoji} **{quadrant}** — {c.get('reasoning','')}")
             st.caption(f"Confidence: {c.get('confidence','')}")
 
-        tech_score, market_score = get_dot_position(quadrant, c.get("confidence","Medium"))
+        tech_score, market_score = (
+            c.get("tech_score_final"),
+            c.get("market_score_final")
+        )
+        if tech_score is None or market_score is None:
+            tech_score, market_score = get_dot_position(quadrant, c.get("confidence","Medium"))
         st.plotly_chart(ansoff_chart(quadrant, tech_score, market_score), use_container_width=True)
 
         # ── 4-level axis labels ───────────────────────────────
@@ -2692,9 +2779,29 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
                 st.markdown(f'<div style="background:#0f1e35;border:1px solid {route_col}44;border-radius:6px;padding:8px 14px;margin:8px 0;"><span style="color:{route_col};font-size:12px;font-weight:600;">🔀 Pipeline route: {pipeline}</span></div>', unsafe_allow_html=True)
 
         col1, col2, col3 = st.columns(3)
-        col1.metric("Technology novelty", f"{tech_score} / 10")
-        col2.metric("Market novelty",     f"{market_score} / 10")
-        col3.metric("Confidence",          c.get("confidence",""))
+        col1.metric("Technology axis", f"{tech_score} / 10")
+        col2.metric("Market axis",     f"{market_score} / 10")
+        col3.metric("Confidence",       c.get("confidence",""))
+
+        # ── Scoring transparency: show idea vs Q&A contribution ───
+        raw_t  = c.get("tech_score_raw",  tech_score)
+        raw_m  = c.get("market_score_raw", market_score)
+        if raw_t != tech_score or raw_m != market_score:
+            sign = lambda v: ("+" if v >= 0 else "") + f"{v:.1f}"
+            st.markdown(f"""
+<div style="background:#0f1e35;border:1px solid #2a4a70;border-radius:6px;padding:10px 16px;margin:8px 0;">
+  <div style="color:#94a3b8;font-size:10px;letter-spacing:1.2px;font-weight:600;margin-bottom:8px;">CLASSIFICATION WEIGHTING  ·  70% Idea · 30% Q&A</div>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    <div>
+      <div style="color:#64748b;font-size:10px;margin-bottom:2px;">TECHNOLOGY AXIS</div>
+      <div style="color:#e2e8f0;font-size:12px;">Idea: <b style="color:#60a5fa;">{raw_t:.1f}</b> &nbsp;·&nbsp; Q&A adjustment: <b style="color:{'#f59e0b' if (tech_score-raw_t)!=0 else '#64748b'};">{sign(tech_score-raw_t)}</b> &nbsp;·&nbsp; Final: <b style="color:#22c55e;">{tech_score:.1f}</b></div>
+    </div>
+    <div>
+      <div style="color:#64748b;font-size:10px;margin-bottom:2px;">MARKET AXIS</div>
+      <div style="color:#e2e8f0;font-size:12px;">Idea: <b style="color:#60a5fa;">{raw_m:.1f}</b> &nbsp;·&nbsp; Q&A adjustment: <b style="color:{'#f59e0b' if (market_score-raw_m)!=0 else '#64748b'};">{sign(market_score-raw_m)}</b> &nbsp;·&nbsp; Final: <b style="color:#22c55e;">{market_score:.1f}</b></div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
 
         # Continue button
         st.markdown("---")
@@ -2793,8 +2900,19 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
                     st.session_state.s1_chat.append({"role":"assistant","content":reply})
 
         if st.button(T("s1_startover"), key="s1_startover"):
+            # Reset Stage 01 inputs and identity
             for k in ["s1_step","s1_idea","s1_questions","s1_answers","s1_classification","s1_chat","s1_similar_ideas","user_name","user_position","user_dept"]:
                 st.session_state[k] = defaults.get(k, "" if k in ("user_name","user_position","user_dept") else defaults.get(k))
+            # Clear all downstream stages and save flag so new idea gets its own row
+            for k in ["s2_data","s2_step","s2_chat",
+                      "s3_data","s3_step","s3_chat",
+                      "s4_data","s4_step","s4_chat",
+                      "s5_data","s5_step","s5_chat",
+                      "s6_data","s6_step","s6_chat","s6_blueprint",
+                      "_s6_saved_to_sheets","s6_report_buf"]:
+                if k in st.session_state:
+                    del st.session_state[k]
+            st.session_state.active_stage = 1
             st.rerun()
 
 # ════════════════════════════════════════════════════════════
@@ -4606,7 +4724,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
   "risks": ["specific risk 1 with mitigation approach", "specific risk 2 with mitigation approach", "specific risk 3 with mitigation approach"],
   "next_steps": ["concrete Schaeffler-specific action step 1", "concrete action step 2", "concrete action step 3", "concrete action step 4"]
 }"""
-        raw1 = call_claude(system_structured, synthesis_context, max_tokens=1000)
+        raw1 = call_claude(system_structured, synthesis_context, max_tokens=2000)
         raw1_clean = raw1.strip().replace("```json","").replace("```","").strip()
         fb = raw1_clean.find("{"); lb = raw1_clean.rfind("}") + 1
         if fb >= 0: raw1_clean = raw1_clean[fb:lb]
@@ -4647,7 +4765,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
 
         # ── Call 2: narrative separately as plain text ────────
         system_narrative = f"""You are a senior Schaeffler innovation strategist. Write a 5-paragraph narrative synthesis for this innovation assessment. Write in flowing prose — no bullet points, no headers. Be specific about the market opportunity, IP landscape, technical maturity, and strategic recommendation. Reference Schaeffler's context (electrification, Vitesco merger, E-Mobility growth, OEM relationships)."""
-        raw2 = call_claude(system_narrative, synthesis_context + f"\n\nRecommendation: {synthesis_structured.get('recommendation','')}\nIPI: {ipi}/10", max_tokens=800)
+        raw2 = call_claude(system_narrative, synthesis_context + f"\n\nRecommendation: {synthesis_structured.get('recommendation','')}\nIPI: {ipi}/10", max_tokens=1400)
         narrative_text = raw2.strip().replace("```","").strip()
 
         synthesis = {**synthesis_structured, "narrative": narrative_text}
@@ -4717,14 +4835,16 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                 "Next Steps":            " | ".join(synthesis.get("next_steps",[])[:4]),
                 "Market Name":           s2d_sv.get("market",{}).get("market_name",""),
                 "Market Size 2024":      _mval(s2d_sv.get("market",{}).get("market_size_current") or s2d_sv.get("market",{}).get("market_size_2024","")),
-                "CAGR":                  s2d_sv.get("market",{}).get("cagr",""),
+                "CAGR":                  _mval(s2d_sv.get("market",{}).get("cagr","")),
                 "TRL Level":             str(s4d_sv.get("trl",{}).get("trl_level","")),
                 "Build Strategy":        s5d_sv.get("org_data",{}).get("build_or_partner",{}).get("recommendation",""),
             }
-            saved = save_idea_to_sheets(row)
-            st.session_state["_s6_saved_to_sheets"] = True
+            saved, save_err = save_idea_to_sheets(row)
             if saved:
+                st.session_state["_s6_saved_to_sheets"] = True
                 st.success("✅ Idea automatically saved to the Innovation Ideas Log.")
+            else:
+                st.warning(f"⚠️ Could not save to Ideas Log — {save_err}. Your analysis is complete; the log entry can be added manually.")
 
         # ── IPI banner ────────────────────────────────────────
         st.markdown(f"""
@@ -4836,8 +4956,8 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         st.markdown("---")
 
         # ── Full narrative ────────────────────────────────────
-        st.markdown("#### 📖 Full Narrative Synthesis")
-        st.markdown(synthesis.get("narrative",""))
+        with st.expander("#### 📖 Full Narrative Synthesis", expanded=False):
+            st.markdown(synthesis.get("narrative",""))
 
         # ── Solution Blueprint ────────────────────────────────
         st.markdown("---")
