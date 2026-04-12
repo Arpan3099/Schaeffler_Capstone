@@ -2449,6 +2449,40 @@ P³ Score ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partner',
     }
     st.session_state.s6_step = "done"
 
+    # Auto-save fires here so it runs on the full-run path (active_stage stays 1,
+    # Stage 6 UI never renders, so the save in that block is never reached).
+    if not st.session_state.get("_s6_saved_to_sheets"):
+        qa_pairs = []
+        for q, a in zip(st.session_state.get("s1_questions", []), st.session_state.get("s1_answers", [])):
+            qa_pairs.append(f"Q: {q} / A: {a}")
+        row = {
+            "Date":                  datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "Submitter Name":        st.session_state.get("user_name", ""),
+            "Position":              st.session_state.get("user_position", ""),
+            "Department":            st.session_state.get("user_dept", ""),
+            "Full Idea Description": idea,
+            "Clarifying Q&A":        " | ".join(qa_pairs),
+            "Quadrant":              quadrant,
+            "Innovation Cluster":    s1c.get("innovation_cluster", ""),
+            "Product Family":        s1c.get("product_family", ""),
+            "Market Score":          str(market_score),
+            "Patent Score":          str(patent_score),
+            "Feasibility Score":     str(feasibility_score),
+            "P³ Score":         str(org_score),
+            "IPI Score":             str(ipi),
+            "Recommendation":        synthesis.get("recommendation", ""),
+            "Key Concerns":          " | ".join(synthesis.get("key_concerns", [])[:3]),
+            "Next Steps":            " | ".join(synthesis.get("next_steps", [])[:4]),
+            "Market Name":           s2d.get("market", {}).get("market_name", ""),
+            "Market Size 2024":      _mval(s2d.get("market", {}).get("market_size_current") or s2d.get("market", {}).get("market_size_2024", "")),
+            "CAGR":                  _mval(s2d.get("market", {}).get("cagr", "")),
+            "TRL Level":             str(s4d.get("trl", {}).get("trl_level", "")),
+            "Build Strategy":        s5d.get("org_data", {}).get("build_or_partner", {}).get("recommendation", ""),
+        }
+        saved, _err = save_idea_to_sheets(row)
+        if saved:
+            st.session_state["_s6_saved_to_sheets"] = True
+
 
 if st.session_state.active_stage == 1:
     st.markdown(f"## {T('s1_title')}")
