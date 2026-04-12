@@ -91,16 +91,12 @@ def save_idea_to_sheets(row_data: dict):
         sh = _sheets_client().open_by_key(SHEET_ID)
         ws = sh.sheet1
         existing = ws.get_all_values()
-        # Ensure header row exists and matches expected columns
-        if not existing or existing[0] != SHEET_COLUMNS:
-            if not existing:
-                ws.append_row(SHEET_COLUMNS, value_input_option="RAW")
-            # If headers exist but are wrong, we still proceed — just log data
+        # Write header if sheet is completely empty
+        if not existing:
+            ws.append_row(SHEET_COLUMNS, value_input_option="RAW")
         row = [str(row_data.get(col, "")) for col in SHEET_COLUMNS]
-        # Use explicit next-row index for guaranteed new-row insertion,
-        # immune to Google Sheets' unreliable "table range" detection.
-        next_row_index = len(existing) + 1
-        ws.insert_row(row, next_row_index, value_input_option="USER_ENTERED")
+        # append_row always adds to the next empty row — no index arithmetic needed
+        ws.append_row(row, value_input_option="USER_ENTERED")
         return True, None
     except Exception as e:
         return False, str(e)
