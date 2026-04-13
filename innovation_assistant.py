@@ -120,10 +120,22 @@ def _sheets_client():
     return gspread.service_account_from_dict(sa_info)
 
 def load_past_ideas():
+    """Read all rows from the sheet. Returns list of dicts keyed by SHEET_COLUMNS."""
     try:
         ws = _sheets_client().open_by_key(SHEET_ID).sheet1
-        return ws.get_all_records()
-    except Exception:
+        rows = ws.get_all_values()
+        if not rows:
+            return []
+        # Use the first row as headers; fall back to SHEET_COLUMNS if sheet is headerless
+        headers = rows[0] if rows[0] else SHEET_COLUMNS
+        data_rows = rows[1:] if len(rows) > 1 else []
+        records = []
+        for row in data_rows:
+            # Pad short rows so zip covers all headers
+            padded = row + [""] * (len(headers) - len(row))
+            records.append(dict(zip(headers, padded)))
+        return records
+    except Exception as e:
         return []
 
 def save_idea_to_sheets(row_data: dict):
@@ -167,27 +179,24 @@ def generate_ideas_excel():
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Innovation Ideas"
-    hdr_fill  = PatternFill("solid", fgColor="1F3864")
+    hdr_fill  = PatternFill("solid", fgColor="007A3D")
     hdr_font  = Font(bold=True, color="FFFFFF", size=10)
-    alt_fill  = PatternFill("solid", fgColor="EAF1FB")
-    if not records:
-        ws.append(["No ideas recorded yet — complete a full pipeline assessment to populate this log."])
-        ws["A1"].font = Font(italic=True, color="555555")
-    else:
-        headers = list(records[0].keys())
-        ws.append(headers)
-        for cell in ws[1]:
-            cell.font = hdr_font
-            cell.fill = hdr_fill
-            cell.alignment = XlAlign(horizontal="center", wrap_text=True)
+    alt_fill  = PatternFill("solid", fgColor="E8F5EE")
+    # Always write SHEET_COLUMNS as headers — independent of what the sheet returns
+    ws.append(SHEET_COLUMNS)
+    for cell in ws[1]:
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = XlAlign(horizontal="center", wrap_text=True)
+    if records:
         for i, record in enumerate(records, start=2):
-            ws.append([record.get(h, "") for h in headers])
+            ws.append([str(record.get(h, "")) for h in SHEET_COLUMNS])
             if i % 2 == 0:
                 for cell in ws[i]:
                     cell.fill = alt_fill
-        for col in ws.columns:
-            max_len = max((len(str(cell.value or "")) for cell in col), default=10)
-            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
+    for col in ws.columns:
+        max_len = max((len(str(cell.value or "")) for cell in col), default=10)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
