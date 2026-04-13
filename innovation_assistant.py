@@ -71,23 +71,53 @@ SHEET_COLUMNS = [
     "TRL Level", "Build Strategy"
 ]
 
+def _fix_sa_info(raw: dict) -> dict:
+    """Normalise a service-account dict so the private key always has real newlines."""
+    sa = dict(raw)
+    key = sa.get("private_key", "")
+    # Step 1: collapse double-escaped \n → single backslash+n
+    key = key.replace("\\n", "\n")
+    # Step 2: replace backslash+n with a real newline character.
+    # chr(10) is used instead of "\n" to avoid any Python source escaping ambiguity.
+    key = key.replace("\n", chr(10))
+    sa["private_key"] = key
+    return sa
+
 def _sheets_client():
-    scopes = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive"
-    ]
-    # Prefer Streamlit secrets — avoids JWT signature failure caused by
-    # \n vs real-newline corruption in hardcoded private keys.
-    # In Streamlit Cloud → Settings → Secrets, add a [gcp_service_account]
-    # section (see instructions in README / comments below).
+    """
+    Build an authorised gspread client.
+    Authentication priority:
+      1. st.secrets["GOOGLE_CREDENTIALS"]  — JSON string pasted into Streamlit secrets
+                                             (most reliable; preserves newlines exactly)
+      2. st.secrets["gcp_service_account"] — TOML section in Streamlit secrets
+      3. Hardcoded _SA_INFO fallback        — will fail if GCP key has been revoked
+
+    To set up option 1 in Streamlit Cloud:
+      Settings → Secrets → paste:
+        GOOGLE_CREDENTIALS = '''<paste full JSON from GCP service account key file>'''
+    """
+    # Option 1: JSON string in secrets (most reliable — newlines preserved verbatim)
     try:
-        sa_info = dict(st.secrets["gcp_service_account"])
+        raw_json = st.secrets["GOOGLE_CREDENTIALS"]
+        sa_info = _fix_sa_info(json.loads(raw_json))
+        return gspread.service_account_from_dict(sa_info)
+    except KeyError:
+        pass
     except Exception:
-        # Fallback: hardcoded dict — fix literal \n → real newlines in PEM key
-        sa_info = dict(_SA_INFO)
-        sa_info["private_key"] = sa_info["private_key"].replace("\\n", "\n")
-    creds = Credentials.from_service_account_info(sa_info, scopes=scopes)
-    return gspread.authorize(creds)
+        pass
+
+    # Option 2: TOML [gcp_service_account] section
+    try:
+        sa_info = _fix_sa_info(dict(st.secrets["gcp_service_account"]))
+        return gspread.service_account_from_dict(sa_info)
+    except KeyError:
+        pass
+    except Exception:
+        pass
+
+    # Option 3: Hardcoded fallback (may fail if GCP key was revoked)
+    sa_info = _fix_sa_info(dict(_SA_INFO))
+    return gspread.service_account_from_dict(sa_info)
 
 def load_past_ideas():
     try:
