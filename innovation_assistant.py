@@ -120,22 +120,10 @@ def _sheets_client():
     return gspread.service_account_from_dict(sa_info)
 
 def load_past_ideas():
-    """Read all rows from the sheet. Returns list of dicts keyed by SHEET_COLUMNS."""
     try:
         ws = _sheets_client().open_by_key(SHEET_ID).sheet1
-        rows = ws.get_all_values()
-        if not rows:
-            return []
-        # Use the first row as headers; fall back to SHEET_COLUMNS if sheet is headerless
-        headers = rows[0] if rows[0] else SHEET_COLUMNS
-        data_rows = rows[1:] if len(rows) > 1 else []
-        records = []
-        for row in data_rows:
-            # Pad short rows so zip covers all headers
-            padded = row + [""] * (len(headers) - len(row))
-            records.append(dict(zip(headers, padded)))
-        return records
-    except Exception as e:
+        return ws.get_all_records()
+    except Exception:
         return []
 
 def save_idea_to_sheets(row_data: dict):
@@ -179,24 +167,27 @@ def generate_ideas_excel():
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Innovation Ideas"
-    hdr_fill  = PatternFill("solid", fgColor="007A3D")
+    hdr_fill  = PatternFill("solid", fgColor="1F3864")
     hdr_font  = Font(bold=True, color="FFFFFF", size=10)
-    alt_fill  = PatternFill("solid", fgColor="E8F5EE")
-    # Always write SHEET_COLUMNS as headers — independent of what the sheet returns
-    ws.append(SHEET_COLUMNS)
-    for cell in ws[1]:
-        cell.font = hdr_font
-        cell.fill = hdr_fill
-        cell.alignment = XlAlign(horizontal="center", wrap_text=True)
-    if records:
+    alt_fill  = PatternFill("solid", fgColor="EAF1FB")
+    if not records:
+        ws.append(["No ideas recorded yet — complete a full pipeline assessment to populate this log."])
+        ws["A1"].font = Font(italic=True, color="555555")
+    else:
+        headers = list(records[0].keys())
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = hdr_font
+            cell.fill = hdr_fill
+            cell.alignment = XlAlign(horizontal="center", wrap_text=True)
         for i, record in enumerate(records, start=2):
-            ws.append([str(record.get(h, "")) for h in SHEET_COLUMNS])
+            ws.append([record.get(h, "") for h in headers])
             if i % 2 == 0:
                 for cell in ws[i]:
                     cell.fill = alt_fill
-    for col in ws.columns:
-        max_len = max((len(str(cell.value or "")) for cell in col), default=10)
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
+        for col in ws.columns:
+            max_len = max((len(str(cell.value or "")) for cell in col), default=10)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -833,21 +824,14 @@ with st.sidebar:
         st.session_state.active_stage = 1
         st.rerun()
     st.markdown('<div style="background:rgba(255,255,255,0.12);height:1px;margin:6px 0 4px;"></div>', unsafe_allow_html=True)
-    import base64 as _b64
-    _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    try:
-        _xl_buf = generate_ideas_excel()
-        _xl_fn  = f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        _xl_b64 = _b64.b64encode(_xl_buf.getvalue()).decode()
-        st.markdown(f"""
-<a href="data:{_XLSX_MIME};base64,{_xl_b64}" download="{_xl_fn}"
+    st.markdown("""
+<a href="https://docs.google.com/spreadsheets/d/1Ya-z55BtzRS7NYiKiM8U8E0-NChueTVprJovvUrvZ6s/edit?usp=sharing"
+   target="_blank"
    style="display:block;color:rgba(255,255,255,0.5);font-size:10px;font-weight:400;
           font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;letter-spacing:0.3px;
           text-decoration:none;padding:4px 0;width:100%;line-height:1.8;">
-  {T("dl_ideas")}
+  ↗ View Ideas Log
 </a>""", unsafe_allow_html=True)
-    except Exception as _exc:
-        st.caption(f"\u26a0\ufe0f Log unavailable: {_exc}")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Ansoff chart helper ───────────────────────────────────────
