@@ -732,6 +732,12 @@ def _parse_json(raw: str) -> dict:
     text = _re_global.sub(r'("[\w_]+"\s*:\s*)(\d+(?:\.\d+)?)\s*\([^)]*\)', r'\1\2', text)
     # Remove trailing commas before } or ]
     text = _re_global.sub(r',\s*([}\]])', r'\1', text)
+    # Replace literal newlines inside JSON string values with a space —
+    # Claude sometimes puts real newlines inside strings, making JSON invalid
+    import re as _re_inline
+    def _fix_newlines(m):
+        return m.group(0).replace('\n', ' ').replace('\r', '')
+    text = _re_inline.sub(r'"(?:[^"\\]|\\.)*"', _fix_newlines, text)
     return json.loads(text)
 
 
@@ -4996,7 +5002,7 @@ Return ONLY valid JSON:
 "key_risks":[{"risk":"string","mitigation":"string"}],
 "schaeffler_fit":"2 sentences on how this maps to Schaeffler capabilities"}""",
                             f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {st.session_state.s4_data.get('trl',{}).get('trl_level','')}\nMarket: {st.session_state.s2_data.get('market',{}).get('market_name','')}",
-                            max_tokens=1200
+                            max_tokens=2000
                         )
                         bp = _parse_json(blueprint_raw)
                         st.session_state.s6_blueprint = bp
