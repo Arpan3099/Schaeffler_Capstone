@@ -743,6 +743,7 @@ def _parse_json(raw: str) -> dict:
 
 # ── Session state ─────────────────────────────────────────────
 defaults = {
+    "show_intro": True,
     "active_stage": 1,
     "ui_lang": "en",
     # User identity
@@ -2523,6 +2524,198 @@ P³ Score ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partner',
             st.session_state["_s6_saved_to_sheets"] = True
 
 
+# ── Intro splash page ─────────────────────────────────────────────────────────
+if st.session_state.get("show_intro", True):
+    # Hide sidebar on intro page for full-focus experience
+    st.markdown("""
+<style>
+/* Collapse sidebar on intro page */
+section[data-testid="stSidebar"] { display: none !important; }
+/* Remove default top padding so hero fills the viewport */
+.stApp > header { display: none !important; }
+.block-container { padding-top: 0 !important; padding-bottom: 0 !important;
+                   max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
+/* Override main background */
+.stApp { background: #050f07 !important; }
+/* CTA button */
+div[data-testid="stButton"] > button[kind="primary"] {
+    background: #007A3D !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 3px !important;
+    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    padding: 14px 40px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    transition: background 0.2s, transform 0.15s !important;
+}
+div[data-testid="stButton"] > button[kind="primary"]:hover {
+    background: #005A2B !important;
+    transform: translateY(-1px) !important;
+}
+/* Centre the button */
+div[data-testid="stButton"] { display: flex; justify-content: center; }
+/* Reduce column gutters */
+[data-testid="column"] { padding: 0 6px !important; }
+</style>
+""", unsafe_allow_html=True)
+
+    # ── Hero HTML ─────────────────────────────────────────────
+    st.markdown("""
+<div style="
+    min-height: 100vh;
+    background: #050f07;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 40px 40px 40px;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+">
+  <!-- Subtle radial glow -->
+  <div style="
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 900px; height: 500px;
+      background: radial-gradient(ellipse at center, rgba(0,122,61,0.18) 0%, transparent 70%);
+      pointer-events: none;
+  "></div>
+
+  <!-- Fine grid overlay -->
+  <div style="
+      position: absolute; inset: 0;
+      background-image:
+          linear-gradient(rgba(0,122,61,0.06) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,122,61,0.06) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+  "></div>
+
+  <!-- Content wrapper -->
+  <div style="position: relative; z-index: 2; text-align: center; max-width: 720px; width: 100%;">
+
+    <!-- Schaeffler logo wordmark -->
+    <div style="margin-bottom: 6px;">
+      <span style="
+          font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 6px;
+          color: rgba(255,255,255,0.35);
+          text-transform: uppercase;
+      ">Schaeffler Group</span>
+    </div>
+
+    <!-- Green S badge + SCHAEFFLER wordmark -->
+    <div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 4px;">
+      <div style="
+          width: 52px; height: 52px;
+          background: #007A3D;
+          border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+      ">
+        <span style="
+            font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif;
+            font-size: 30px; font-weight: 900; color: #ffffff; line-height: 1;
+        ">S</span>
+      </div>
+      <div style="text-align: left;">
+        <div style="
+            font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif;
+            font-size: 32px; font-weight: 800; letter-spacing: 5px;
+            color: #ffffff; line-height: 1;
+        ">SCHAEFFLER</div>
+        <div style="
+            font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif;
+            font-size: 8.5px; letter-spacing: 4px; font-weight: 400;
+            color: rgba(255,255,255,0.45); margin-top: 3px;
+        ">WE PIONEER MOTION</div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div style="
+        width: 60px; height: 2px;
+        background: #007A3D;
+        margin: 28px auto;
+    "></div>
+
+    <!-- Main title -->
+    <h1 style="
+        font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif;
+        font-size: 26px; font-weight: 700; letter-spacing: 1.5px;
+        color: #ffffff; margin: 0 0 10px 0; line-height: 1.25;
+    ">AI Innovation Research Assistant</h1>
+
+    <!-- Subtitle -->
+    <p style="
+        font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif;
+        font-size: 13px; font-weight: 400; letter-spacing: 0.5px;
+        color: rgba(255,255,255,0.5); margin: 0 0 36px 0; line-height: 1.6;
+    ">
+      Structured research and evaluation for radical and disruptive innovation ideas —<br>
+      at the fuzzy front end of Schaeffler's innovation process.
+    </p>
+
+    <!-- 6-stage pipeline strip -->
+    <div style="
+        display: flex; justify-content: center; gap: 4px;
+        flex-wrap: wrap; margin-bottom: 44px;
+    ">
+""" + "".join([f"""
+      <div style="
+          background: rgba(0,122,61,0.12);
+          border: 1px solid rgba(0,122,61,0.30);
+          border-radius: 3px; padding: 7px 12px;
+          font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif;
+          font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+          color: rgba(255,255,255,0.65); text-transform: uppercase;
+          white-space: nowrap;
+      ">{stage}</div>"""
+      for stage in [
+          "01 · Quadrant Classifier",
+          "02 · Market Intelligence",
+          "03 · Patent Intelligence",
+          "04 · Technical Feasibility",
+          "05 · P³ Perspective",
+          "06 · Scoring & Synthesis",
+      ]
+    ]) + """
+    </div>
+
+  </div><!-- /content wrapper -->
+</div>
+""", unsafe_allow_html=True)
+
+    # ── CTA button (native Streamlit — must be outside HTML) ──
+    _col_l, _col_c, _col_r = st.columns([2, 2, 2])
+    with _col_c:
+        if st.button("BEGIN INNOVATION RESEARCH →", type="primary", use_container_width=False, key="intro_cta"):
+            st.session_state.show_intro = False
+            st.rerun()
+
+    # ── Footer caption ────────────────────────────────────────
+    st.markdown("""
+<div style="
+    text-align: center; margin-top: 32px;
+    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif;
+    font-size: 10px; letter-spacing: 1px;
+    color: rgba(255,255,255,0.2);
+">
+  MBA Capstone Project · EBS Universität für Wirtschaft und Recht · Arpan Chowdhury
+</div>
+""", unsafe_allow_html=True)
+
+    st.stop()
+
+
+# ── Main pipeline ──────────────────────────────────────────────────────────────
 if st.session_state.active_stage == 1:
     st.markdown(f"## {T('s1_title')}")
     st.markdown(f"""<div style="background:#1a2d45;border-radius:6px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #2E75B6;">
