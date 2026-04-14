@@ -741,9 +741,30 @@ def _parse_json(raw: str) -> dict:
     return json.loads(text)
 
 
+# ── Version-safe query params helper ─────────────────────────
+# st.query_params (dict API) landed in Streamlit 1.30.
+# Older deployments still use the experimental functions.
+import streamlit as _st_version_check
+_ST_VERSION = tuple(int(x) for x in _st_version_check.__version__.split(".")[:2])
+
+def _get_query(key: str) -> str | None:
+    """Return the first value of a URL query param, or None."""
+    try:
+        val = st.query_params.get(key)          # Streamlit ≥ 1.30
+        return val if val else None
+    except AttributeError:
+        vals = st.experimental_get_query_params().get(key, [])  # type: ignore
+        return vals[0] if vals else None
+
+def _set_query(key: str, value: str) -> None:
+    """Set a URL query param."""
+    try:
+        st.query_params[key] = value            # Streamlit ≥ 1.30
+    except AttributeError:
+        st.experimental_set_query_params(**{key: value})       # type: ignore
+
 # ── Session state ─────────────────────────────────────────────
 defaults = {
-    "show_intro": True,
     "active_stage": 1,
     "ui_lang": "en",
     # User identity
@@ -767,8 +788,11 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── Intro splash page — runs BEFORE sidebar so st.stop() prevents sidebar render ──
-if st.session_state.get("show_intro", True):
+# ── Intro splash page — query-param gate ─────────────────────
+# Show intro whenever the URL has no ?app= param.
+# The button sets ?app=1 via st.query_params, which survives refresh.
+# Opening the bare URL (no params) always shows the intro again.
+if _get_query("app") is None:
     st.markdown("""
 <style>
 .stApp { background: #050f07 !important; }
@@ -889,7 +913,7 @@ div[data-testid="stButton"] { display: flex; justify-content: center; }
     _cl, _cc, _cr = st.columns([1.5, 2, 1.5])
     with _cc:
         if st.button("BEGIN INNOVATION RESEARCH →", type="primary", use_container_width=True, key="intro_cta"):
-            st.session_state.show_intro = False
+            _set_query("app", "1")
             st.rerun()
 
     st.markdown("""
