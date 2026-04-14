@@ -28,6 +28,158 @@ TAVILY_KEY = ""  # optional
 
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered", initial_sidebar_state="expanded")
 
+# ═══════════════════════════════════════════════════════════════
+#  INTRO PAGE
+#  Must be first — before sidebar, CSS, API key, everything.
+#  "_intro_done" is never set in defaults, so it is absent on
+#  every new browser session → intro always shows first.
+#  Button sets it True → rerun skips intro for that session.
+# ═══════════════════════════════════════════════════════════════
+if not st.session_state.get("_intro_done", False):
+    st.markdown("""
+<style>
+html, body, .stApp { background: #050f07 !important; }
+.block-container {
+    padding-top: 0 !important; padding-bottom: 0 !important;
+    max-width: 100% !important;
+    padding-left: 0 !important; padding-right: 0 !important;
+}
+section[data-testid="stSidebar"]  { display: none !important; }
+header[data-testid="stHeader"]    { display: none !important; }
+#MainMenu                         { display: none !important; }
+footer                            { display: none !important; }
+div[data-testid="stButton"] > button {
+    background: #007A3D !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 3px !important;
+    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: 2.5px !important;
+    padding: 14px 40px !important;
+    height: auto !important;
+    width: auto !important;
+    display: inline-block !important;
+}
+div[data-testid="stButton"] > button:hover {
+    background: #005A2B !important;
+}
+div[data-testid="stButton"] {
+    display: flex !important;
+    justify-content: center !important;
+    margin-top: 8px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div style="min-height:95vh;display:flex;flex-direction:column;align-items:center;
+            justify-content:center;padding:40px 24px;box-sizing:border-box;
+            position:relative;overflow:hidden;background:#050f07;">
+
+  <!-- green radial glow -->
+  <div style="position:absolute;top:-60px;left:50%;transform:translateX(-50%);
+              width:800px;height:460px;
+              background:radial-gradient(ellipse at center,rgba(0,122,61,0.20) 0%,transparent 68%);
+              pointer-events:none;"></div>
+
+  <!-- grid -->
+  <div style="position:absolute;inset:0;
+              background-image:
+                linear-gradient(rgba(0,122,61,0.055) 1px,transparent 1px),
+                linear-gradient(90deg,rgba(0,122,61,0.055) 1px,transparent 1px);
+              background-size:44px 44px;pointer-events:none;"></div>
+
+  <!-- content -->
+  <div style="position:relative;z-index:2;text-align:center;max-width:680px;width:100%;">
+
+    <!-- S badge + wordmark -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:28px;">
+      <div style="width:56px;height:56px;background:#007A3D;border-radius:9px;
+                  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+                  box-shadow:0 0 32px rgba(0,122,61,0.45);">
+        <span style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+                     font-size:34px;font-weight:900;color:#fff;line-height:1;">S</span>
+      </div>
+      <div style="text-align:left;">
+        <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+                    font-size:28px;font-weight:800;letter-spacing:5px;
+                    color:#ffffff;line-height:1;">SCHAEFFLER</div>
+        <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+                    font-size:8px;letter-spacing:4.5px;font-weight:400;
+                    color:rgba(255,255,255,0.38);margin-top:5px;">WE PIONEER MOTION</div>
+      </div>
+    </div>
+
+    <!-- divider -->
+    <div style="width:44px;height:2px;background:#007A3D;margin:0 auto 26px auto;
+                box-shadow:0 0 10px rgba(0,122,61,0.6);"></div>
+
+    <!-- title -->
+    <h1 style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+               font-size:22px;font-weight:700;letter-spacing:1.5px;
+               color:#ffffff;margin:0 0 14px 0;line-height:1.35;">
+      AI Innovation Research Assistant
+    </h1>
+
+    <!-- subtitle -->
+    <p style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+              font-size:13px;color:rgba(255,255,255,0.42);
+              margin:0 0 40px 0;line-height:1.75;letter-spacing:0.2px;">
+      Structured evaluation for radical &amp; disruptive innovation ideas<br>
+      at the fuzzy front end of Schaeffler's innovation process.
+    </p>
+
+    <!-- pipeline pill strip -->
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-bottom:52px;">
+      <div style="background:rgba(0,122,61,0.10);border:1px solid rgba(0,122,61,0.28);
+                  border-radius:3px;padding:7px 14px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+                  font-size:9.5px;font-weight:700;letter-spacing:1.3px;
+                  color:rgba(255,255,255,0.55);">01 · QUADRANT CLASSIFIER</div>
+      <div style="background:rgba(0,122,61,0.10);border:1px solid rgba(0,122,61,0.28);
+                  border-radius:3px;padding:7px 14px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+                  font-size:9.5px;font-weight:700;letter-spacing:1.3px;
+                  color:rgba(255,255,255,0.55);">02 · MARKET INTELLIGENCE</div>
+      <div style="background:rgba(0,122,61,0.10);border:1px solid rgba(0,122,61,0.28);
+                  border-radius:3px;padding:7px 14px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+                  font-size:9.5px;font-weight:700;letter-spacing:1.3px;
+                  color:rgba(255,255,255,0.55);">03 · PATENT INTELLIGENCE</div>
+      <div style="background:rgba(0,122,61,0.10);border:1px solid rgba(0,122,61,0.28);
+                  border-radius:3px;padding:7px 14px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+                  font-size:9.5px;font-weight:700;letter-spacing:1.3px;
+                  color:rgba(255,255,255,0.55);">04 · TECHNICAL FEASIBILITY</div>
+      <div style="background:rgba(0,122,61,0.10);border:1px solid rgba(0,122,61,0.28);
+                  border-radius:3px;padding:7px 14px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+                  font-size:9.5px;font-weight:700;letter-spacing:1.3px;
+                  color:rgba(255,255,255,0.55);">05 · P³ PERSPECTIVE</div>
+      <div style="background:rgba(0,122,61,0.10);border:1px solid rgba(0,122,61,0.28);
+                  border-radius:3px;padding:7px 14px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+                  font-size:9.5px;font-weight:700;letter-spacing:1.3px;
+                  color:rgba(255,255,255,0.55);">06 · SCORING &amp; SYNTHESIS</div>
+    </div>
+
+  </div><!-- /content -->
+</div>
+""", unsafe_allow_html=True)
+
+    # ── CTA — native Streamlit button (can't be inside HTML) ──────────────
+    if st.button("BEGIN INNOVATION RESEARCH  →", key="_intro_btn"):
+        st.session_state["_intro_done"] = True
+        st.rerun()
+
+    st.markdown("""
+<p style="text-align:center;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
+          font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.15);margin-top:20px;">
+  MBA Capstone · EBS Universität für Wirtschaft und Recht · Arpan Chowdhury
+</p>
+""", unsafe_allow_html=True)
+
+    st.stop()  # Nothing else renders until button is clicked
+# ═══════════════════════════════════════════════════════════════
+#  END INTRO — full app continues below
+# ═══════════════════════════════════════════════════════════════
+
 # ── API key — loaded from Streamlit secrets ───────────────────────────────────
 try:
     ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
@@ -741,27 +893,6 @@ def _parse_json(raw: str) -> dict:
     return json.loads(text)
 
 
-# ── Version-safe query params helper ─────────────────────────
-# st.query_params (dict API) landed in Streamlit 1.30.
-# Older deployments still use the experimental functions.
-import streamlit as _st_version_check
-_ST_VERSION = tuple(int(x) for x in _st_version_check.__version__.split(".")[:2])
-
-def _get_query(key: str) -> str | None:
-    """Return the first value of a URL query param, or None."""
-    try:
-        val = st.query_params.get(key)          # Streamlit ≥ 1.30
-        return val if val else None
-    except AttributeError:
-        vals = st.experimental_get_query_params().get(key, [])  # type: ignore
-        return vals[0] if vals else None
-
-def _set_query(key: str, value: str) -> None:
-    """Set a URL query param."""
-    try:
-        st.query_params[key] = value            # Streamlit ≥ 1.30
-    except AttributeError:
-        st.experimental_set_query_params(**{key: value})       # type: ignore
 
 # ── Session state ─────────────────────────────────────────────
 defaults = {
@@ -787,144 +918,6 @@ defaults = {
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
-
-# ── Intro splash page — query-param gate ─────────────────────
-# Show intro whenever the URL has no ?app= param.
-# The button sets ?app=1 via st.query_params, which survives refresh.
-# Opening the bare URL (no params) always shows the intro again.
-if _get_query("app") is None:
-    st.markdown("""
-<style>
-.stApp { background: #050f07 !important; }
-.block-container { padding-top: 0 !important; padding-bottom: 0 !important;
-                   max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
-section[data-testid="stSidebar"] { display: none !important; }
-header[data-testid="stHeader"] { display: none !important; }
-/* CTA button */
-div[data-testid="stButton"] > button[kind="primary"] {
-    background: #007A3D !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 3px !important;
-    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
-    letter-spacing: 2px !important;
-    text-transform: uppercase !important;
-    padding: 14px 44px !important;
-    height: auto !important;
-    min-height: 0 !important;
-    transition: background 0.2s !important;
-}
-div[data-testid="stButton"] > button[kind="primary"]:hover {
-    background: #005A2B !important;
-}
-div[data-testid="stButton"] { display: flex; justify-content: center; }
-[data-testid="column"] { padding: 0 6px !important; }
-</style>
-""", unsafe_allow_html=True)
-
-    st.markdown("""
-<div style="
-    min-height:100vh; background:#050f07;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:60px 40px 40px 40px; box-sizing:border-box; position:relative; overflow:hidden;
-">
-  <!-- Green radial glow -->
-  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);
-              width:900px;height:500px;
-              background:radial-gradient(ellipse at center,rgba(0,122,61,0.18) 0%,transparent 70%);
-              pointer-events:none;"></div>
-  <!-- Subtle grid -->
-  <div style="position:absolute;inset:0;
-              background-image:linear-gradient(rgba(0,122,61,0.06) 1px,transparent 1px),
-                              linear-gradient(90deg,rgba(0,122,61,0.06) 1px,transparent 1px);
-              background-size:40px 40px;pointer-events:none;"></div>
-
-  <div style="position:relative;z-index:2;text-align:center;max-width:700px;width:100%;">
-
-    <!-- S badge + wordmark -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:24px;">
-      <div style="width:54px;height:54px;background:#007A3D;border-radius:8px;
-                  display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <span style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-                     font-size:32px;font-weight:900;color:#ffffff;line-height:1;">S</span>
-      </div>
-      <div style="text-align:left;">
-        <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-                    font-size:30px;font-weight:800;letter-spacing:5px;color:#ffffff;line-height:1;">SCHAEFFLER</div>
-        <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-                    font-size:8px;letter-spacing:4px;font-weight:400;
-                    color:rgba(255,255,255,0.4);margin-top:4px;">WE PIONEER MOTION</div>
-      </div>
-    </div>
-
-    <!-- Divider -->
-    <div style="width:48px;height:2px;background:#007A3D;margin:0 auto 28px auto;"></div>
-
-    <!-- Title -->
-    <h1 style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-               font-size:24px;font-weight:700;letter-spacing:1.5px;
-               color:#ffffff;margin:0 0 12px 0;line-height:1.3;">
-      AI Innovation Research Assistant
-    </h1>
-
-    <!-- Subtitle -->
-    <p style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-              font-size:13px;font-weight:400;letter-spacing:0.3px;
-              color:rgba(255,255,255,0.45);margin:0 0 38px 0;line-height:1.7;">
-      Structured research and evaluation for radical &amp; disruptive ideas —<br>
-      at the fuzzy front end of Schaeffler's innovation process.
-    </p>
-
-    <!-- Pipeline stage pills -->
-    <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:5px;margin-bottom:48px;">
-      <div style="background:rgba(0,122,61,0.12);border:1px solid rgba(0,122,61,0.32);
-                  border-radius:3px;padding:7px 13px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-                  font-size:10px;font-weight:700;letter-spacing:1.2px;
-                  color:rgba(255,255,255,0.6);white-space:nowrap;">01 · QUADRANT CLASSIFIER</div>
-      <div style="background:rgba(0,122,61,0.12);border:1px solid rgba(0,122,61,0.32);
-                  border-radius:3px;padding:7px 13px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-                  font-size:10px;font-weight:700;letter-spacing:1.2px;
-                  color:rgba(255,255,255,0.6);white-space:nowrap;">02 · MARKET INTELLIGENCE</div>
-      <div style="background:rgba(0,122,61,0.12);border:1px solid rgba(0,122,61,0.32);
-                  border-radius:3px;padding:7px 13px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-                  font-size:10px;font-weight:700;letter-spacing:1.2px;
-                  color:rgba(255,255,255,0.6);white-space:nowrap;">03 · PATENT INTELLIGENCE</div>
-      <div style="background:rgba(0,122,61,0.12);border:1px solid rgba(0,122,61,0.32);
-                  border-radius:3px;padding:7px 13px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-                  font-size:10px;font-weight:700;letter-spacing:1.2px;
-                  color:rgba(255,255,255,0.6);white-space:nowrap;">04 · TECHNICAL FEASIBILITY</div>
-      <div style="background:rgba(0,122,61,0.12);border:1px solid rgba(0,122,61,0.32);
-                  border-radius:3px;padding:7px 13px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-                  font-size:10px;font-weight:700;letter-spacing:1.2px;
-                  color:rgba(255,255,255,0.6);white-space:nowrap;">05 · P³ PERSPECTIVE</div>
-      <div style="background:rgba(0,122,61,0.12);border:1px solid rgba(0,122,61,0.32);
-                  border-radius:3px;padding:7px 13px;font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-                  font-size:10px;font-weight:700;letter-spacing:1.2px;
-                  color:rgba(255,255,255,0.6);white-space:nowrap;">06 · SCORING &amp; SYNTHESIS</div>
-    </div>
-
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-    # CTA button — must be a native Streamlit widget
-    _cl, _cc, _cr = st.columns([1.5, 2, 1.5])
-    with _cc:
-        if st.button("BEGIN INNOVATION RESEARCH →", type="primary", use_container_width=True, key="intro_cta"):
-            _set_query("app", "1")
-            st.rerun()
-
-    st.markdown("""
-<div style="text-align:center;margin-top:24px;
-            font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;
-            font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.18);">
-  MBA Capstone · EBS Universität für Wirtschaft und Recht · Arpan Chowdhury
-</div>
-""", unsafe_allow_html=True)
-
-    st.stop()   # ← nothing below this renders; sidebar is never built
 
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
