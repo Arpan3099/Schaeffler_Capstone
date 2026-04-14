@@ -43,7 +43,7 @@ section[data-testid="stSidebar"],header[data-testid="stHeader"],
 #MainMenu,footer,[data-testid="stToolbar"]{display:none!important;}
 div[data-testid="stButton"]>button{
     background:#007A3D!important;color:#fff!important;border:none!important;
-    border-radius:3px!important;font-size:13px!important;font-weight:700!important;
+    border-radius:3px!important;font-size:16px!important;font-weight:700!important;
     letter-spacing:2.5px!important;padding:14px 40px!important;
     font-family:Arial,sans-serif!important;
     width:auto!important;display:inline-block!important;
@@ -88,18 +88,18 @@ body{
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
   box-shadow:0 0 32px rgba(0,122,61,0.5);
 }
-.s-badge span{font-size:34px;font-weight:900;color:#fff;line-height:1;}
+.s-badge span{font-size:43px;font-weight:900;color:#fff;line-height:1;}
 .wordmark{text-align:left;}
-.wordmark .name{font-size:28px;font-weight:800;letter-spacing:5px;color:#fff;line-height:1;}
-.wordmark .tagline{font-size:8px;letter-spacing:4.5px;font-weight:400;color:rgba(255,255,255,0.38);margin-top:5px;}
+.wordmark .name{font-size:35px;font-weight:800;letter-spacing:5px;color:#fff;line-height:1;}
+.wordmark .tagline{font-size:10px;letter-spacing:4.5px;font-weight:400;color:rgba(255,255,255,0.38);margin-top:5px;}
 .divider{width:44px;height:2px;background:#007A3D;margin:0 auto 26px auto;box-shadow:0 0 10px rgba(0,122,61,0.6);}
-h1{font-size:22px;font-weight:700;letter-spacing:1.5px;color:#fff;margin:0 0 14px 0;line-height:1.35;}
-.subtitle{font-size:13px;color:rgba(255,255,255,0.42);margin:0 0 38px 0;line-height:1.75;letter-spacing:0.2px;}
+h1{font-size:28px;font-weight:700;letter-spacing:1.5px;color:#fff;margin:0 0 14px 0;line-height:1.35;}
+.subtitle{font-size:16px;color:rgba(255,255,255,0.42);margin:0 0 38px 0;line-height:1.75;letter-spacing:0.2px;}
 .pills{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-bottom:8px;}
 .pill{
   background:rgba(0,122,61,0.10);border:1px solid rgba(0,122,61,0.28);
   border-radius:3px;padding:7px 14px;
-  font-size:9.5px;font-weight:700;letter-spacing:1.3px;
+  font-size:12px;font-weight:700;letter-spacing:1.3px;
   color:rgba(255,255,255,0.55);white-space:nowrap;
 }
 </style>
@@ -139,7 +139,7 @@ h1{font-size:22px;font-weight:700;letter-spacing:1.5px;color:#fff;margin:0 0 14p
         st.rerun()
 
     st.markdown(
-        "<p style='text-align:center;font-family:Arial,sans-serif;font-size:10px;"
+        "<p style='text-align:center;font-family:Arial,sans-serif;font-size:13px;"
         "letter-spacing:1px;color:rgba(255,255,255,0.15);margin-top:16px;'>"
         "MBA Capstone &middot; EBS Universit&auml;t f&uuml;r Wirtschaft und Recht &middot; Arpan Chowdhury</p>",
         unsafe_allow_html=True
@@ -336,11 +336,7 @@ section[data-testid="stSidebar"] .stButton > button {
     color: rgba(255,255,255,0.65) !important;
     border: none !important;
     border-radius: 4px !important;
-    font-size: 11px !important;
-    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
-    font-weight: 400 !important;
-    letter-spacing: 0.3px !important;
-    padding: 7px 12px !important;
+    font-size: 14px !important;
     text-align: left !important;
     justify-content: flex-start !important;
     display: flex !important;
@@ -358,7 +354,7 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 /* ── Sidebar selectbox — match sidebar style ── */
 section[data-testid="stSidebar"] .stSelectbox label {
     color: rgba(255,255,255,0.55) !important;
-    font-size: 10px !important;
+    font-size: 13px !important;
     letter-spacing: 1.5px !important;
     font-weight: 600 !important;
     text-transform: uppercase !important;
@@ -367,7 +363,7 @@ section[data-testid="stSidebar"] .stSelectbox > div > div {
     background: transparent !important;
     border: 1px solid rgba(255,255,255,0.2) !important;
     color: rgba(255,255,255,0.8) !important;
-    font-size: 11px !important;
+    font-size: 14px !important;
     font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
     border-radius: 4px !important;
 }
@@ -397,7 +393,7 @@ section[data-testid="stSidebar"] .stSelectbox svg {
     background: transparent !important;
     border: none !important;
     color: rgba(255,255,255,0.5) !important;
-    font-size: 10px !important;
+    font-size: 13px !important;
     font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
     font-weight: 400 !important;
     letter-spacing: 0.3px !important;
@@ -412,7 +408,7 @@ section[data-testid="stSidebar"] .stSelectbox svg {
 }
 .ideas-log-fixed .stSelectbox label {
     color: rgba(255,255,255,0.45) !important;
-    font-size: 9px !important;
+    font-size: 11px !important;
     letter-spacing: 1.5px !important;
     font-weight: 600 !important;
     text-transform: uppercase !important;
@@ -422,7 +418,7 @@ section[data-testid="stSidebar"] .stSelectbox svg {
     background: transparent !important;
     border: 1px solid rgba(255,255,255,0.18) !important;
     color: rgba(255,255,255,0.65) !important;
-    font-size: 10px !important;
+    font-size: 13px !important;
     font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
     border-radius: 3px !important;
     padding: 2px 6px !important;
@@ -915,13 +911,13 @@ with st.sidebar:
     for num, label in stages:
         active = st.session_state.active_stage
         if num == active:
-            st.markdown(f"""<div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;background:rgba(255,255,255,0.15);border-radius:4px;padding:7px 12px;margin:2px 0;font-size:11px;font-weight:700;color:#FFFFFF;border-left:3px solid #FFFFFF;letter-spacing:0.3px;text-align:left;">&#9658; {label}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;background:rgba(255,255,255,0.15);border-radius:4px;padding:7px 12px;margin:2px 0;font-size:14px;font-weight:700;color:#FFFFFF;border-left:3px solid #FFFFFF;letter-spacing:0.3px;text-align:left;">&#9658; {label}</div>""", unsafe_allow_html=True)
         elif num in completed:
             if st.button(f"✓  {label}", key=f"nav_{num}", use_container_width=True):
                 st.session_state.active_stage = num
                 st.rerun()
         else:
-            st.markdown(f"""<div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;padding:7px 12px;margin:2px 0;font-size:11px;color:rgba(255,255,255,0.35);text-align:left;">&#9675; {label}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;padding:7px 12px;margin:2px 0;font-size:14px;color:rgba(255,255,255,0.35);text-align:left;">&#9675; {label}</div>""", unsafe_allow_html=True)
 
     if st.session_state.s1_idea:
         st.markdown("---")
@@ -955,7 +951,7 @@ with st.sidebar:
     st.markdown("""
 <a href="https://docs.google.com/spreadsheets/d/1Ya-z55BtzRS7NYiKiM8U8E0-NChueTVprJovvUrvZ6s/edit?usp=sharing"
    target="_blank"
-   style="display:block;color:rgba(255,255,255,0.5);font-size:10px;font-weight:400;
+   style="display:block;color:rgba(255,255,255,0.5);font-size:13px;font-weight:400;
           font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;letter-spacing:0.3px;
           text-decoration:none;padding:4px 0;width:100%;line-height:1.8;">
   ↗ View Ideas Log
