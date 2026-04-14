@@ -28,127 +28,6 @@ TAVILY_KEY = ""  # optional
 
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered", initial_sidebar_state="expanded")
 
-# ═══════════════════════════════════════════════════════════════
-#  INTRO PAGE  —  runs before everything, including API key check
-# ═══════════════════════════════════════════════════════════════
-if not st.session_state.get("_intro_done", False):
-    import streamlit.components.v1 as _components
-
-    # Single combined call: style + layout in one block, no split calls
-    st.markdown("""
-<style>
-html,body,.stApp,[data-testid="stAppViewContainer"]{background:#050f07!important;}
-.block-container{padding:0!important;max-width:100%!important;}
-section[data-testid="stSidebar"],header[data-testid="stHeader"],
-#MainMenu,footer,[data-testid="stToolbar"]{display:none!important;}
-div[data-testid="stButton"]>button{
-    background:#007A3D!important;color:#fff!important;border:none!important;
-    border-radius:3px!important;font-size:16px!important;font-weight:700!important;
-    letter-spacing:2.5px!important;padding:14px 40px!important;
-    font-family:Arial,sans-serif!important;
-    width:auto!important;display:inline-block!important;
-}
-div[data-testid="stButton"]>button:hover{background:#005A2B!important;}
-div[data-testid="stButton"]{display:flex!important;justify-content:center!important;margin-top:4px!important;}
-</style>""", unsafe_allow_html=True)
-
-    # Hero rendered via components.html — guaranteed rendering, not affected by markdown parser
-    _components.html("""
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{
-  background:#050f07;
-  min-height:85vh;
-  display:flex;align-items:center;justify-content:center;
-  font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;
-  overflow:hidden;position:relative;
-  padding:40px 24px;
-}
-.glow{
-  position:absolute;top:-80px;left:50%;transform:translateX(-50%);
-  width:800px;height:460px;
-  background:radial-gradient(ellipse at center,rgba(0,122,61,0.22) 0%,transparent 68%);
-  pointer-events:none;
-}
-.grid{
-  position:absolute;inset:0;
-  background-image:
-    linear-gradient(rgba(0,122,61,0.055) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(0,122,61,0.055) 1px,transparent 1px);
-  background-size:44px 44px;pointer-events:none;
-}
-.content{position:relative;z-index:2;text-align:center;max-width:680px;width:100%;}
-.badge-row{display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:28px;}
-.s-badge{
-  width:56px;height:56px;background:#007A3D;border-radius:9px;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  box-shadow:0 0 32px rgba(0,122,61,0.5);
-}
-.s-badge span{font-size:43px;font-weight:900;color:#fff;line-height:1;}
-.wordmark{text-align:left;}
-.wordmark .name{font-size:35px;font-weight:800;letter-spacing:5px;color:#fff;line-height:1;}
-.wordmark .tagline{font-size:10px;letter-spacing:4.5px;font-weight:400;color:rgba(255,255,255,0.38);margin-top:5px;}
-.divider{width:44px;height:2px;background:#007A3D;margin:0 auto 26px auto;box-shadow:0 0 10px rgba(0,122,61,0.6);}
-h1{font-size:28px;font-weight:700;letter-spacing:1.5px;color:#fff;margin:0 0 14px 0;line-height:1.35;}
-.subtitle{font-size:16px;color:rgba(255,255,255,0.42);margin:0 0 38px 0;line-height:1.75;letter-spacing:0.2px;}
-.pills{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-bottom:8px;}
-.pill{
-  background:rgba(0,122,61,0.10);border:1px solid rgba(0,122,61,0.28);
-  border-radius:3px;padding:7px 14px;
-  font-size:12px;font-weight:700;letter-spacing:1.3px;
-  color:rgba(255,255,255,0.55);white-space:nowrap;
-}
-</style>
-</head>
-<body>
-<div class="glow"></div>
-<div class="grid"></div>
-<div class="content">
-  <div class="badge-row">
-    <div class="s-badge"><span>S</span></div>
-    <div class="wordmark">
-      <div class="name">SCHAEFFLER</div>
-      <div class="tagline">WE PIONEER MOTION</div>
-    </div>
-  </div>
-  <div class="divider"></div>
-  <h1>AI Innovation Research Assistant</h1>
-  <p class="subtitle">
-    Structured evaluation for radical &amp; disruptive innovation ideas<br>
-    at the fuzzy front end of Schaeffler&apos;s innovation process.
-  </p>
-  <div class="pills">
-    <div class="pill">01 &middot; QUADRANT CLASSIFIER</div>
-    <div class="pill">02 &middot; MARKET INTELLIGENCE</div>
-    <div class="pill">03 &middot; PATENT INTELLIGENCE</div>
-    <div class="pill">04 &middot; TECHNICAL FEASIBILITY</div>
-    <div class="pill">05 &middot; P&sup3; PERSPECTIVE</div>
-    <div class="pill">06 &middot; SCORING &amp; SYNTHESIS</div>
-  </div>
-</div>
-</body>
-</html>
-""", height=480, scrolling=False)
-
-    if st.button("BEGIN INNOVATION RESEARCH  \u2192", key="_intro_btn"):
-        st.session_state["_intro_done"] = True
-        st.rerun()
-
-    st.markdown(
-        "<p style='text-align:center;font-family:Arial,sans-serif;font-size:13px;"
-        "letter-spacing:1px;color:rgba(255,255,255,0.15);margin-top:16px;'>"
-        "MBA Capstone &middot; EBS Universit&auml;t f&uuml;r Wirtschaft und Recht &middot; Arpan Chowdhury</p>",
-        unsafe_allow_html=True
-    )
-    st.stop()
-# ═══════════════════════════════════════════════════════════════
-#  END INTRO
-# ═══════════════════════════════════════════════════════════════
-
 # ── API key — loaded from Streamlit secrets ───────────────────────────────────
 try:
     ANTHROPIC_KEY = st.secrets["ANTHROPIC_API_KEY"]
@@ -192,53 +71,13 @@ SHEET_COLUMNS = [
     "TRL Level", "Build Strategy"
 ]
 
-def _fix_sa_info(raw: dict) -> dict:
-    """Normalise a service-account dict so the private key always has real newlines."""
-    sa = dict(raw)
-    key = sa.get("private_key", "")
-    # Step 1: collapse double-escaped \n → single backslash+n
-    key = key.replace("\\n", "\n")
-    # Step 2: replace backslash+n with a real newline character.
-    # chr(10) is used instead of "\n" to avoid any Python source escaping ambiguity.
-    key = key.replace("\n", chr(10))
-    sa["private_key"] = key
-    return sa
-
 def _sheets_client():
-    """
-    Build an authorised gspread client.
-    Authentication priority:
-      1. st.secrets["GOOGLE_CREDENTIALS"]  — JSON string pasted into Streamlit secrets
-                                             (most reliable; preserves newlines exactly)
-      2. st.secrets["gcp_service_account"] — TOML section in Streamlit secrets
-      3. Hardcoded _SA_INFO fallback        — will fail if GCP key has been revoked
-
-    To set up option 1 in Streamlit Cloud:
-      Settings → Secrets → paste:
-        GOOGLE_CREDENTIALS = '''<paste full JSON from GCP service account key file>'''
-    """
-    # Option 1: JSON string in secrets (most reliable — newlines preserved verbatim)
-    try:
-        raw_json = st.secrets["GOOGLE_CREDENTIALS"]
-        sa_info = _fix_sa_info(json.loads(raw_json))
-        return gspread.service_account_from_dict(sa_info)
-    except KeyError:
-        pass
-    except Exception:
-        pass
-
-    # Option 2: TOML [gcp_service_account] section
-    try:
-        sa_info = _fix_sa_info(dict(st.secrets["gcp_service_account"]))
-        return gspread.service_account_from_dict(sa_info)
-    except KeyError:
-        pass
-    except Exception:
-        pass
-
-    # Option 3: Hardcoded fallback (may fail if GCP key was revoked)
-    sa_info = _fix_sa_info(dict(_SA_INFO))
-    return gspread.service_account_from_dict(sa_info)
+    scopes = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds = Credentials.from_service_account_info(_SA_INFO, scopes=scopes)
+    return gspread.authorize(creds)
 
 def load_past_ideas():
     try:
@@ -252,16 +91,13 @@ def save_idea_to_sheets(row_data: dict):
         sh = _sheets_client().open_by_key(SHEET_ID)
         ws = sh.sheet1
         existing = ws.get_all_values()
-        # Write header if sheet is completely empty
         if not existing:
-            ws.append_row(SHEET_COLUMNS, value_input_option="RAW")
+            ws.append_row(SHEET_COLUMNS)
         row = [str(row_data.get(col, "")) for col in SHEET_COLUMNS]
-        # append_row always adds to the next empty row — no index arithmetic needed
-        ws.append_row(row, value_input_option="USER_ENTERED")
-        return True, None
+        ws.append_row(row)
+        return True
     except Exception as e:
-        return False, str(e)
-
+        return False
 
 def check_similar_ideas(new_idea, past_ideas):
     if not past_ideas:
@@ -336,7 +172,11 @@ section[data-testid="stSidebar"] .stButton > button {
     color: rgba(255,255,255,0.65) !important;
     border: none !important;
     border-radius: 4px !important;
-    font-size: 14px !important;
+    font-size: 11px !important;
+    font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
+    font-weight: 400 !important;
+    letter-spacing: 0.3px !important;
+    padding: 7px 12px !important;
     text-align: left !important;
     justify-content: flex-start !important;
     display: flex !important;
@@ -354,7 +194,7 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 /* ── Sidebar selectbox — match sidebar style ── */
 section[data-testid="stSidebar"] .stSelectbox label {
     color: rgba(255,255,255,0.55) !important;
-    font-size: 13px !important;
+    font-size: 10px !important;
     letter-spacing: 1.5px !important;
     font-weight: 600 !important;
     text-transform: uppercase !important;
@@ -363,7 +203,7 @@ section[data-testid="stSidebar"] .stSelectbox > div > div {
     background: transparent !important;
     border: 1px solid rgba(255,255,255,0.2) !important;
     color: rgba(255,255,255,0.8) !important;
-    font-size: 14px !important;
+    font-size: 11px !important;
     font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
     border-radius: 4px !important;
 }
@@ -393,7 +233,7 @@ section[data-testid="stSidebar"] .stSelectbox svg {
     background: transparent !important;
     border: none !important;
     color: rgba(255,255,255,0.5) !important;
-    font-size: 13px !important;
+    font-size: 10px !important;
     font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
     font-weight: 400 !important;
     letter-spacing: 0.3px !important;
@@ -408,7 +248,7 @@ section[data-testid="stSidebar"] .stSelectbox svg {
 }
 .ideas-log-fixed .stSelectbox label {
     color: rgba(255,255,255,0.45) !important;
-    font-size: 11px !important;
+    font-size: 9px !important;
     letter-spacing: 1.5px !important;
     font-weight: 600 !important;
     text-transform: uppercase !important;
@@ -418,7 +258,7 @@ section[data-testid="stSidebar"] .stSelectbox svg {
     background: transparent !important;
     border: 1px solid rgba(255,255,255,0.18) !important;
     color: rgba(255,255,255,0.65) !important;
-    font-size: 13px !important;
+    font-size: 10px !important;
     font-family: 'Arial','Helvetica Neue',Helvetica,sans-serif !important;
     border-radius: 3px !important;
     padding: 2px 6px !important;
@@ -849,14 +689,7 @@ def _parse_json(raw: str) -> dict:
     text = _re_global.sub(r'("[\w_]+"\s*:\s*)(\d+(?:\.\d+)?)\s*\([^)]*\)', r'\1\2', text)
     # Remove trailing commas before } or ]
     text = _re_global.sub(r',\s*([}\]])', r'\1', text)
-    # Replace literal newlines inside JSON string values with a space —
-    # Claude sometimes puts real newlines inside strings, making JSON invalid
-    import re as _re_inline
-    def _fix_newlines(m):
-        return m.group(0).replace('\n', ' ').replace('\r', '')
-    text = _re_inline.sub(r'"(?:[^"\\]|\\.)*"', _fix_newlines, text)
     return json.loads(text)
-
 
 
 # ── Session state ─────────────────────────────────────────────
@@ -889,10 +722,10 @@ with st.sidebar:
     # ── Logo ──────────────────────────────────────────────────
     st.markdown(f"""
 <div style="padding:20px 12px 12px 12px;">
-  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:30px;font-weight:700;letter-spacing:3px;color:#FFFFFF;line-height:1;">SCHAEFFLER</div>
-  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:12px;letter-spacing:3.5px;color:rgba(255,255,255,0.7);margin-top:3px;font-weight:400;">WE PIONEER MOTION</div>
+  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:20px;font-weight:700;letter-spacing:3px;color:#FFFFFF;line-height:1;">SCHAEFFLER</div>
+  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:8px;letter-spacing:3.5px;color:rgba(255,255,255,0.7);margin-top:3px;font-weight:400;">WE PIONEER MOTION</div>
   <div style="background:rgba(255,255,255,0.2);height:1px;margin:16px 0 12px 0;"></div>
-  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:14px;letter-spacing:2px;color:rgba(255,255,255,0.65);font-weight:600;">{T("pipeline")}</div>
+  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.65);font-weight:600;">{T("pipeline")}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -911,13 +744,13 @@ with st.sidebar:
     for num, label in stages:
         active = st.session_state.active_stage
         if num == active:
-            st.markdown(f"""<div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;background:rgba(255,255,255,0.15);border-radius:4px;padding:7px 12px;margin:2px 0;font-size:14px;font-weight:700;color:#FFFFFF;border-left:3px solid #FFFFFF;letter-spacing:0.3px;text-align:left;">&#9658; {label}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;background:rgba(255,255,255,0.15);border-radius:4px;padding:7px 12px;margin:2px 0;font-size:11px;font-weight:700;color:#FFFFFF;border-left:3px solid #FFFFFF;letter-spacing:0.3px;text-align:left;">&#9658; {label}</div>""", unsafe_allow_html=True)
         elif num in completed:
             if st.button(f"✓  {label}", key=f"nav_{num}", use_container_width=True):
                 st.session_state.active_stage = num
                 st.rerun()
         else:
-            st.markdown(f"""<div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;padding:7px 12px;margin:2px 0;font-size:14px;color:rgba(255,255,255,0.35);text-align:left;">&#9675; {label}</div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;padding:7px 12px;margin:2px 0;font-size:11px;color:rgba(255,255,255,0.35);text-align:left;">&#9675; {label}</div>""", unsafe_allow_html=True)
 
     if st.session_state.s1_idea:
         st.markdown("---")
@@ -948,14 +781,23 @@ with st.sidebar:
         st.session_state.active_stage = 1
         st.rerun()
     st.markdown('<div style="background:rgba(255,255,255,0.12);height:1px;margin:6px 0 4px;"></div>', unsafe_allow_html=True)
-    st.markdown("""
-<a href="https://docs.google.com/spreadsheets/d/1Ya-z55BtzRS7NYiKiM8U8E0-NChueTVprJovvUrvZ6s/edit?usp=sharing"
-   target="_blank"
-   style="display:block;color:rgba(255,255,255,0.5);font-size:13px;font-weight:400;
-          font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;letter-spacing:0.3px;
-          text-decoration:none;padding:4px 0;width:100%;line-height:1.8;">
-  ↗ View Ideas Log
-</a>""", unsafe_allow_html=True)
+    import base64 as _b64, streamlit.components.v1 as _stcv1
+    _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    if st.button(T("dl_ideas"), key="sidebar_xl", use_container_width=True):
+        with st.spinner(""):
+            try:
+                _xl_buf = generate_ideas_excel()
+                _xl_b64 = _b64.b64encode(_xl_buf.getvalue()).decode()
+                _xl_fn  = f"Schaeffler_Ideas_Log_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                _stcv1.html(f"""
+<a id="_xdl" href="data:{_XLSX_MIME};base64,{_xl_b64}" download="{_xl_fn}"
+   style="display:inline-block;padding:7px 14px;background:#005a2d;color:#fff;
+          font-size:12px;font-weight:600;border-radius:4px;text-decoration:none;
+          font-family:Arial,sans-serif;">{_xl_fn}</a>
+<script>(function(){{var a=document.getElementById('_xdl');if(a)a.click();}})();</script>
+""", height=44)
+            except Exception as exc:
+                st.error(str(exc))
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Ansoff chart helper ───────────────────────────────────────
@@ -2606,40 +2448,6 @@ P³ Score ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partner',
     }
     st.session_state.s6_step = "done"
 
-    # Auto-save fires here so it runs on the full-run path (active_stage stays 1,
-    # Stage 6 UI never renders, so the save in that block is never reached).
-    if not st.session_state.get("_s6_saved_to_sheets"):
-        qa_pairs = []
-        for q, a in zip(st.session_state.get("s1_questions", []), st.session_state.get("s1_answers", [])):
-            qa_pairs.append(f"Q: {q} / A: {a}")
-        row = {
-            "Date":                  datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "Submitter Name":        st.session_state.get("user_name", ""),
-            "Position":              st.session_state.get("user_position", ""),
-            "Department":            st.session_state.get("user_dept", ""),
-            "Full Idea Description": idea,
-            "Clarifying Q&A":        " | ".join(qa_pairs),
-            "Quadrant":              quadrant,
-            "Innovation Cluster":    s1c.get("innovation_cluster", ""),
-            "Product Family":        s1c.get("product_family", ""),
-            "Market Score":          str(market_score),
-            "Patent Score":          str(patent_score),
-            "Feasibility Score":     str(feasibility_score),
-            "P³ Score":         str(org_score),
-            "IPI Score":             str(ipi),
-            "Recommendation":        synthesis.get("recommendation", ""),
-            "Key Concerns":          " | ".join(synthesis.get("key_concerns", [])[:3]),
-            "Next Steps":            " | ".join(synthesis.get("next_steps", [])[:4]),
-            "Market Name":           s2d.get("market", {}).get("market_name", ""),
-            "Market Size 2024":      _mval(s2d.get("market", {}).get("market_size_current") or s2d.get("market", {}).get("market_size_2024", "")),
-            "CAGR":                  _mval(s2d.get("market", {}).get("cagr", "")),
-            "TRL Level":             str(s4d.get("trl", {}).get("trl_level", "")),
-            "Build Strategy":        s5d.get("org_data", {}).get("build_or_partner", {}).get("recommendation", ""),
-        }
-        saved, _err = save_idea_to_sheets(row)
-        if saved:
-            st.session_state["_s6_saved_to_sheets"] = True
-
 
 if st.session_state.active_stage == 1:
     st.markdown(f"## {T('s1_title')}")
@@ -3007,12 +2815,41 @@ The Innovation Pipeline (Stages 02–06) is reserved for <b>RADICAL</b> (breakth
                     time.sleep(0.4)
                     _prog_fr.empty()
                     _stat_fr.empty()
-                    # Navigate to Stage 6 so results are immediately visible
-                    # and all stages appear as ✓ in the sidebar navigator
-                    st.session_state.active_stage = 6
                     st.rerun()
 
         # Post-result chat
+        # ── Full pipeline complete banner ─────────────────────
+        if (st.session_state.get("s2_data") and st.session_state.get("s3_data") and
+                st.session_state.get("s4_data") and st.session_state.get("s5_data") and
+                st.session_state.get("s6_data")):
+            s2f = st.session_state.s2_data.get("final_score",0)
+            s3f = st.session_state.s3_data.get("final_score",0)
+            s4f = st.session_state.s4_data.get("final_score",0)
+            s5f = st.session_state.s5_data.get("final_score",0)
+            ipi_full = st.session_state.s6_data.get("ipi",0)
+            rec_full = st.session_state.s6_data.get("synthesis",{}).get("recommendation","")
+            ipi_col  = "#22c55e" if ipi_full>=7 else "#f59e0b" if ipi_full>=4 else "#ef4444"
+            rec_col_map2 = {"PROCEED":"#22c55e","PROCEED WITH CONDITIONS":"#f59e0b","DEFER":"#f97316","REJECT":"#ef4444"}
+            rec_c = rec_col_map2.get(rec_full,"#60a5fa")
+            st.markdown(f"""
+<div style="background:#0a1f12;border:1px solid #22c55e55;border-radius:8px;padding:16px 20px;margin:16px 0;">
+  <div style="color:#22c55e;font-size:11px;letter-spacing:1.5px;font-weight:700;margin-bottom:10px;">✓ FULL PIPELINE COMPLETE — USE SIDEBAR TO EXPLORE EACH STAGE</div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+    <div style="text-align:center;background:#0f2d1a;border-radius:6px;padding:8px 14px;min-width:70px;">
+      <div style="color:#94a3b8;font-size:9px;letter-spacing:1px;">IPI SCORE</div>
+      <div style="color:{ipi_col};font-size:26px;font-weight:700;line-height:1.1;">{ipi_full}</div>
+      <div style="color:#64748b;font-size:9px;">/ 10</div>
+    </div>
+    <div style="color:{rec_c};font-size:16px;font-weight:700;flex:1;">{rec_full}</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">02 · Market <span style="color:#60a5fa;font-weight:600;">{s2f:.1f}/10</span></div>
+    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">03 · Patent <span style="color:#60a5fa;font-weight:600;">{s3f:.1f}/10</span></div>
+    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">04 · Feasibility <span style="color:#60a5fa;font-weight:600;">{s4f:.1f}/10</span></div>
+    <div style="background:#1a2d45;border-radius:4px;padding:4px 10px;font-size:11px;color:#94a3b8;">05 · P³ <span style="color:#60a5fa;font-weight:600;">{s5f:.1f}/10</span></div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
         st.markdown("---")
         st.subheader(T("s1_chat_header"))
         for msg in st.session_state.s1_chat:
@@ -3040,19 +2877,8 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
                     st.session_state.s1_chat.append({"role":"assistant","content":reply})
 
         if st.button(T("s1_startover"), key="s1_startover"):
-            # Reset Stage 01 inputs and identity
             for k in ["s1_step","s1_idea","s1_questions","s1_answers","s1_classification","s1_chat","s1_similar_ideas","user_name","user_position","user_dept"]:
                 st.session_state[k] = defaults.get(k, "" if k in ("user_name","user_position","user_dept") else defaults.get(k))
-            # Clear all downstream stages and save flag so new idea gets its own row
-            for k in ["s2_data","s2_step","s2_chat",
-                      "s3_data","s3_step","s3_chat",
-                      "s4_data","s4_step","s4_chat",
-                      "s5_data","s5_step","s5_chat",
-                      "s6_data","s6_step","s6_chat","s6_blueprint",
-                      "_s6_saved_to_sheets","s6_report_buf"]:
-                if k in st.session_state:
-                    del st.session_state[k]
-            st.session_state.active_stage = 1
             st.rerun()
 
 # ════════════════════════════════════════════════════════════
@@ -4975,16 +4801,14 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                 "Next Steps":            " | ".join(synthesis.get("next_steps",[])[:4]),
                 "Market Name":           s2d_sv.get("market",{}).get("market_name",""),
                 "Market Size 2024":      _mval(s2d_sv.get("market",{}).get("market_size_current") or s2d_sv.get("market",{}).get("market_size_2024","")),
-                "CAGR":                  _mval(s2d_sv.get("market",{}).get("cagr","")),
+                "CAGR":                  s2d_sv.get("market",{}).get("cagr",""),
                 "TRL Level":             str(s4d_sv.get("trl",{}).get("trl_level","")),
                 "Build Strategy":        s5d_sv.get("org_data",{}).get("build_or_partner",{}).get("recommendation",""),
             }
-            saved, save_err = save_idea_to_sheets(row)
+            saved = save_idea_to_sheets(row)
+            st.session_state["_s6_saved_to_sheets"] = True
             if saved:
-                st.session_state["_s6_saved_to_sheets"] = True
                 st.success("✅ Idea automatically saved to the Innovation Ideas Log.")
-            else:
-                st.warning(f"⚠️ Could not save to Ideas Log — {save_err}. Your analysis is complete; the log entry can be added manually.")
 
         # ── IPI banner ────────────────────────────────────────
         st.markdown(f"""
@@ -5120,7 +4944,7 @@ Return ONLY valid JSON:
 "key_risks":[{"risk":"string","mitigation":"string"}],
 "schaeffler_fit":"2 sentences on how this maps to Schaeffler capabilities"}""",
                             f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {st.session_state.s4_data.get('trl',{}).get('trl_level','')}\nMarket: {st.session_state.s2_data.get('market',{}).get('market_name','')}",
-                            max_tokens=2000
+                            max_tokens=1200
                         )
                         bp = _parse_json(blueprint_raw)
                         st.session_state.s6_blueprint = bp
