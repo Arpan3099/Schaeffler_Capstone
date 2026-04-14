@@ -889,10 +889,10 @@ with st.sidebar:
     # ── Logo ──────────────────────────────────────────────────
     st.markdown(f"""
 <div style="padding:20px 12px 12px 12px;">
-  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:20px;font-weight:700;letter-spacing:3px;color:#FFFFFF;line-height:1;">SCHAEFFLER</div>
-  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:8px;letter-spacing:3.5px;color:rgba(255,255,255,0.7);margin-top:3px;font-weight:400;">WE PIONEER MOTION</div>
+  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:30px;font-weight:700;letter-spacing:3px;color:#FFFFFF;line-height:1;">SCHAEFFLER</div>
+  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:12px;letter-spacing:3.5px;color:rgba(255,255,255,0.7);margin-top:3px;font-weight:400;">WE PIONEER MOTION</div>
   <div style="background:rgba(255,255,255,0.2);height:1px;margin:16px 0 12px 0;"></div>
-  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.65);font-weight:600;">{T("pipeline")}</div>
+  <div style="font-family:'Arial','Helvetica Neue',Helvetica,sans-serif;font-size:14px;letter-spacing:2px;color:rgba(255,255,255,0.65);font-weight:600;">{T("pipeline")}</div>
 </div>
 """, unsafe_allow_html=True)
 
