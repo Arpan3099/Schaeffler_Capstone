@@ -267,11 +267,17 @@ def check_similar_ideas(new_idea, past_ideas):
     if not past_ideas:
         return []
     past_summaries = "\n".join([
-        f"- [{r.get('Date','')}] {r.get('Submitter Name','Unknown')} ({r.get('Department','')}): {str(r.get('Full Idea Description',''))[:200]}"
+        (
+            f"- [{r.get('Date','')}] {r.get('Submitter Name','Unknown')} ({r.get('Department','')}) | "
+            f"Quadrant: {r.get('Quadrant','') or 'Unknown'} | "
+            f"IPI: {r.get('IPI Score','') or 'Unknown'} | "
+            f"Recommendation: {r.get('Recommendation','') or 'Unknown'} | "
+            f"Idea: {str(r.get('Full Idea Description',''))[:200]}"
+        )
         for r in past_ideas[:30]
     ])
     result = call_claude(
-        'You compare innovation ideas. Return ONLY valid JSON: {"similar": [{"date": "...", "submitter": "...", "department": "...", "idea_snippet": "...", "quadrant": "...", "ipi": "...", "recommendation": "...", "similarity": "High/Medium", "reason": "one sentence"}]}. Return empty similar array if nothing is genuinely similar.',
+        'You compare innovation ideas. The past ideas list includes their Quadrant, IPI Score, and Recommendation — use these exact values in your output, do not write "Unknown" if the value is present. Return ONLY valid JSON: {"similar": [{"date": "...", "submitter": "...", "department": "...", "idea_snippet": "...", "quadrant": "...", "ipi": "...", "recommendation": "...", "similarity": "High/Medium", "reason": "one sentence"}]}. Return empty similar array if nothing is genuinely similar.',
         f"New idea: {new_idea}\n\nPast researched ideas:\n{past_summaries}",
         max_tokens=600
     )
@@ -831,34 +837,42 @@ def tavily_search(query):
 import re as _re_global
 
 def _parse_json(raw: str) -> dict:
-    """Robustly parse JSON from a Claude response, handling common failure modes:
-    1. Preamble/postamble text around the JSON block
-    2. ```json ... ``` fences
-    3. Inline rubric annotations on numeric fields, e.g.
-       "market_score": 7 (strong, $2-10bn)  →  "market_score": 7
-    4. Trailing commas before } or ]
+    """Robustly parse JSON from a Claude response.
+    Handles: fences, preamble, rubric annotations, trailing commas,
+    and unescaped literal newlines inside string values.
     """
     if not raw:
         raise ValueError("Empty response")
     text = raw.strip()
-    # Strip markdown fences
     text = _re_global.sub(r"```json\s*", "", text)
     text = _re_global.sub(r"```\s*", "", text).strip()
-    # Extract outermost { … }
     fb = text.find("{"); lb = text.rfind("}")
     if fb >= 0 and lb > fb:
         text = text[fb:lb+1]
-    # Strip inline rubric annotations on numeric values:
-    #   "field": 7 (some text)  →  "field": 7
     text = _re_global.sub(r'("[\w_]+"\s*:\s*)(\d+(?:\.\d+)?)\s*\([^)]*\)', r'\1\2', text)
-    # Remove trailing commas before } or ]
     text = _re_global.sub(r',\s*([}\]])', r'\1', text)
-    # Replace literal newlines inside JSON string values with a space —
-    # Claude sometimes puts real newlines inside strings, making JSON invalid
-    import re as _re_inline
-    def _fix_newlines(m):
-        return m.group(0).replace('\n', ' ').replace('\r', '')
-    text = _re_inline.sub(r'"(?:[^"\\]|\\.)*"', _fix_newlines, text)
+    # Walk char-by-char: replace bare newlines inside string values with space
+    def _sanitise(s):
+        out = []; in_str = False; i = 0
+        while i < len(s):
+            c = s[i]
+            if in_str:
+                if c == '\\':
+                    out.append(c); i += 1
+                    if i < len(s): out.append(s[i])
+                elif c == '"':
+                    in_str = False; out.append(c)
+                elif c in ('\n', '\r'):
+                    out.append(' ')
+                else:
+                    out.append(c)
+            else:
+                if c == '"': in_str = True
+                out.append(c)
+            i += 1
+        return ''.join(out)
+    text = _sanitise(text)
+    text = _re_global.sub(r',\s*([}\]])', r'\1', text)
     return json.loads(text)
 
 
