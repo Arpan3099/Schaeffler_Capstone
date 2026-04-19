@@ -603,8 +603,8 @@ _LANG = {
         "s6_rerun": "← Adjust weights and re-run",
         "s6_chat_header": "💬 Questions about the overall assessment?",
         "s6_chat_ph": "Ask about the IPI score, recommendation, or next steps...",
-        "s6_image_btn": "🖼️ Generate Solution Image",
-        "s6_image_redo": "🔄 Generate different image",
+        "s6_image_btn": "🎨 Generate Solution Blueprint",
+        "s6_image_redo": "🔄 Regenerate Blueprint",
     },
     "de": {
         "pipeline":  "INNOVATIONS-PIPELINE",
@@ -722,8 +722,8 @@ _LANG = {
         "s6_rerun": "← Gewichtungen anpassen und neu starten",
         "s6_chat_header": "💬 Fragen zur Gesamtbewertung?",
         "s6_chat_ph": "Fragen zu IPI-Score, Empfehlung oder nächsten Schritten...",
-        "s6_image_btn": "🖼️ Lösungsbild generieren",
-        "s6_image_redo": "🔄 Anderes Bild generieren",
+        "s6_image_btn": "🎨 Lösungs-Blueprint generieren",
+        "s6_image_redo": "🔄 Blueprint neu generieren",
         "claude_suffix": (
             "\n\nWICHTIG: Antworte AUSSCHLIESSLICH auf Deutsch. "
             "Alle Analysen, Beschreibungen, Begründungen, Zusammenfassungen und sonstigen Texte "
@@ -883,6 +883,8 @@ defaults = {
     "s2_step": "intro",
     "s2_data": {},
     "s2_chat": [],
+    # Stage 06 blueprint
+    "s6_blueprint": None,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -5178,26 +5180,106 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         # ── Solution Blueprint ────────────────────────────────
         st.markdown("---")
         st.markdown("#### 🎨 Solution Blueprint")
-        st.caption("Claude generates a structured technical blueprint — component breakdown, integration points, and deployment context.")
+        st.caption("A structured engineering blueprint grounded in the full pipeline analysis — problem framing, solution architecture, integration, deployment, and Schaeffler fit.")
 
-        if "s6_blueprint" not in st.session_state:
-            st.session_state.s6_blueprint = None
-
-        if st.session_state.s6_blueprint is None:
+        if st.session_state.get("s6_blueprint") is None:
             if st.button(T("s6_image_btn"), type="secondary", key="s6_blueprint_btn"):
                 with st.spinner("Generating blueprint..."):
                     try:
-                        blueprint_raw = call_claude(
-                            """You are a senior Schaeffler engineering strategist. Generate a structured solution blueprint for this innovation idea.
-Return ONLY valid JSON:
-{"core_components":[{"name":"string","function":"one sentence","technology_basis":"string","trl_assumption":"TRL X"}],
-"integration_points":[{"system":"string","interface":"string","complexity":"Low/Medium/High"}],
-"deployment_scenario":{"environment":"string","scale":"string","timeline":"string"},
-"key_risks":[{"risk":"string","mitigation":"string"}],
-"schaeffler_fit":"2 sentences on how this maps to Schaeffler capabilities"}""",
-                            f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {st.session_state.s4_data.get('trl',{}).get('trl_level','')}\nMarket: {st.session_state.s2_data.get('market',{}).get('market_name','')}",
-                            max_tokens=2000
-                        )
+                        # Safely pull all available pipeline data
+                        _s2 = st.session_state.get("s2_data", {})
+                        _s3 = st.session_state.get("s3_data", {})
+                        _s4 = st.session_state.get("s4_data", {})
+                        _s5 = st.session_state.get("s5_data", {})
+                        _s1c = st.session_state.get("s1_classification", {})
+
+                        _market_name   = _s2.get("market", {}).get("market_name", "")
+                        _market_size   = _mval(_s2.get("market", {}).get("market_size_current") or _s2.get("market", {}).get("market_size_2024", ""))
+                        _cagr          = _mval(_s2.get("market", {}).get("cagr", ""))
+                        _competitors   = _s2.get("market", {}).get("key_competitors", [])
+                        _trl_level     = _s4.get("trl", {}).get("trl_level", "Unknown")
+                        _trl_label     = _s4.get("trl", {}).get("trl_label", "")
+                        _trl_readiness = _s4.get("trl", {}).get("schaeffler_entry_readiness", "")
+                        _existence_sum = _s4.get("existence", {}).get("summary", "")
+                        _build_strat   = _s5.get("org_data", {}).get("build_or_partner", {}).get("recommendation", "")
+                        _cluster       = _s1c.get("innovation_cluster", "")
+                        _product_fam   = _s1c.get("product_family", "")
+                        _project_type  = _s1c.get("project_type", "")
+                        _pipeline_rt   = _s1c.get("pipeline_route", "")
+                        _org_gaps      = _s5.get("org_data", {}).get("org_gaps", [])
+                        _org_gaps_str  = "; ".join([g.get("gap","") for g in _org_gaps[:3]]) if _org_gaps else "None identified"
+                        _partners      = _s5.get("org_data", {}).get("partnership_candidates", [])
+                        _partners_str  = "; ".join([p.get("name","") for p in _partners[:3]]) if _partners else "None identified"
+                        _patent_white  = _s3.get("whitespace", {}).get("summary", "") if _s3 else ""
+                        _qa_pairs      = list(zip(
+                            st.session_state.get("s1_questions", []),
+                            st.session_state.get("s1_answers", [])
+                        ))
+                        _qa_str = "\n".join([f"Q: {q} / A: {a}" for q,a in _qa_pairs[:5]]) if _qa_pairs else ""
+
+                        bp_system = """You are a senior Schaeffler engineering strategist. Your job is to generate a detailed, idea-specific solution blueprint for an early-stage innovation concept.
+
+The blueprint must be grounded in the specific idea and all pipeline intelligence provided. Do NOT use placeholder phrases like "string" or "TRL X" — use real, specific content derived from the idea description and context.
+
+Return ONLY valid JSON in exactly this structure:
+{
+  "problem_being_solved": "2-3 sentences describing the specific real-world problem or unmet need this idea addresses",
+  "value_proposition": "2 sentences on the unique value this solution delivers vs current alternatives",
+  "core_components": [
+    {"name": "specific component name", "function": "what it does in one concrete sentence", "technology_basis": "underlying technology or method", "trl_assumption": "TRL 1-9"}
+  ],
+  "integration_points": [
+    {"system": "specific Schaeffler system or external system", "interface": "how they connect", "complexity": "Low/Medium/High"}
+  ],
+  "deployment_scenario": {
+    "environment": "where and how deployed — be specific",
+    "scale": "pilot / business unit / global",
+    "timeline": "realistic estimate given TRL level"
+  },
+  "key_risks": [
+    {"risk": "specific risk", "mitigation": "concrete mitigation approach"}
+  ],
+  "schaeffler_fit": "2 sentences mapping this to Schaeffler's capabilities, clusters, and product families",
+  "recommended_next_action": "single most important concrete action Schaeffler should take in the next 90 days"
+}"""
+
+                        bp_user = f"""INNOVATION IDEA: {idea}
+
+QUADRANT: {quadrant}
+INNOVATION CLUSTER: {_cluster}
+PRODUCT FAMILY: {_product_fam}
+PROJECT TYPE: {_project_type}
+PIPELINE ROUTE: {_pipeline_rt}
+
+CLARIFYING Q&A FROM INNOVATOR:
+{_qa_str if _qa_str else "None recorded"}
+
+MARKET CONTEXT:
+- Market: {_market_name}
+- Market Size: {_market_size}
+- CAGR: {_cagr}
+- Key competitors: {", ".join(_competitors[:4]) if isinstance(_competitors, list) else _competitors}
+
+TECHNOLOGY READINESS:
+- TRL Level: {_trl_level} ({_trl_label})
+- Schaeffler Entry Readiness: {_trl_readiness}
+- Technology Evidence: {_existence_sum}
+
+PATENT LANDSCAPE:
+- White Space Summary: {_patent_white}
+
+ORGANISATIONAL CONTEXT:
+- Build vs Partner Recommendation: {_build_strat}
+- Key Org Gaps: {_org_gaps_str}
+- Relevant Partnership Candidates: {_partners_str}
+
+IPI SCORE: {ipi}/10 | RECOMMENDATION: {rec}
+HEADLINE: {synthesis.get("headline","")}
+STRATEGIC FIT: {synthesis.get("strategic_fit","")}
+
+Generate a blueprint that directly addresses this specific idea, not a generic template."""
+
+                        blueprint_raw = call_claude(bp_system, bp_user, max_tokens=2500)
                         bp = _parse_json(blueprint_raw)
                         st.session_state.s6_blueprint = bp
                         st.rerun()
@@ -5205,40 +5287,89 @@ Return ONLY valid JSON:
                         st.error(f"Blueprint generation error: {e}")
         else:
             bp = st.session_state.s6_blueprint
-            # Core components
+
+            # ── Problem & Value ───────────────────────────────
+            if bp.get("problem_being_solved") or bp.get("value_proposition"):
+                col_prob, col_val = st.columns(2)
+                with col_prob:
+                    st.markdown(f"""
+<div style="background:#0f1e35;border:1px solid #2a4a70;border-radius:6px;padding:14px 16px;height:100%;">
+  <div style="color:#94a3b8;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">PROBLEM BEING SOLVED</div>
+  <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">{bp.get("problem_being_solved","")}</div>
+</div>""", unsafe_allow_html=True)
+                with col_val:
+                    st.markdown(f"""
+<div style="background:#0f1e35;border:1px solid #007A3D44;border-radius:6px;padding:14px 16px;height:100%;">
+  <div style="color:#22c55e;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">VALUE PROPOSITION</div>
+  <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">{bp.get("value_proposition","")}</div>
+</div>""", unsafe_allow_html=True)
+                st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
+
+            # ── Core Components ───────────────────────────────
             if bp.get("core_components"):
                 st.markdown("**🔩 Core Components**")
                 for comp_item in bp["core_components"]:
-                    trl_c = {"TRL 1":"#ef4444","TRL 2":"#ef4444","TRL 3":"#f59e0b","TRL 4":"#f59e0b","TRL 5":"#f59e0b","TRL 6":"#22c55e","TRL 7":"#22c55e","TRL 8":"#22c55e","TRL 9":"#22c55e"}.get(comp_item.get("trl_assumption",""),"#60a5fa")
+                    _trl_str = str(comp_item.get("trl_assumption",""))
+                    trl_c = "#ef4444" if _trl_str in ("TRL 1","TRL 2") else \
+                            "#f59e0b" if _trl_str in ("TRL 3","TRL 4","TRL 5") else \
+                            "#22c55e" if _trl_str in ("TRL 6","TRL 7","TRL 8","TRL 9") else "#60a5fa"
                     st.markdown(f"""
-<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;">
+<div style="background:#1a2d45;border-radius:6px;padding:12px 16px;margin:4px 0;border-left:3px solid {trl_c};">
   <div style="display:flex;justify-content:space-between;align-items:center;">
     <span style="color:#e2e8f0;font-weight:600;font-size:13px;">{comp_item.get("name","")}</span>
-    <span style="color:{trl_c};font-size:11px;background:{trl_c}22;padding:2px 8px;border-radius:8px;">{comp_item.get("trl_assumption","")}</span>
+    <span style="color:{trl_c};font-size:11px;background:{trl_c}22;padding:2px 10px;border-radius:8px;font-weight:600;">{_trl_str}</span>
   </div>
-  <div style="color:#94a3b8;font-size:12px;margin-top:4px;">{comp_item.get("function","")} · <span style="color:#60a5fa;">{comp_item.get("technology_basis","")}</span></div>
-</div>
-""", unsafe_allow_html=True)
-            # Integration points
+  <div style="color:#cbd5e1;font-size:12px;margin-top:5px;">{comp_item.get("function","")}</div>
+  <div style="color:#60a5fa;font-size:11px;margin-top:3px;">⚙ {comp_item.get("technology_basis","")}</div>
+</div>""", unsafe_allow_html=True)
+
+            # ── Integration Points ────────────────────────────
             if bp.get("integration_points"):
                 st.markdown("**🔗 Integration Points**")
-                cols_bp = st.columns(min(3, len(bp["integration_points"])))
-                for i, ip in enumerate(bp["integration_points"][:3]):
+                _ips = bp["integration_points"][:3]
+                cols_bp = st.columns(len(_ips))
+                for i, ip in enumerate(_ips):
                     comp_col = {"Low":"#22c55e","Medium":"#f59e0b","High":"#ef4444"}.get(ip.get("complexity","Medium"),"#f59e0b")
-                    cols_bp[i % 3].markdown(f"""
-<div style="background:#1a2d45;border-radius:6px;padding:10px;text-align:center;">
-  <div style="color:#e2e8f0;font-weight:600;font-size:12px;">{ip.get("system","")}</div>
-  <div style="color:#94a3b8;font-size:11px;margin:4px 0;">{ip.get("interface","")}</div>
-  <div style="color:{comp_col};font-size:10px;">{ip.get("complexity","")} complexity</div>
-</div>
-""", unsafe_allow_html=True)
-            # Deployment
-            dep = bp.get("deployment_scenario",{})
-            if dep:
-                st.markdown(f"**🏭 Deployment** · {dep.get('environment','')} · Scale: {dep.get('scale','')} · Timeline: {dep.get('timeline','')}")
-            # Schaeffler fit
+                    cols_bp[i].markdown(f"""
+<div style="background:#1a2d45;border-radius:6px;padding:12px;text-align:center;height:100%;">
+  <div style="color:#e2e8f0;font-weight:600;font-size:12px;margin-bottom:4px;">{ip.get("system","")}</div>
+  <div style="color:#94a3b8;font-size:11px;margin-bottom:6px;">{ip.get("interface","")}</div>
+  <div style="color:{comp_col};font-size:10px;background:{comp_col}22;padding:2px 8px;border-radius:8px;display:inline-block;">{ip.get("complexity","")} complexity</div>
+</div>""", unsafe_allow_html=True)
+
+            # ── Deployment + Risks ────────────────────────────
+            st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
+            col_dep, col_risk = st.columns(2)
+            dep = bp.get("deployment_scenario", {})
+            with col_dep:
+                if dep:
+                    st.markdown(f"""
+<div style="background:#1a2d45;border-radius:6px;padding:12px 14px;">
+  <div style="color:#94a3b8;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">🏭 DEPLOYMENT</div>
+  <div style="color:#e2e8f0;font-size:12px;margin-bottom:3px;"><b>Environment:</b> {dep.get("environment","")}</div>
+  <div style="color:#e2e8f0;font-size:12px;margin-bottom:3px;"><b>Scale:</b> {dep.get("scale","")}</div>
+  <div style="color:#e2e8f0;font-size:12px;"><b>Timeline:</b> {dep.get("timeline","")}</div>
+</div>""", unsafe_allow_html=True)
+            with col_risk:
+                if bp.get("key_risks"):
+                    st.markdown(f"""
+<div style="background:#1a2d45;border-radius:6px;padding:12px 14px;">
+  <div style="color:#f59e0b;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">⚠️ KEY RISKS</div>
+  {"".join([f'<div style="margin-bottom:6px;"><span style="color:#e2e8f0;font-size:12px;"><b>{r.get("risk","")}</b></span><div style="color:#94a3b8;font-size:11px;margin-top:1px;">→ {r.get("mitigation","")}</div></div>' for r in bp["key_risks"][:3]])}
+</div>""", unsafe_allow_html=True)
+
+            # ── Schaeffler Fit + Next Action ──────────────────
+            st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
             if bp.get("schaeffler_fit"):
                 st.info(f"**Schaeffler Fit:** {bp['schaeffler_fit']}")
+            if bp.get("recommended_next_action"):
+                st.markdown(f"""
+<div style="background:#007A3D22;border:1px solid #007A3D66;border-radius:6px;padding:12px 16px;margin-top:8px;">
+  <div style="color:#22c55e;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-bottom:4px;">📍 RECOMMENDED NEXT ACTION (90 DAYS)</div>
+  <div style="color:#e2e8f0;font-size:13px;">{bp["recommended_next_action"]}</div>
+</div>""", unsafe_allow_html=True)
+
+            st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
             if st.button(T("s6_image_redo"), key="s6_blueprint_redo"):
                 st.session_state.s6_blueprint = None
                 st.rerun()
