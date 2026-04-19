@@ -838,43 +838,75 @@ import re as _re_global
 
 def _parse_json(raw: str) -> dict:
     """Robustly parse JSON from a Claude response.
-    Handles: fences, preamble, rubric annotations, trailing commas,
-    and unescaped literal newlines inside string values.
+    Handles: markdown fences, preamble/postamble, rubric annotations,
+    trailing commas, and all bad characters inside string values:
+    bare newlines, carriage returns, tabs, control chars, lone backslashes.
+    Bare internal double-quotes are handled by the lookahead heuristic.
     """
     if not raw:
         raise ValueError("Empty response")
     text = raw.strip()
+    # 1. Strip markdown fences
     text = _re_global.sub(r"```json\s*", "", text)
     text = _re_global.sub(r"```\s*", "", text).strip()
+    # 2. Extract outermost { … }
     fb = text.find("{"); lb = text.rfind("}")
     if fb >= 0 and lb > fb:
         text = text[fb:lb+1]
-    text = _re_global.sub(r'("[\w_]+"\s*:\s*)(\d+(?:\.\d+)?)\s*\([^)]*\)', r'\1\2', text)
+    # 3. Strip inline rubric annotations: "field": 7 (some text) → "field": 7
+    text = _re_global.sub(
+        r'("[\w_]+"\s*:\s*)(\d+(?:\.\d+)?)\s*\([^)]*\)', r'\1\2', text
+    )
+    # 4. Remove trailing commas before } or ]
     text = _re_global.sub(r',\s*([}\]])', r'\1', text)
-    # Walk char-by-char: replace bare newlines inside string values with space
+
+    # 5. Character-by-character sanitiser — fixes everything inside string values
     def _sanitise(s):
-        out = []; in_str = False; i = 0
-        while i < len(s):
+        VALID_ESC = set('"\\/ bfnrtu')  # valid JSON escape chars after backslash
+        out = []
+        in_str = False
+        i = 0
+        n = len(s)
+        while i < n:
             c = s[i]
-            if in_str:
-                if c == '\\':
-                    out.append(c); i += 1
-                    if i < len(s): out.append(s[i])
-                elif c == '"':
-                    in_str = False; out.append(c)
-                elif c in ('\n', '\r'):
-                    out.append(' ')
-                else:
-                    out.append(c)
-            else:
-                if c == '"': in_str = True
+            if not in_str:
+                if c == '"':
+                    in_str = True
                 out.append(c)
-            i += 1
+                i += 1
+            else:
+                # Inside a string value
+                if c == '\\':
+                    nxt = s[i+1] if i+1 < n else ''
+                    if nxt in VALID_ESC:
+                        out.append(c); out.append(nxt); i += 2  # valid escape — pass through
+                    else:
+                        out.append('\\\\'); i += 1              # lone backslash — escape it
+                elif c == '"':
+                    # Heuristic: real string terminator if next structural char
+                    # (skipping whitespace) is , } ] or :
+                    j = i + 1
+                    while j < n and s[j] in ' \t\r\n':
+                        j += 1
+                    nxt_struct = s[j] if j < n else ''
+                    if nxt_struct in (',', '}', ']', ':'):
+                        in_str = False          # close the string
+                        out.append(c)
+                    else:
+                        out.append('\\"')       # bare quote inside string — escape it
+                    i += 1
+                elif c in ('\n', '\r', '\t'):
+                    out.append(' '); i += 1     # whitespace control chars → space
+                elif ord(c) < 32:
+                    i += 1                      # other control chars → drop
+                else:
+                    out.append(c); i += 1
         return ''.join(out)
+
     text = _sanitise(text)
+    # 6. Final trailing-comma pass (sanitise may have shifted content)
     text = _re_global.sub(r',\s*([}\]])', r'\1', text)
     return json.loads(text)
-
 
 
 # ── Session state ─────────────────────────────────────────────
