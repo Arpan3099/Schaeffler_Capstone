@@ -3393,7 +3393,7 @@ Return ONLY valid JSON with NO inline comments:
         # ── Score breakdown ───────────────────────────────────
         cols = st.columns(3)
         for i,(label,(score,weight)) in enumerate(weights.items()):
-            cols[i].metric(label, f"{score:.1f}/10", f"{int(weight*100)}% weight")
+            cols[i].metric(label, f"{score:.1f}/10", "Equal weight")
         st.markdown("---")
 
         # ── Market size ───────────────────────────────────────
@@ -3890,9 +3890,9 @@ Return ONLY valid JSON:
 
         # Score breakdown
         col1, col2, col3 = st.columns(3)
-        col1.metric("Landscape Openness", f"{d['landscape_score']:.1f} / 10", "40% weight")
-        col2.metric("Novelty Signal",      f"{d['novelty_score']:.1f} / 10",  "35% weight")
-        col3.metric("IP Risk",             f"{d['ip_score']:.1f} / 10",       "25% weight")
+        col1.metric("Landscape Openness", f"{d['landscape_score']:.1f} / 10", "Equal weight")
+        col2.metric("Novelty Signal",      f"{d['novelty_score']:.1f} / 10",  "Equal weight")
+        col3.metric("IP Risk",             f"{d['ip_score']:.1f} / 10",       "Equal weight")
         st.markdown("---")
 
         # ── Patent activity overview ──────────────────────────
@@ -4322,7 +4322,7 @@ Return ONLY valid JSON:
         progress.progress(85)
         status.markdown("📐 Calculating feasibility score...")
 
-        # Feasibility score: TRL score (50%) + existence quality (30%) + risk profile (20%)
+        # Feasibility score: TRL score + existence quality + risk profile (equal weight, mean)
         trl_score = float(trl.get("trl_score", 5))
         existence_map = {"Demonstrated":9,"Partially Demonstrated":6,"Research Stage":3,"Theoretical":1}
         existence_score = existence_map.get(existence.get("existence_verdict","Research Stage"), 5)
@@ -4376,9 +4376,9 @@ Return ONLY valid JSON:
 
         # Score breakdown
         col1, col2, col3 = st.columns(3)
-        col1.metric("TRL Score",        f"{d['trl_score']:.1f} / 10", "50% weight")
-        col2.metric("Existence Quality", f"{d['existence_score']:.1f} / 10", "30% weight")
-        col3.metric("Risk Profile",      f"{d['risk_score']:.1f} / 10", "20% weight")
+        col1.metric("TRL Score",        f"{d['trl_score']:.1f} / 10", "Equal weight")
+        col2.metric("Existence Quality", f"{d['existence_score']:.1f} / 10", "Equal weight")
+        col3.metric("Risk Profile",      f"{d['risk_score']:.1f} / 10", "Equal weight")
         st.markdown("---")
 
         # ── TRL gauge ─────────────────────────────────────────
