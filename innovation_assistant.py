@@ -1023,6 +1023,49 @@ def _save_to_localStorage():
 # ── Restore on every fresh session load ──────────────────────
 _restore_from_localStorage()
 
+# ── Migrate stale session data: normalize old unequal weight tuples ──
+def _migrate_weights():
+    """Rewrite any cached stage data that still carries old unequal weights."""
+    # Stage 2 — fix weights dict tuples to 1/3 each
+    s2 = st.session_state.get("s2_data", {})
+    if s2 and isinstance(s2.get("weights"), dict):
+        wts = s2["weights"]
+        stale = any(abs(v[1] - 1/3) > 0.01 for v in wts.values() if isinstance(v, tuple) and len(v) == 2)
+        if stale:
+            ms = wts.get("Market Attractiveness", (5, 1/3))[0]
+            ss = wts.get("Sector Fit",             (5, 1/3))[0]
+            cs = wts.get("Competition Opportunity",(5, 1/3))[0]
+            s2["weights"] = {
+                "Market Attractiveness":   (ms, 1/3),
+                "Sector Fit":              (ss, 1/3),
+                "Competition Opportunity": (cs, 1/3),
+            }
+            s2["final_score"] = round((ms + ss + cs) / 3, 1)
+            st.session_state.s2_data = s2
+    # Stage 3 — recalculate if old weighted formula was used
+    s3 = st.session_state.get("s3_data", {})
+    if s3 and "landscape_score" in s3 and "novelty_score" in s3 and "ip_score" in s3:
+        correct = round((s3["landscape_score"] + s3["novelty_score"] + s3["ip_score"]) / 3, 1)
+        if abs(s3.get("final_score", 0) - correct) > 0.15:
+            s3["final_score"] = correct
+            st.session_state.s3_data = s3
+    # Stage 4 — recalculate if old weighted formula was used
+    s4 = st.session_state.get("s4_data", {})
+    if s4 and "trl_score" in s4 and "existence_score" in s4 and "risk_score" in s4:
+        correct = round((s4["trl_score"] + s4["existence_score"] + s4["risk_score"]) / 3, 1)
+        if abs(s4.get("final_score", 0) - correct) > 0.15:
+            s4["final_score"] = correct
+            st.session_state.s4_data = s4
+    # Stage 5 — recalculate if old weighted formula was used
+    s5 = st.session_state.get("s5_data", {})
+    if s5 and "p_portfolio" in s5 and "p_people" in s5 and "p_process" in s5:
+        correct = round((s5["p_portfolio"] + s5["p_people"] + s5["p_process"]) / 3, 1)
+        if abs(s5.get("final_score", 0) - correct) > 0.15:
+            s5["final_score"] = correct
+            st.session_state.s5_data = s5
+
+_migrate_weights()
+
 # ── Save state on every render ───────────────────────────────
 _save_to_localStorage()
 
@@ -1331,9 +1374,9 @@ Return ONLY valid JSON, no markdown backticks:
         c=p3_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt,desc) in enumerate([
-        ("Portfolio",f"{s5d.get('p_portfolio',5):.1f}/10","Equal",portfolio.get('cluster_fit','')),
-        ("People",f"{s5d.get('p_people',5):.1f}/10","Equal",people.get('competency_gap','')),
-        ("Process",f"{s5d.get('p_process',5):.1f}/10","Equal",process.get('investment_required','')),
+        ("Portfolio",f"{s5d.get('p_portfolio',5):.1f}/10","33%",portfolio.get('cluster_fit','')),
+        ("People",f"{s5d.get('p_people',5):.1f}/10","33%",people.get('competency_gap','')),
+        ("Process",f"{s5d.get('p_process',5):.1f}/10","33%",process.get('investment_required','')),
     ]):
         row=p3_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
@@ -1922,9 +1965,9 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt) in enumerate([
-        ("TRL Score",f"{scores['trl_score']:.1f}/10","Equal"),
-        ("Existence Quality",f"{scores['existence_score']:.1f}/10","Equal"),
-        ("Risk Profile",f"{scores['risk_score']:.1f}/10","Equal"),
+        ("TRL Score",f"{scores['trl_score']:.1f}/10","33%"),
+        ("Existence Quality",f"{scores['existence_score']:.1f}/10","33%"),
+        ("Risk Profile",f"{scores['risk_score']:.1f}/10","33%"),
     ]):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
@@ -2144,9 +2187,9 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt) in enumerate([
-        ("Landscape Openness",f"{scores['landscape_score']:.1f}/10","Equal"),
-        ("Novelty Signal",f"{scores['novelty_score']:.1f}/10","Equal"),
-        ("IP Risk (inverted)",f"{scores['ip_score']:.1f}/10","Equal"),
+        ("Landscape Openness",f"{scores['landscape_score']:.1f}/10","33%"),
+        ("Novelty Signal",f"{scores['novelty_score']:.1f}/10","33%"),
+        ("IP Risk (inverted)",f"{scores['ip_score']:.1f}/10","33%"),
     ]):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for j,c in enumerate(row.cells): set_bg(c,fill)
@@ -2369,9 +2412,9 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     st2=doc.add_table(rows=1,cols=4); st2.style="Table Grid"
     hdr_row(st2,["Dimension","Score","Weight","Weighted"])
     rows_data=[
-        ("Market Attractiveness",f"{weights['Market Attractiveness'][0]:.1f}/10","Equal",f"{weights['Market Attractiveness'][0]/3:.1f}"),
-        ("Sector Fit",f"{weights['Sector Fit'][0]:.1f}/10","Equal",f"{weights['Sector Fit'][0]/3:.1f}"),
-        ("Competition Opportunity",f"{weights['Competition Opportunity'][0]:.1f}/10","Equal",f"{weights['Competition Opportunity'][0]/3:.1f}"),
+        ("Market Attractiveness",f"{weights['Market Attractiveness'][0]:.1f}/10","33%",f"{weights['Market Attractiveness'][0]/3:.1f}"),
+        ("Sector Fit",f"{weights['Sector Fit'][0]:.1f}/10","33%",f"{weights['Sector Fit'][0]/3:.1f}"),
+        ("Competition Opportunity",f"{weights['Competition Opportunity'][0]:.1f}/10","33%",f"{weights['Competition Opportunity'][0]/3:.1f}"),
     ]
     for i,(dim,score,weight,weighted) in enumerate(rows_data):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
@@ -3393,7 +3436,7 @@ Return ONLY valid JSON with NO inline comments:
         # ── Score breakdown ───────────────────────────────────
         cols = st.columns(3)
         for i,(label,(score,weight)) in enumerate(weights.items()):
-            cols[i].metric(label, f"{score:.1f}/10", "Equal weight")
+            cols[i].metric(label, f"{score:.1f}/10", "33% weight")
         st.markdown("---")
 
         # ── Market size ───────────────────────────────────────
@@ -3890,9 +3933,9 @@ Return ONLY valid JSON:
 
         # Score breakdown
         col1, col2, col3 = st.columns(3)
-        col1.metric("Landscape Openness", f"{d['landscape_score']:.1f} / 10", "Equal weight")
-        col2.metric("Novelty Signal",      f"{d['novelty_score']:.1f} / 10",  "Equal weight")
-        col3.metric("IP Risk",             f"{d['ip_score']:.1f} / 10",       "Equal weight")
+        col1.metric("Landscape Openness", f"{d['landscape_score']:.1f} / 10", "33% weight")
+        col2.metric("Novelty Signal",      f"{d['novelty_score']:.1f} / 10",  "33% weight")
+        col3.metric("IP Risk",             f"{d['ip_score']:.1f} / 10",       "33% weight")
         st.markdown("---")
 
         # ── Patent activity overview ──────────────────────────
@@ -4376,9 +4419,9 @@ Return ONLY valid JSON:
 
         # Score breakdown
         col1, col2, col3 = st.columns(3)
-        col1.metric("TRL Score",        f"{d['trl_score']:.1f} / 10", "Equal weight")
-        col2.metric("Existence Quality", f"{d['existence_score']:.1f} / 10", "Equal weight")
-        col3.metric("Risk Profile",      f"{d['risk_score']:.1f} / 10", "Equal weight")
+        col1.metric("TRL Score",        f"{d['trl_score']:.1f} / 10", "33% weight")
+        col2.metric("Existence Quality", f"{d['existence_score']:.1f} / 10", "33% weight")
+        col3.metric("Risk Profile",      f"{d['risk_score']:.1f} / 10", "33% weight")
         st.markdown("---")
 
         # ── TRL gauge ─────────────────────────────────────────
@@ -4771,9 +4814,9 @@ Return ONLY valid JSON:
         st.markdown("#### P³ Assessment — Portfolio × People × Process")
         st.caption("Schaeffler's own innovation performance formula applied to this idea's P³ Perspective")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "Equal weight")
-        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "Equal weight")
-        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "Equal weight")
+        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "33% weight")
+        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "33% weight")
+        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "33% weight")
         st.markdown("---")
 
         # ── Portfolio dimension ───────────────────────────────
