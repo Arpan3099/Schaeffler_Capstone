@@ -936,6 +936,111 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+# ═══════════════════════════════════════════════════════════════
+#  BROWSER localStorage PERSISTENCE  — survives session expiry
+# ═══════════════════════════════════════════════════════════════
+import streamlit.components.v1 as _stc_persist
+
+_PERSIST_KEYS = [
+    "active_stage", "ui_lang",
+    "user_name", "user_position", "user_dept",
+    "s1_step", "s1_idea", "s1_questions", "s1_answers",
+    "s1_classification", "s1_chat", "s1_similar_ideas",
+    "s2_step", "s2_data", "s2_chat",
+    "s3_step", "s3_data", "s3_chat",
+    "s4_step", "s4_data", "s4_chat",
+    "s5_step", "s5_data", "s5_chat",
+    "s6_step", "s6_data", "s6_chat",
+    "s6_action_brief", "s6_report_buf",
+    "_intro_done",
+]
+_LS_KEY = "schaeffler_innovation_state_v1"
+
+def _restore_from_localStorage():
+    """On first load of a fresh session, restore from browser localStorage."""
+    if st.session_state.get("_ls_restored"):
+        return
+    st.session_state["_ls_restored"] = True
+
+    result = _stc_persist.html(f"""
+<script>
+(function() {{
+    try {{
+        var saved = localStorage.getItem('{_LS_KEY}');
+        if (saved) {{
+            window.parent.postMessage({{
+                type: 'streamlit:setComponentValue',
+                value: saved
+            }}, '*');
+        }} else {{
+            window.parent.postMessage({{
+                type: 'streamlit:setComponentValue',
+                value: null
+            }}, '*');
+        }}
+    }} catch(e) {{
+        window.parent.postMessage({{type: 'streamlit:setComponentValue', value: null}}, '*');
+    }}
+}})();
+</script>
+""", height=0)
+
+    if result and isinstance(result, str):
+        try:
+            saved_state = json.loads(result)
+            for k in _PERSIST_KEYS:
+                if k in saved_state and k not in st.session_state:
+                    st.session_state[k] = saved_state[k]
+        except Exception:
+            pass
+
+
+def _save_to_localStorage():
+    """Write current session state to browser localStorage."""
+    state_to_save = {}
+    for k in _PERSIST_KEYS:
+        v = st.session_state.get(k)
+        if isinstance(v, bytes) or isinstance(v, io.BytesIO):
+            continue
+        try:
+            json.dumps(v)
+            state_to_save[k] = v
+        except Exception:
+            pass
+
+    payload = json.dumps(state_to_save, default=str)
+    _stc_persist.html(f"""
+<script>
+(function() {{
+    try {{
+        localStorage.setItem('{_LS_KEY}', {json.dumps(payload)});
+    }} catch(e) {{}}
+}})();
+</script>
+""", height=0)
+
+
+# ── Restore on every fresh session load ──────────────────────
+_restore_from_localStorage()
+
+# ── Save state on every render ───────────────────────────────
+_save_to_localStorage()
+
+# ── Keep-alive: prevents Streamlit session idle timeout ──────
+_stc_persist.html("""
+<script>
+(function() {
+    if (window._kaTimer) return;
+    window._kaTimer = setInterval(function() {
+        try {
+            window.parent.postMessage({type: 'streamlit:heartbeat'}, '*');
+        } catch(e) {}
+    }, 25000);
+})();
+</script>
+""", height=0)
+# ═══════════════════════════════════════════════════════════════
+
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
     # ── Logo ──────────────────────────────────────────────────
@@ -998,6 +1103,17 @@ with st.sidebar:
             if _k in st.session_state:
                 del st.session_state[_k]
         st.session_state.active_stage = 1
+        st.rerun()
+    # ── Session clear button ──────────────────────────────────
+    st.markdown('<div style="margin-top:12px;"></div>', unsafe_allow_html=True)
+    if st.button("🗑 Clear saved session", key="_clear_ls", use_container_width=True):
+        _stc_persist.html(f"""
+<script>
+(function() {{ try {{ localStorage.removeItem('{_LS_KEY}'); }} catch(e) {{}} }})();
+</script>
+""", height=0)
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
         st.rerun()
     st.markdown('<div style="background:rgba(255,255,255,0.12);height:1px;margin:6px 0 4px;"></div>', unsafe_allow_html=True)
     st.markdown("""
