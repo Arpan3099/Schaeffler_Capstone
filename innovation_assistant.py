@@ -5329,6 +5329,10 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         _s5v = st.session_state.get("s5_data", {})
 
         # ── Chart 4: Development Roadmap ──────────────────────
+        _trl_val = _s4v.get("trl", {}).get("trl_level", 3)
+        try: _trl_val = int(_trl_val)
+        except: _trl_val = 3
+
         def _parse_months(s, default):
             nums = _re_bp.findall(r'\d+', str(s))
             return int(nums[0]) if nums else default
