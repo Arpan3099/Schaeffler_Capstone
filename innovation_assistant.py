@@ -2424,49 +2424,115 @@ Return ONLY valid JSON:
     st.session_state.s2_step = "done"
 
 
+def _parse_json_robust(raw):
+    """Robustly parse JSON from Claude output, handling common failure modes."""
+    if not raw:
+        return None
+    try:
+        text = raw.strip().replace("```json", "").replace("```", "").strip()
+        fb = text.find("{"); lb = text.rfind("}") + 1
+        if fb >= 0 and lb > fb:
+            text = text[fb:lb]
+        # Fix common issues: trailing commas before } or ]
+        import re as _re_jr
+        text = _re_jr.sub(r',\s*([}\]])', r'\1', text)
+        # Fix literal newlines inside string values
+        text = _re_jr.sub(r'(?<=: ")([^"]*)\n([^"]*)"', r'\1 \2"', text)
+        return json.loads(text)
+    except Exception:
+        return None
+
+
 def run_stage3(idea, quadrant, s1c):
     """Run Stage 03 Patent Intelligence and store results in session state."""
-    system_landscape = """You are a patent intelligence analyst. Analyse the external patent landscape.
+    system_landscape = """You are a patent intelligence analyst specialising in industrial technology.
+Analyse the external patent landscape for this innovation idea.
+
+RULES:
+- Focus on COMPANIES filing patents, not individual patents
+- Classify each company as: Competitor / Customer / Research Institution / Patent Troll / Adjacent Player
+- Every claim must have [Source: org, year] where possible
+- Be specific about technology sub-areas
+
 Return ONLY valid JSON:
-{"technology_keywords":["3-5 terms"],"landscape_summary":"2-3 sentences","activity_level":"Low/Moderate/High/Very High","filing_trend":"Increasing/Stable/Decreasing","filing_trend_rationale":"one sentence","patent_landscape_score":1-10,
-"key_filers":[{"company":"name","type":"Competitor/Customer/Research Institution/Adjacent Player","focus":"one sentence","threat_level":"Low/Medium/High","schaeffler_relationship":"string","source":"Source: X, Year"}],
-"white_spaces":["white space 1","white space 2","white space 3"]}"""
-    raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1500)
-    try:
-        raw_c = raw.strip().replace("```json","").replace("```","").strip()
-        fb = raw_c.find("{"); lb = raw_c.rfind("}") + 1
-        if fb >= 0: raw_c = raw_c[fb:lb]
-        landscape = json.loads(raw_c)
-    except:
-        landscape = {"technology_keywords":[],"landscape_summary":"N/A","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","patent_landscape_score":5,"key_filers":[],"white_spaces":[]}
+{
+  "technology_keywords": ["3-5 key patent search terms for this idea"],
+  "landscape_summary": "2-3 sentences on overall patent activity in this space",
+  "activity_level": "Low / Moderate / High / Very High",
+  "filing_trend": "Increasing / Stable / Decreasing",
+  "filing_trend_rationale": "one sentence",
+  "patent_landscape_score": 7,
+  "key_filers": [
+    {
+      "company": "company name",
+      "type": "Competitor / Customer / Research Institution / Adjacent Player",
+      "focus": "one sentence on what they are patenting",
+      "threat_level": "Low / Medium / High",
+      "schaeffler_relationship": "Direct competitor / Potential customer / Partner / Unknown",
+      "source": "Source: X, Year"
+    }
+  ],
+  "white_spaces": ["white space opportunity 1", "white space opportunity 2", "white space opportunity 3"]
+}"""
+
+    raw = call_claude(system_landscape,
+        f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2000)
+    landscape = _parse_json_robust(raw)
+    if not landscape or not isinstance(landscape, dict):
+        landscape = {"technology_keywords":[],"landscape_summary":"Analysis unavailable — JSON parse failed.","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","key_filers":[],"white_spaces":[],"patent_landscape_score":5}
 
     key_filers_run3 = landscape.get("key_filers", [])
     filers_full_run3 = json.dumps([
         {"company": f.get("company",""), "type": f.get("type",""), "focus": f.get("focus",""), "threat_level": f.get("threat_level","")}
         for f in key_filers_run3
     ])
-    system_ansoff = """You are a Schaeffler patent strategist. Map ALL listed filers onto Schaeffler's Ansoff matrix.
+    system_ansoff = """You are a Schaeffler Group patent strategist.
+Map patent filing companies onto Schaeffler's modified Ansoff matrix based on where their patents sit.
+
+The matrix axes (MUST match Schaeffler's Stage 1 Innovation Framework):
+- X axis: Technology Dimension (0=Existing/Established Technology, 10=New to the World)
+- Y axis: Market Dimension (0=Existing/Established Market, 10=New to the World)
+
+Quadrant positions:
+- EXPLOIT  (bottom-left):  existing tech + existing market  — x_score 0-5,  y_score 0-5
+- EXTEND   (top-left):     existing tech + new market       — x_score 0-5,  y_score 5-10
+- RADICAL  (top-right):    new tech      + new market       — x_score 5-10, y_score 5-10
+- DISRUPT  (bottom-right): new tech      + existing market  — x_score 5-10, y_score 0-5
+
 IMPORTANT: Every filer in the input list MUST appear in filer_positions — do not skip any.
 
-Matrix axes (X=Technology Dimension, Y=Market Dimension — same as Schaeffler's Stage 1):
-- x_score: 0-10 (0=existing technology, 10=new to the world technology)
-- y_score: 0-10 (0=existing market, 10=new to the world market)
-Quadrants: EXPLOIT(x 0-5,y 0-5)=bottom-left, EXTEND(x 0-5,y 5-10)=top-left,
-           RADICAL(x 5-10,y 5-10)=top-right, DISRUPT(x 5-10,y 0-5)=bottom-right
-
 Return ONLY valid JSON:
-{"filer_positions":[{"company":"name","matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"rationale":"one sentence"}],
-"schaeffler_position":{"matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"existing_ip":"one sentence","gap":"one sentence"},
-"idea_position":{"x_score":0-10,"y_score":0-10},"novelty_signal":"Strong/Moderate/Weak","novelty_rationale":"one sentence","ip_risk":"Low/Medium/High","ip_risk_rationale":"one sentence"}"""
+{
+  "filer_positions": [
+    {
+      "company": "company name",
+      "matrix_position": "EXPLOIT/EXTEND/RADICAL/DISRUPT",
+      "x_score": 7,
+      "y_score": 7,
+      "rationale": "one sentence"
+    }
+  ],
+  "schaeffler_position": {
+    "matrix_position": "EXPLOIT",
+    "x_score": 3,
+    "y_score": 3,
+    "existing_ip": "one sentence on what Schaeffler already has in this space",
+    "gap": "one sentence on the IP gap this idea addresses"
+  },
+  "idea_position": {"x_score": 7, "y_score": 7},
+  "novelty_signal": "Strong / Moderate / Weak",
+  "novelty_rationale": "one sentence",
+  "ip_risk": "Low / Medium / High",
+  "ip_risk_rationale": "one sentence"
+}"""
+
     raw2 = call_claude(system_ansoff,
-        f"Idea: {idea}\nQuadrant: {quadrant}\nMap ALL {len(key_filers_run3)} filers: {filers_full_run3}",
-        max_tokens=max(1800, len(key_filers_run3) * 200 + 800))
-    try:
-        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
-        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
-        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
-        ansoff_data = json.loads(raw2_c)
-    except:
+        f"Idea: {idea}\nQuadrant: {quadrant}\n"
+        f"IMPORTANT: You MUST map ALL {len(key_filers_run3)} filers listed below. Do not skip any.\n"
+        f"Key filers (map every single one): {filers_full_run3}",
+        max_tokens=max(2000, len(key_filers_run3) * 250 + 1000))
+    ansoff_data = _parse_json_robust(raw2)
+    if not ansoff_data or not isinstance(ansoff_data, dict):
         ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
 
     # Guarantee every key_filer has a position
@@ -2509,34 +2575,50 @@ Return ONLY valid JSON:
 
 def run_stage4(idea, quadrant, s1c):
     """Run Stage 04 Technical Feasibility and store results in session state."""
-    system_existence = """You are a technology analyst. Assess whether this technology exists.
-Return ONLY valid JSON:
-{"technology_core":"one sentence","existence_verdict":"Demonstrated/Partially Demonstrated/Research Stage/Theoretical",
-"existence_summary":"2-3 sentences","evidence":[{"type":"Academic Paper/Startup/Pilot/Industry Report/Patent","title":"string","description":"one sentence","relevance":"Direct/Adjacent/Analogous","confidence":"High/Medium/Low","source":"org or URL"}],
-"technology_gaps":["gap 1","gap 2","gap 3"],"time_to_readiness":"e.g. 3-5 years","keywords":["6-10 key technical terms from this domain"]}"""
+    system_existence = """You are a technology analyst assessing whether an innovation technology exists and at what maturity.
+Return ONLY valid JSON with this exact structure:
+{
+  "technology_core": "one sentence describing the core technology",
+  "existence_verdict": "Demonstrated",
+  "existence_summary": "2-3 sentences on current state of the technology",
+  "evidence": [
+    {
+      "type": "Academic Paper",
+      "title": "string",
+      "description": "one sentence",
+      "relevance": "Direct",
+      "confidence": "High",
+      "source": "org or URL"
+    }
+  ],
+  "technology_gaps": ["gap 1", "gap 2", "gap 3"],
+  "time_to_readiness": "3-5 years",
+  "keywords": ["keyword1", "keyword2", "keyword3"]
+}
+existence_verdict must be one of: Demonstrated / Partially Demonstrated / Research Stage / Theoretical"""
     raw = call_claude(system_existence, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
-    try:
-        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-        if fb >= 0: raw_clean = raw_clean[fb:lb]
-        existence = json.loads(raw_clean)
-    except:
+    existence = _parse_json_robust(raw)
+    if not existence or not isinstance(existence, dict):
         existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"N/A","evidence":[],"technology_gaps":[],"time_to_readiness":"Not yet estimated","keywords":[]}
 
-    system_trl = """You are a Schaeffler TRL expert. Rate using Schaeffler-adapted TRL 1-9.
-TRL 1-2=Theoretical, TRL 3-5=Innovation territory, TRL 6-7=Borderline, TRL 8-9=Product Development.
-Return ONLY valid JSON:
-{"trl_level":1-9,"trl_label":"TRL X — label","trl_rationale":"2-3 sentences","schaeffler_entry_readiness":"Too Early/Ready for Innovation/Ready for Product Development",
-"key_technical_risks":[{"risk":"string","severity":"High/Medium/Low","mitigation":"one sentence"}],
-"analogous_schaeffler_technologies":"one sentence on which Schaeffler Motion Product Family this is closest to",
-"trl_score":1-10}"""
-    raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps','')}", max_tokens=1200)
-    try:
-        raw2_c = raw2.strip().replace("```json","").replace("```","").strip()
-        fb2 = raw2_c.find("{"); lb2 = raw2_c.rfind("}") + 1
-        if fb2 >= 0: raw2_c = raw2_c[fb2:lb2]
-        trl = json.loads(raw2_c)
-    except:
+    system_trl = """You are a Schaeffler TRL expert. Rate using Schaeffler-adapted TRL scale 1-9.
+TRL 1-2=Theoretical/Basic principles, TRL 3-5=Innovation territory (proof of concept to validation), TRL 6-7=Borderline, TRL 8-9=Product Development ready.
+Return ONLY valid JSON with this exact structure:
+{
+  "trl_level": 4,
+  "trl_label": "TRL 4 — Technology validated in lab",
+  "trl_rationale": "2-3 sentences explaining the TRL rating",
+  "schaeffler_entry_readiness": "Ready for Innovation",
+  "key_technical_risks": [
+    {"risk": "risk description", "severity": "High", "mitigation": "one sentence mitigation"}
+  ],
+  "analogous_schaeffler_technologies": "one sentence on which Schaeffler Motion Product Family this is closest to",
+  "trl_score": 5
+}
+schaeffler_entry_readiness must be: Too Early / Ready for Innovation / Ready for Product Development"""
+    raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence verdict: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nTechnology gaps: {existence.get('technology_gaps','')}", max_tokens=1500)
+    trl = _parse_json_robust(raw2)
+    if not trl or not isinstance(trl, dict):
         trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":3}
 
     trl_score  = float(trl.get("trl_score", round((trl.get("trl_level",3) / 9) * 10, 1)))
@@ -2589,12 +2671,8 @@ Return ONLY valid JSON:
 "p3_perspective_score":0-10}}"""
 
     raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=2500)
-    try:
-        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-        if fb >= 0: raw_clean = raw_clean[fb:lb]
-        org_data = json.loads(raw_clean)
-    except:
+    org_data = _parse_json_robust(raw)
+    if not org_data or not isinstance(org_data, dict):
         org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"p3_perspective_score":5}
 
     p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
@@ -5249,88 +5327,6 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         _s3v = st.session_state.get("s3_data", {})
         _s4v = st.session_state.get("s4_data", {})
         _s5v = st.session_state.get("s5_data", {})
-
-        # ── Chart 1: IPI Contribution Waterfall ───────────────
-        _wf_stages   = ["Market\nIntelligence", "Patent\nIntelligence", "Technical\nFeasibility", "P³ Score", "IPI Total"]
-        _wf_raw      = [scores["market"], scores["patent"], scores["feasibility"], scores.get("p3",5), ipi]
-        _wf_wts      = [weights["market"], weights["patent"], weights["feasibility"], weights.get("org",15), 100]
-        _wf_contrib  = [round(_wf_raw[i]*_wf_wts[i]/100, 1) for i in range(4)] + [ipi]
-        _wf_colours  = ["#60a5fa","#a78bfa","#34d399","#f59e0b",
-                        "#22c55e" if ipi>=7 else "#f59e0b" if ipi>=4 else "#ef4444"]
-        _wf_text     = [f"{_wf_raw[i]}/10 × {_wf_wts[i]}% = {_wf_contrib[i]}" for i in range(4)] + [f"IPI: {ipi}/10"]
-
-        fig_wf = go.Figure(go.Bar(
-            x=_wf_stages, y=_wf_contrib,
-            marker_color=_wf_colours,
-            text=_wf_text, textposition="outside",
-            textfont=dict(color=WHITE, size=10),
-        ))
-        fig_wf.update_layout(
-            title=dict(text="IPI Score — Stage Contributions", font=dict(size=13,color=WHITE), x=0.5),
-            plot_bgcolor=BG, paper_bgcolor=BG, height=320,
-            yaxis=dict(range=[0,12], showgrid=True, gridcolor="#2a4a70",
-                       tickfont=dict(color=WHITE), title="Weighted Contribution",
-                       title_font=dict(color=DIM)),
-            xaxis=dict(tickfont=dict(color=WHITE, size=11)),
-            margin=dict(l=40,r=40,t=50,b=40), font=dict(color=WHITE)
-        )
-        st.plotly_chart(fig_wf, use_container_width=True)
-
-        # ── Charts 2 & 3: TRL Gauge + Competitive Landscape ──
-        col_gauge, col_comp = st.columns(2)
-
-        with col_gauge:
-            _trl_val = _s4v.get("trl", {}).get("trl_level", 3)
-            try: _trl_val = int(_trl_val)
-            except: _trl_val = 3
-            _trl_c = "#ef4444" if _trl_val<=2 else "#f59e0b" if _trl_val<=5 else "#22c55e"
-            fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=_trl_val,
-                title=dict(text="Technology Readiness Level", font=dict(color=WHITE, size=13)),
-                number=dict(font=dict(color=_trl_c, size=44), suffix="/9"),
-                gauge=dict(
-                    axis=dict(range=[0,9], tickvals=list(range(1,10)),
-                              ticktext=[f"TRL {i}" for i in range(1,10)],
-                              tickfont=dict(color=WHITE, size=9)),
-                    bar=dict(color=_trl_c, thickness=0.3),
-                    bgcolor=BG, borderwidth=0,
-                    steps=[dict(range=[0,3],color="rgba(239,68,68,0.08)"),
-                           dict(range=[3,6],color="rgba(245,158,11,0.08)"),
-                           dict(range=[6,9],color="rgba(34,197,94,0.08)")],
-                    threshold=dict(line=dict(color=_trl_c,width=3), thickness=0.75, value=_trl_val)
-                )
-            ))
-            fig_gauge.update_layout(paper_bgcolor=BG, height=270,
-                                    margin=dict(l=20,r=20,t=50,b=10), font=dict(color=WHITE))
-            st.plotly_chart(fig_gauge, use_container_width=True)
-            _readiness = _s4v.get("trl",{}).get("schaeffler_entry_readiness","")
-            _rc = "#22c55e" if "Ready" in _readiness else "#f59e0b" if "Near" in _readiness else "#ef4444"
-            st.markdown(f'<div style="text-align:center;color:{_rc};font-size:12px;font-weight:600;margin-top:-6px;">Entry readiness: {_readiness}</div>', unsafe_allow_html=True)
-
-        with col_comp:
-            _comp_list = _s2v.get("comp", {}).get("competitors", [])[:6]
-            if _comp_list:
-                _cnames = [c.get("name","")[:22] for c in _comp_list]
-                _ctypes = [c.get("type","Incumbent") for c in _comp_list]
-                _ccols  = [{"Incumbent":"#60a5fa","Startup":"#22c55e","Research":"#a78bfa"}.get(t,"#60a5fa") for t in _ctypes]
-                _cvals  = [6,5,5,4,4,3][:len(_cnames)]
-                fig_comp = go.Figure(go.Bar(
-                    x=_cvals, y=_cnames, orientation="h",
-                    marker_color=_ccols,
-                    text=_ctypes, textposition="inside",
-                    textfont=dict(color=WHITE, size=10),
-                ))
-                fig_comp.update_layout(
-                    title=dict(text="Competitive Landscape", font=dict(size=13,color=WHITE), x=0.5),
-                    plot_bgcolor=BG, paper_bgcolor=BG, height=270,
-                    xaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
-                    yaxis=dict(tickfont=dict(color=WHITE, size=11)),
-                    margin=dict(l=10,r=30,t=50,b=20), font=dict(color=WHITE)
-                )
-                st.plotly_chart(fig_comp, use_container_width=True)
-            else:
-                st.info("No competitor data available from Stage 02.")
 
         # ── Chart 4: Development Roadmap ──────────────────────
         def _parse_months(s, default):
