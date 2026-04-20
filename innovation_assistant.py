@@ -2634,12 +2634,12 @@ def run_stage6_synthesis(idea, quadrant, s1c):
 Market ({weights['market']}%): {market_score}/10 — {s2d.get('market',{}).get('market_name','')}
 Patent ({weights['patent']}%): {patent_score}/10 — Novelty: {s3d.get('ansoff_data',{}).get('novelty_signal','')} IP risk: {s3d.get('ansoff_data',{}).get('ip_risk','')}
 Feasibility ({weights['feasibility']}%): {feasibility_score}/10 — TRL {s4d.get('trl',{}).get('trl_level','')} {s4d.get('trl',{}).get('schaeffler_entry_readiness','')}
-{('⚠️ TRL GATE — FUTURE OPTIONS FLAG: Entry readiness is "Too Early". Recommendation should reflect sensing-phase / FUTURE_OPTIONS outcome.' if s4d.get('trl',{}).get('schaeffler_entry_readiness','') == 'Too Early' else '')}
+{('⚠️ SENSING PHASE (FUTURE OPTIONS TRACK): This idea was classified as a Future Option at Stage 1 — technology novelty in the borderline 5.0–6.5 band or no innovation cluster assigned yet. Frame the recommendation and next steps around what evidence is needed to graduate this idea to the full pipeline. Use "SENSING PHASE — CONTINUE MONITORING" as the recommendation where the data supports further maturation rather than immediate investment or rejection.' if s1c.get('route') == 'FUTURE_OPTIONS' else '')}
 P³ Score ({weights['org']}%): {org_score}/10 — {org_d.get('build_or_partner',{}).get('recommendation','')}
 Innovation Model: {s1c.get('innovation_model','Integrated') or 'Integrated'} · Pipeline Route: {s1c.get('pipeline_route','')}"""
 
     system_structured = """You are a senior Schaeffler innovation strategist. Return ONLY valid JSON:
-{"headline":"one direct sentence","recommendation":"PROCEED or PROCEED WITH CONDITIONS or DEFER or REJECT",
+{"headline":"one direct sentence","recommendation":"PROCEED or PROCEED WITH CONDITIONS or SENSING PHASE — CONTINUE MONITORING or DEFER or REJECT",
 "recommendation_rationale":"2-3 sentences","strongest_signals":["signal 1","signal 2","signal 3"],
 "key_concerns":["concern 1","concern 2","concern 3"],"conditions":["condition 1","condition 2"],
 "strategic_fit":"2-3 sentences referencing Schaeffler P³, electrification, Vitesco merger",
@@ -3074,10 +3074,13 @@ Recommended next step: Submit to the <b>Innovation Cluster</b> lead for {c.get('
   </div>
 </div>""", unsafe_allow_html=True)
 
-        # Continue button
+        # Continue button — PIPELINE and FUTURE_OPTIONS both proceed; PRODUCT_DIVISION is the only hard stop
         st.markdown("---")
-        if proceed:
-            st.success(T("s1_qualifies"))
+        if route in ("PIPELINE", "FUTURE_OPTIONS"):
+            if route == "FUTURE_OPTIONS":
+                st.info("⬡ **Sensing Phase** — This idea enters the research pipeline as a Future Option. Scores at Stage 06 will reflect sensing-phase maturity and frame graduation criteria rather than a standard investment verdict.")
+            else:
+                st.success(T("s1_qualifies"))
             btn_col1, btn_col2 = st.columns(2)
             with btn_col1:
                 if st.button(T("s1_continue"), type="primary", key="s1_continue"):
@@ -3109,8 +3112,6 @@ Recommended next step: Submit to the <b>Innovation Cluster</b> lead for {c.get('
                     time.sleep(0.4)
                     _prog_fr.empty()
                     _stat_fr.empty()
-                    # Navigate to Stage 6 so results are immediately visible
-                    # and all stages appear as ✓ in the sidebar navigator
                     st.session_state.active_stage = 6
                     st.rerun()
 
@@ -4948,7 +4949,7 @@ Stage 04 — Technical Feasibility ({weights['feasibility']}% weight): {feasibil
 - Existence: {s4d.get('existence',{}).get('existence_verdict','')}
 - Entry readiness: {s4d.get('trl',{}).get('schaeffler_entry_readiness','')}
 - Time to readiness: {s4d.get('existence',{}).get('time_to_readiness','')}
-{('⚠️ TRL GATE — FUTURE OPTIONS FLAG: Entry readiness is "Too Early" (TRL 1-2). The synthesis recommendation should reflect a FUTURE_OPTIONS / sensing-phase outcome rather than a standard PROCEED/DEFER verdict.' if s4d.get('trl',{}).get('schaeffler_entry_readiness','') == 'Too Early' else '')}
+{('⚠️ SENSING PHASE (FUTURE OPTIONS TRACK): This idea was classified as a Future Option at Stage 1 — technology novelty in the borderline 5.0–6.5 band or no innovation cluster assigned yet. Frame the recommendation and next steps around what evidence is needed to graduate this idea to the full pipeline. Use "SENSING PHASE — CONTINUE MONITORING" as the recommendation where the data supports further maturation rather than immediate investment or rejection.' if st.session_state.s1_classification.get('route') == 'FUTURE_OPTIONS' else '')}
 
 Stage 05 — P³ Perspective ({weights.get('org',15)}% weight): {org_score}/10
 - P³ Portfolio: {s5d.get('p_portfolio',5)}/10
@@ -4966,7 +4967,7 @@ Stage 05 — P³ Perspective ({weights.get('org',15)}% weight): {org_score}/10
 Return ONLY valid JSON with exactly these fields — no markdown, no extra text, no trailing commas:
 {
   "headline": "one direct sentence summarising the overall verdict on this idea",
-  "recommendation": "PROCEED or PROCEED WITH CONDITIONS or DEFER or REJECT",
+  "recommendation": "PROCEED or PROCEED WITH CONDITIONS or SENSING PHASE — CONTINUE MONITORING or DEFER or REJECT",
   "recommendation_rationale": "2-3 sentences explaining why this recommendation",
   "strongest_signals": ["specific positive signal from the data 1", "specific positive signal 2", "specific positive signal 3"],
   "key_concerns": ["specific concern from the data 1", "specific concern 2", "specific concern 3"],
@@ -5049,10 +5050,11 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
 
         rec = synthesis.get("recommendation","PROCEED WITH CONDITIONS")
         rec_colours = {
-            "PROCEED":               "#22c55e",
-            "PROCEED WITH CONDITIONS":"#f59e0b",
-            "DEFER":                 "#f97316",
-            "REJECT":                "#ef4444"
+            "PROCEED":                             "#22c55e",
+            "PROCEED WITH CONDITIONS":             "#f59e0b",
+            "SENSING PHASE — CONTINUE MONITORING": "#818cf8",
+            "DEFER":                               "#f97316",
+            "REJECT":                              "#ef4444"
         }
         rec_col = rec_colours.get(rec, "#f59e0b")
         ipi_col = "#22c55e" if ipi>=7 else "#f59e0b" if ipi>=4 else "#ef4444"
@@ -5096,6 +5098,20 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                 st.success("✅ Idea automatically saved to the Innovation Ideas Log.")
             else:
                 st.warning(f"⚠️ Could not save to Ideas Log — {save_err}. Your analysis is complete; the log entry can be added manually.")
+
+        # ── Sensing-phase banner (Future Options ideas only) ──────
+        if s1c.get("route") == "FUTURE_OPTIONS":
+            st.markdown(f"""
+<div style="background:#0f0f1e;border-radius:8px;padding:14px 20px;margin-bottom:16px;border:1px solid #818cf844;border-left:4px solid #818cf8;">
+  <div style="color:#818cf8;font-size:10px;font-weight:700;letter-spacing:1.5px;margin-bottom:6px;">⬡ FUTURE OPTIONS TRACK — SENSING PHASE ASSESSMENT</div>
+  <div style="color:#c7d2fe;font-size:13px;line-height:1.6;">
+    This idea entered the pipeline as a <b>Future Option</b> — technology novelty score <b>{s1c.get('tech_score_final', '')}/10</b> ({s1c.get('technology_level','')}) places it in the sensing band.
+    The scores below reflect current maturity. The recommendation and next steps are framed around
+    <b>what evidence is needed to graduate this idea to the full Innovation Pipeline</b>, not a standard invest/reject decision.
+  </div>
+  <div style="color:#818cf8;font-size:11px;margin-top:8px;">Assigned cluster: <b>{s1c.get('innovation_cluster','Not yet assigned') or 'Not yet assigned'}</b> · Quadrant: <b>{quadrant}</b></div>
+</div>
+""", unsafe_allow_html=True)
 
         # ── IPI banner ────────────────────────────────────────
         _inno_model   = s1c.get("innovation_model", "") or ""
