@@ -5295,9 +5295,9 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                               tickfont=dict(color=WHITE, size=9)),
                     bar=dict(color=_trl_c, thickness=0.3),
                     bgcolor=BG, borderwidth=0,
-                    steps=[dict(range=[0,3],color="#ef444418"),
-                           dict(range=[3,6],color="#f59e0b18"),
-                           dict(range=[6,9],color="#22c55e18")],
+                    steps=[dict(range=[0,3],color="rgba(239,68,68,0.08)"),
+                           dict(range=[3,6],color="rgba(245,158,11,0.08)"),
+                           dict(range=[6,9],color="rgba(34,197,94,0.08)")],
                     threshold=dict(line=dict(color=_trl_c,width=3), thickness=0.75, value=_trl_val)
                 )
             ))
