@@ -1215,9 +1215,9 @@ Return ONLY valid JSON, no markdown backticks:
         c=p3_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt,desc) in enumerate([
-        ("Portfolio",f"{s5d.get('p_portfolio',5):.1f}/10","35%",portfolio.get('cluster_fit','')),
-        ("People",f"{s5d.get('p_people',5):.1f}/10","40%",people.get('competency_gap','')),
-        ("Process",f"{s5d.get('p_process',5):.1f}/10","25%",process.get('investment_required','')),
+        ("Portfolio",f"{s5d.get('p_portfolio',5):.1f}/10","33%",portfolio.get('cluster_fit','')),
+        ("People",f"{s5d.get('p_people',5):.1f}/10","33%",people.get('competency_gap','')),
+        ("Process",f"{s5d.get('p_process',5):.1f}/10","33%",process.get('investment_required','')),
     ]):
         row=p3_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
@@ -1297,7 +1297,7 @@ Return ONLY valid JSON, no markdown backticks:
 def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
     """Generate the full comprehensive Innovation Assessment Word report covering all stages."""
     ipi       = s6d.get("ipi", 0)
-    weights   = s6d.get("weights", {"market":35,"patent":25,"feasibility":25,"org":15})
+    weights   = s6d.get("weights", {"market":25,"patent":25,"feasibility":25,"org":25})
     synthesis = s6d.get("synthesis", {})
     scores    = s6d.get("scores", {})
     market    = s2d.get("market", {})
@@ -1438,10 +1438,10 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         c=ipi_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(stage,score,wt,contrib) in enumerate([
-        ("02 · Market Intelligence",    f"{scores.get('market',5):.1f}/10",      f"{weights.get('market',35)}%",      f"{scores.get('market',5)*weights.get('market',35)/100:.2f}"),
-        ("03 · Patent Intelligence",    f"{scores.get('patent',5):.1f}/10",      f"{weights.get('patent',25)}%",      f"{scores.get('patent',5)*weights.get('patent',25)/100:.2f}"),
-        ("04 · Technical Feasibility",  f"{scores.get('feasibility',5):.1f}/10", f"{weights.get('feasibility',25)}%", f"{scores.get('feasibility',5)*weights.get('feasibility',25)/100:.2f}"),
-        ("05 · P³ Perspective",f"{scores.get('p3',5):.1f}/10",        f"{weights.get('org',15)}%",         f"{scores.get('p3',5)*weights.get('org',15)/100:.2f}"),
+        ("02 · Market Intelligence",    f"{scores.get('market',5):.1f}/10",      f"25%",      f"{scores.get('market',5)*weights.get('market',35)/100:.2f}"),
+        ("03 · Patent Intelligence",    f"{scores.get('patent',5):.1f}/10",      f"25%",      f"{scores.get('patent',5)*weights.get('patent',25)/100:.2f}"),
+        ("04 · Technical Feasibility",  f"{scores.get('feasibility',5):.1f}/10", f"25%", f"{scores.get('feasibility',5)*weights.get('feasibility',25)/100:.2f}"),
+        ("05 · P³ Perspective",f"{scores.get('p3',5):.1f}/10",        f"25%",         f"{scores.get('p3',5)*weights.get('org',15)/100:.2f}"),
     ]):
         row=ipi_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
@@ -1806,9 +1806,9 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt) in enumerate([
-        ("TRL Score",f"{scores['trl_score']:.1f}/10","50%"),
-        ("Existence Quality",f"{scores['existence_score']:.1f}/10","30%"),
-        ("Risk Profile",f"{scores['risk_score']:.1f}/10","20%"),
+        ("TRL Score",f"{scores['trl_score']:.1f}/10","33%"),
+        ("Existence Quality",f"{scores['existence_score']:.1f}/10","33%"),
+        ("Risk Profile",f"{scores['risk_score']:.1f}/10","33%"),
     ]):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
@@ -2028,9 +2028,9 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt) in enumerate([
-        ("Landscape Openness",f"{scores['landscape_score']:.1f}/10","40%"),
-        ("Novelty Signal",f"{scores['novelty_score']:.1f}/10","35%"),
-        ("IP Risk (inverted)",f"{scores['ip_score']:.1f}/10","25%"),
+        ("Landscape Openness",f"{scores['landscape_score']:.1f}/10","33%"),
+        ("Novelty Signal",f"{scores['novelty_score']:.1f}/10","33%"),
+        ("IP Risk (inverted)",f"{scores['ip_score']:.1f}/10","33%"),
     ]):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for j,c in enumerate(row.cells): set_bg(c,fill)
@@ -2253,9 +2253,9 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     st2=doc.add_table(rows=1,cols=4); st2.style="Table Grid"
     hdr_row(st2,["Dimension","Score","Weight","Weighted"])
     rows_data=[
-        ("Market Attractiveness",f"{weights['Market Attractiveness'][0]:.1f}/10","40%",f"{weights['Market Attractiveness'][0]*0.4:.1f}"),
-        ("Sector Fit",f"{weights['Sector Fit'][0]:.1f}/10","35%",f"{weights['Sector Fit'][0]*0.35:.1f}"),
-        ("Competition Opportunity",f"{weights['Competition Opportunity'][0]:.1f}/10","25%",f"{weights['Competition Opportunity'][0]*0.25:.1f}"),
+        ("Market Attractiveness",f"{weights['Market Attractiveness'][0]:.1f}/10","33%",f"{weights['Market Attractiveness'][0]/3:.1f}"),
+        ("Sector Fit",f"{weights['Sector Fit'][0]:.1f}/10","33%",f"{weights['Sector Fit'][0]/3:.1f}"),
+        ("Competition Opportunity",f"{weights['Competition Opportunity'][0]:.1f}/10","33%",f"{weights['Competition Opportunity'][0]/3:.1f}"),
     ]
     for i,(dim,score,weight,weighted) in enumerate(rows_data):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
@@ -2414,11 +2414,11 @@ Return ONLY valid JSON:
     ms = float(market.get("market_score",5))
     ss = float(sectors.get("sector_fit_score",5))
     cs = float(comp.get("competition_score",5))
-    final = round(ms*0.40 + ss*0.35 + cs*0.25, 1)
+    final = round((ms + ss + cs) / 3, 1)
 
     st.session_state.s2_data = {
         "market": market, "comp": comp, "sectors": sectors,
-        "weights": {"Market Attractiveness":(ms,0.40),"Sector Fit":(ss,0.35),"Competition Opportunity":(cs,0.25)},
+        "weights": {"Market Attractiveness":(ms,1/3),"Sector Fit":(ss,1/3),"Competition Opportunity":(cs,1/3)},
         "final_score": final, "web_results": []
     }
     st.session_state.s2_step = "done"
@@ -2563,7 +2563,7 @@ Return ONLY valid JSON:
     landscape_score = float(landscape.get("patent_landscape_score",5))
     novelty_score = {"Strong":9,"Moderate":6,"Weak":3}.get(ansoff_data.get("novelty_signal","Moderate"),6)
     ip_score      = {"Low":8,"Medium":5,"High":2}.get(ansoff_data.get("ip_risk","Medium"),5)
-    final_patent  = round(landscape_score*0.40 + novelty_score*0.35 + ip_score*0.25, 1)
+    final_patent  = round((landscape_score + novelty_score + ip_score) / 3, 1)
 
     st.session_state.s3_data = {
         "landscape": landscape, "ansoff_data": ansoff_data,
@@ -2627,7 +2627,7 @@ schaeffler_entry_readiness must be: Too Early / Ready for Innovation / Ready for
     risks = trl.get("key_technical_risks",[])
     sev_map = {"High":8,"Medium":5,"Low":2}
     risk_score = round(10 - (sum(sev_map.get(r.get("severity","Medium"),5) for r in risks[:3]) / max(len(risks[:3]),1)), 1) if risks else 7.0
-    final_feasibility = round(trl_score*0.50 + existence_score*0.30 + risk_score*0.20, 1)
+    final_feasibility = round((trl_score + existence_score + risk_score) / 3, 1)
 
     st.session_state.s4_data = {
         "existence": existence, "trl": trl,
@@ -2639,38 +2639,26 @@ schaeffler_entry_readiness must be: Too Early / Ready for Innovation / Ready for
 
 def run_stage5(idea, quadrant, s1c):
     """Run Stage 05 P³ Perspective and store results in session state."""
-    s3_landscape = st.session_state.get("s3_data",{}).get("landscape",{})
-    s4_existence = st.session_state.get("s4_data",{}).get("existence",{})
-    s4_trl       = st.session_state.get("s4_data",{}).get("trl",{})
-    prior_filers = [f.get("company","") for f in s3_landscape.get("key_filers",[])]
-    prior_evidence_sources = [e.get("source","") for e in s4_existence.get("evidence",[])]
-    trl_level = s4_trl.get("trl_level",3)
-    innovation_cluster = s1c.get("innovation_cluster","")
-    product_family     = s1c.get("product_family","")
-    trend_alignment    = s1c.get("trend_alignment",[])
+    trl_level = st.session_state.get("s4_data",{}).get("trl",{}).get("trl_level", 3)
+    innovation_model = s1c.get("innovation_model", "Integrated") or "Integrated"
 
-    system_readiness = f"""You are a senior Schaeffler innovation strategist assessing internal P³ Perspective.
-Schaeffler P³: Performance = Portfolio × People × Process.
-Innovation cluster: {innovation_cluster}, Product family: {product_family}, Trends: {', '.join(trend_alignment)}, TRL: {trl_level}
-Known filers: {', '.join(prior_filers[:6])}, Evidence sources: {', '.join(prior_evidence_sources[:5])}
-Schaeffler competencies: Precision bearings, mechatronics, power electronics (Vitesco), tribology, EV drivetrains, embedded sensors, ASPICE/ISO 26262, OEM Tier 1.
+    system_readiness = (
+        "You are a Schaeffler innovation strategist. Assess P3 Perspective (Portfolio x People x Process) "
+        "for this innovation idea. Innovation model: " + innovation_model + ". "
+        "Schaeffler competencies: precision bearings, mechatronics, power electronics (Vitesco), "
+        "EV drivetrains, embedded sensors, OEM Tier 1. "
+        "Return ONLY valid JSON with this exact structure:\n"
+        '{"p3_portfolio":{"score":7,"rationale":"two sentences","cluster_fit":"one sentence","strengths":["s1","s2"],"gaps":["g1"]},'
+        '"p3_people":{"score":7,"rationale":"two sentences","matched_competencies":["c1","c2","c3"],"competency_gap":"string","sourcing_route":"string"},'
+        '"p3_process":{"score":7,"rationale":"two sentences","applicable_assets":["a1","a2"],"investment_required":"string","time_to_close":"string"},'
+        '"partnership_candidates":[{"name":"string","type":"Startup","rationale":"string","route":"Co-develop"}],'
+        '"org_gaps":[{"gap":"string","severity":"High","closure_route":"string","timeline":"12 months"}],'
+        '"build_or_partner":{"recommendation":"Co-develop","rationale":"two sentences","time_to_trl6_internal":"24 months","time_to_trl6_partner":"18 months"},'
+        '"p3_perspective_score":7}'
+    )
+    user_msg = f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}\nInnovation cluster: {s1c.get('innovation_cluster','')}"
 
-INNOVATION MODEL CONTEXT — CRITICAL for how you frame the P³ assessment:
-Innovation Model: {s1c.get('innovation_model', 'Integrated') or 'Integrated'}
-- If Integrated model (RADICAL quadrant — new tech + new market): assess P³ readiness to develop through Schaeffler's FIP→VEP→PEP product innovation process, leveraging existing OEM relationships, Schaeffler manufacturing scale, and internal R&D. Partnership should be with known OEMs and strategic suppliers.
-- If Accelerator model (DISRUPTIVE quadrant — new tech + existing market): assess P³ readiness for the Accelerator/Venture Capital track — external co-development, startup partnerships, VC co-investment, new market entry. Internal P³ gaps are expected; the route is external collaboration rather than internal build.
-Adapt all three P³ dimensions (Portfolio, People, Process) and the build-or-partner recommendation to reflect the correct innovation model track above.
-
-Return ONLY valid JSON:
-{{"p3_portfolio":{{"score":0-10,"rationale":"2 sentences","cluster_fit":"one sentence","strengths":["s1","s2"],"gaps":["g1"]}},
-"p3_people":{{"score":0-10,"rationale":"2 sentences","matched_competencies":["c1","c2","c3"],"competency_gap":"string","sourcing_route":"string"}},
-"p3_process":{{"score":0-10,"rationale":"2 sentences","applicable_assets":["a1","a2"],"investment_required":"string","time_to_close":"string"}},
-"partnership_candidates":[{{"name":"string","type":"Startup/University/Customer/Supplier","rationale":"string","route":"Co-develop/Acquire/License/JDA"}}],
-"org_gaps":[{{"gap":"string","severity":"High/Medium/Low","closure_route":"string","timeline":"string"}}],
-"build_or_partner":{{"recommendation":"string","rationale":"2-3 sentences","time_to_trl6_internal":"string","time_to_trl6_partner":"string"}},
-"p3_perspective_score":0-10}}"""
-
-    raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=2500)
+    raw = call_claude(system_readiness, user_msg, max_tokens=2000)
     org_data = _parse_json_robust(raw)
     if not org_data or not isinstance(org_data, dict):
         org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"p3_perspective_score":5}
@@ -2678,7 +2666,7 @@ Return ONLY valid JSON:
     p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
     p_people    = float(org_data.get("p3_people",{}).get("score",5))
     p_process   = float(org_data.get("p3_process",{}).get("score",5))
-    final_org   = round(p_portfolio*0.35 + p_people*0.40 + p_process*0.25, 1)
+    final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
 
     st.session_state.s5_data = {
         "org_data": org_data,
@@ -2697,7 +2685,7 @@ def run_stage6_synthesis(idea, quadrant, s1c):
     feasibility_score = st.session_state.s4_data.get("final_score", 5.0)
     org_score         = st.session_state.s5_data.get("final_score", 5.0)
 
-    weights = {"market":35,"patent":25,"feasibility":25,"org":15}
+    weights = {"market":25,"patent":25,"feasibility":25,"org":25}
     wm = weights["market"]/100; wp = weights["patent"]/100
     wf = weights["feasibility"]/100; wo = weights["org"]/100
     ipi = round(market_score*wm + patent_score*wp + feasibility_score*wf + org_score*wo, 1)
@@ -3331,11 +3319,11 @@ Return ONLY valid JSON with NO inline comments:
         ms  = float(market.get("market_score",5))
         ss  = float(sectors.get("sector_fit_score",5))
         cs  = float(comp.get("competition_score",5))
-        final = round(ms*0.40 + ss*0.35 + cs*0.25, 1)
+        final = round((ms + ss + cs) / 3, 1)
 
         st.session_state.s2_data = {
             "market": market, "comp": comp, "sectors": sectors,
-            "weights": {"Market Attractiveness":(ms,0.40),"Sector Fit":(ss,0.35),"Competition Opportunity":(cs,0.25)},
+            "weights": {"Market Attractiveness":(ms,1/3),"Sector Fit":(ss,1/3),"Competition Opportunity":(cs,1/3)},
             "final_score": final, "web_results": search_results
         }
         progress.progress(100)
@@ -3819,7 +3807,7 @@ Return ONLY valid JSON:
         ip_risk_map  = {"Low":8,"Medium":5,"High":2}
         novelty_score = novelty_map.get(ansoff_data.get("novelty_signal","Moderate"), 6)
         ip_score      = ip_risk_map.get(ansoff_data.get("ip_risk","Medium"), 5)
-        final_patent  = round(landscape_score*0.40 + novelty_score*0.35 + ip_score*0.25, 1)
+        final_patent  = round((landscape_score + novelty_score + ip_score) / 3, 1)
 
         st.session_state.s3_data = {
             "landscape": landscape,
@@ -3855,9 +3843,9 @@ Return ONLY valid JSON:
 
         # Score breakdown
         col1, col2, col3 = st.columns(3)
-        col1.metric("Landscape Openness", f"{d['landscape_score']:.1f} / 10", "40% weight")
-        col2.metric("Novelty Signal",      f"{d['novelty_score']:.1f} / 10",  "35% weight")
-        col3.metric("IP Risk",             f"{d['ip_score']:.1f} / 10",       "25% weight")
+        col1.metric("Landscape Openness", f"{d['landscape_score']:.1f} / 10", "33% weight")
+        col2.metric("Novelty Signal",      f"{d['novelty_score']:.1f} / 10",  "33% weight")
+        col3.metric("IP Risk",             f"{d['ip_score']:.1f} / 10",       "33% weight")
         st.markdown("---")
 
         # ── Patent activity overview ──────────────────────────
@@ -4294,7 +4282,7 @@ Return ONLY valid JSON:
         risk_scores = [{"High":2,"Medium":5,"Low":8}.get(r.get("severity","Medium"),5)
                       for r in trl.get("key_technical_risks",[])]
         risk_score = sum(risk_scores)/len(risk_scores) if risk_scores else 5.0
-        final_feasibility = round(trl_score*0.50 + existence_score*0.30 + risk_score*0.20, 1)
+        final_feasibility = round((trl_score + existence_score + risk_score) / 3, 1)
 
         st.session_state.s4_data = {
             "existence": existence,
@@ -4341,9 +4329,9 @@ Return ONLY valid JSON:
 
         # Score breakdown
         col1, col2, col3 = st.columns(3)
-        col1.metric("TRL Score",        f"{d['trl_score']:.1f} / 10", "50% weight")
-        col2.metric("Existence Quality", f"{d['existence_score']:.1f} / 10", "30% weight")
-        col3.metric("Risk Profile",      f"{d['risk_score']:.1f} / 10", "20% weight")
+        col1.metric("TRL Score",        f"{d['trl_score']:.1f} / 10", "33% weight")
+        col2.metric("Existence Quality", f"{d['existence_score']:.1f} / 10", "33% weight")
+        col3.metric("Risk Profile",      f"{d['risk_score']:.1f} / 10", "33% weight")
         st.markdown("---")
 
         # ── TRL gauge ─────────────────────────────────────────
@@ -4587,123 +4575,48 @@ elif st.session_state.active_stage == 5:
         progress = st.progress(0)
         status   = st.empty()
 
-        # Pull cross-stage context
-        s3_landscape = st.session_state.get("s3_data",{}).get("landscape",{})
-        s3_ansoff    = st.session_state.get("s3_data",{}).get("ansoff_data",{})
-        s4_existence = st.session_state.get("s4_data",{}).get("existence",{})
-        s4_trl       = st.session_state.get("s4_data",{}).get("trl",{})
-        prior_filers = [f.get("company","") for f in s3_landscape.get("key_filers",[])]
-        prior_evidence_sources = [e.get("source","") for e in s4_existence.get("evidence",[])]
-        trl_level    = s4_trl.get("trl_level", 3)
-        innovation_cluster = s1c.get("innovation_cluster","")
-        product_family     = s1c.get("product_family","")
-        trend_alignment    = s1c.get("trend_alignment",[])
-
-        status.markdown("🏭 Assessing Schaeffler competency and asset fit...")
+        status.markdown("🏭 Assessing Schaeffler P³ Perspective...")
         progress.progress(25)
 
-        system_readiness = f"""You are a senior Schaeffler Group innovation strategist assessing internal P³ Perspective.
+        trl_level = st.session_state.get("s4_data",{}).get("trl",{}).get("trl_level", 3)
+        innovation_model = s1c.get("innovation_model", "Integrated") or "Integrated"
 
-Schaeffler's P³ formula: Performance = Portfolio × People × Process
-- Portfolio: Does this idea fit Schaeffler's strategic portfolio and innovation clusters?
-- People: Does Schaeffler have the human skills, competencies, and teams to develop this?
-- Process: Does Schaeffler have the processes, infrastructure, and assets to execute?
-
-Schaeffler context:
-- Innovation cluster for this idea: {innovation_cluster}
-- Product family: {product_family}
-- Strategic trend alignment: {', '.join(trend_alignment)}
-- Current TRL of the idea's technology: {trl_level}
-- Known patent filers in this space (from Stage 03): {', '.join(prior_filers[:6])}
-- Evidence sources found (from Stage 04): {', '.join(prior_evidence_sources[:5])}
-
-INNOVATION MODEL CONTEXT — CRITICAL for how you frame the P³ assessment:
-Innovation Model: {s1c.get('innovation_model', 'Integrated') or 'Integrated'}
-Pipeline Route: {s1c.get('pipeline_route', '') or 'Integrated'}
-- If Integrated model (RADICAL quadrant — new tech + new market): assess P³ readiness for Schaeffler's FIP→VEP→PEP product innovation process. Leverage existing OEM relationships, Schaeffler manufacturing scale, and internal R&D. Partnership candidates should be known OEMs and strategic suppliers.
-- If Accelerator model (DISRUPTIVE quadrant — new tech + existing market): assess P³ readiness for the Accelerator/Venture Capital track — external co-development, startup partnerships, VC co-investment, new market entry. Internal P³ gaps are expected; the route is external collaboration rather than internal build.
-Adapt all three P³ dimensions (Portfolio, People, Process) and the build-or-partner recommendation to reflect the correct innovation model track above.
-
-Schaeffler's known competency domains (use these to assess fit):
-Precision motion systems, rolling and plain bearings, mechatronics, power electronics (via Vitesco merger), 
-tribology and lubrication, automotive drivetrains (ICE and EV), industrial automation, embedded sensors,
-ASPICE/ISO 26262 automotive software processes, OEM Tier 1 supply chain, 41 R&D centres globally.
-
-Return ONLY valid JSON:
-{{
-  "p3_portfolio": {{
-    "score": 0-10,
-    "rationale": "2 sentences on strategic portfolio fit using Schaeffler's innovation clusters and trends",
-    "cluster_fit": "one sentence on fit to the assigned innovation cluster",
-    "strengths": ["strength 1", "strength 2"],
-    "gaps": ["gap 1"]
-  }},
-  "p3_people": {{
-    "score": 0-10,
-    "rationale": "2 sentences on human capital and competency readiness",
-    "matched_competencies": ["competency 1", "competency 2", "competency 3"],
-    "competency_gap": "the single most critical missing competency",
-    "sourcing_route": "Hire / Acquire / Partner / Upskill — one sentence on how to close the gap"
-  }},
-  "p3_process": {{
-    "score": 0-10,
-    "rationale": "2 sentences on process, infrastructure, and asset readiness",
-    "applicable_assets": ["asset or process 1", "asset or process 2"],
-    "investment_required": "one sentence on what needs to be built or acquired",
-    "time_to_close": "estimated months or years"
-  }},
-  "partnership_candidates": [
-    {{
-      "name": "organisation name",
-      "type": "Startup / University / Customer / Supplier / Research Institute",
-      "rationale": "one sentence — why them and how they fill a specific gap",
-      "route": "Co-develop / Acquire / License / JDA"
-    }}
-  ],
-  "org_gaps": [
-    {{
-      "gap": "gap name",
-      "severity": "High / Medium / Low",
-      "closure_route": "one sentence on fastest route to close",
-      "timeline": "estimated months"
-    }}
-  ],
-  "build_or_partner": {{
-    "recommendation": "Build internally / Co-develop / Acquire / License",
-    "rationale": "2-3 sentences justifying the recommendation",
-    "time_to_trl6_internal": "estimated timeline if built internally",
-    "time_to_trl6_partner": "estimated timeline with external partnership"
-  }},
-  "p3_perspective_score": 0-10
-}}"""
+        system_readiness = (
+            "You are a Schaeffler innovation strategist. Assess P3 Perspective (Portfolio x People x Process) "
+            "for this innovation idea. Innovation model: " + innovation_model + ". "
+            "Schaeffler competencies: precision bearings, mechatronics, power electronics (Vitesco), "
+            "EV drivetrains, embedded sensors, OEM Tier 1. "
+            "Return ONLY valid JSON with this exact structure:\n"
+            '{"p3_portfolio":{"score":7,"rationale":"two sentences","cluster_fit":"one sentence","strengths":["s1","s2"],"gaps":["g1"]},'
+            '"p3_people":{"score":7,"rationale":"two sentences","matched_competencies":["c1","c2","c3"],"competency_gap":"string","sourcing_route":"string"},'
+            '"p3_process":{"score":7,"rationale":"two sentences","applicable_assets":["a1","a2"],"investment_required":"string","time_to_close":"string"},'
+            '"partnership_candidates":[{"name":"string","type":"Startup","rationale":"string","route":"Co-develop"}],'
+            '"org_gaps":[{"gap":"string","severity":"High","closure_route":"string","timeline":"12 months"}],'
+            '"build_or_partner":{"recommendation":"Co-develop","rationale":"two sentences","time_to_trl6_internal":"24 months","time_to_trl6_partner":"18 months"},'
+            '"p3_perspective_score":7}'
+        )
+        user_msg = f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}\nInnovation cluster: {s1c.get('innovation_cluster','')}"
 
         try:
-            raw = call_claude(system_readiness,
-                f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL level: {trl_level}",
-                max_tokens=2500)
-            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-            if fb >= 0: raw_clean = raw_clean[fb:lb]
-            org_data = json.loads(raw_clean)
-        except Exception as e:
+            raw = call_claude(system_readiness, user_msg, max_tokens=2000)
+            org_data = _parse_json_robust(raw)
+            if not org_data or not isinstance(org_data, dict):
+                raise ValueError("parse failed")
+        except Exception:
             org_data = {
                 "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
                 "p3_people":{"score":5,"rationale":"Assessment unavailable.","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},
                 "p3_process":{"score":5,"rationale":"Assessment unavailable.","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},
-                "partnership_candidates":[],
-                "org_gaps":[],
+                "partnership_candidates":[],"org_gaps":[],
                 "build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},
                 "p3_perspective_score":5
             }
-
-        progress.progress(75)
-        status.markdown("🔍 Identifying partnership candidates...")
 
         # Weighted score: Portfolio 35%, People 40%, Process 25%
         p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
         p_people    = float(org_data.get("p3_people",{}).get("score",5))
         p_process   = float(org_data.get("p3_process",{}).get("score",5))
-        final_org   = round(p_portfolio*0.35 + p_people*0.40 + p_process*0.25, 1)
+        final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
 
         st.session_state.s5_data = {
             "org_data": org_data,
@@ -4739,9 +4652,9 @@ Return ONLY valid JSON:
         st.markdown("#### P³ Assessment — Portfolio × People × Process")
         st.caption("Schaeffler's own innovation performance formula applied to this idea's P³ Perspective")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "35% weight")
-        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "40% weight")
-        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "25% weight")
+        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "33% weight")
+        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "33% weight")
+        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "33% weight")
         st.markdown("---")
 
         # ── Portfolio dimension ───────────────────────────────
@@ -4934,13 +4847,13 @@ elif st.session_state.active_stage == 6:
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            w_market = st.slider("Market Intelligence", 0, 100, 35, 5, key="w_market")
+            w_market = st.slider("Market Intelligence", 0, 100, 25, 5, key="w_market")
         with col2:
             w_patent = st.slider("Patent Intelligence", 0, 100, 25, 5, key="w_patent")
         with col3:
             w_feasibility = st.slider("Technical Feasibility", 0, 100, 25, 5, key="w_feasibility")
         with col4:
-            w_org = st.slider("P³ Score", 0, 100, 15, 5, key="w_org")
+            w_org = st.slider("P³ Score", 0, 100, 25, 5, key="w_org")
 
         total_weight = w_market + w_patent + w_feasibility + w_org
         if total_weight != 100:
@@ -4957,7 +4870,7 @@ elif st.session_state.active_stage == 6:
         progress = st.progress(0)
         status   = st.empty()
 
-        weights = st.session_state.get("s6_weights", {"market":35,"patent":25,"feasibility":25,"org":15})
+        weights = st.session_state.get("s6_weights", {"market":25,"patent":25,"feasibility":25,"org":25})
 
         status.markdown("📐 Calculating Innovation Potential Index...")
         progress.progress(20)
@@ -5122,7 +5035,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
     elif st.session_state.s6_step == "done":
         d         = st.session_state.s6_data
         ipi       = d.get("ipi", 0)
-        weights   = d.get("weights", {"market":35,"patent":25,"feasibility":25,"org":15})
+        weights   = d.get("weights", {"market":25,"patent":25,"feasibility":25,"org":25})
         synthesis = d.get("synthesis", {})
         scores    = d.get("scores", {"market":5,"patent":5,"feasibility":5,"p3":5})
 
