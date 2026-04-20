@@ -2368,15 +2368,15 @@ def run_stage2(idea, quadrant, s1c):
     web_ctx = ""
     system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
 RULES:
-- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global.
+- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, IRENA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global, OREC, Ocean Energy Europe.
 - For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array.
-- For URLs: provide the EXACT deep-link URL. If you do not know it, omit the url field entirely.
-- market_score: integer 1-10. Guide: 9-10=large fast-growing; 7-8=strong; 5-6=moderate; 3-4=niche; 1-2=tiny/declining.
-Return ONLY valid JSON with NO extra text, NO inline comments:
+- For URLs: ONLY include a url field if you are certain the exact URL exists and is correct. DO NOT fabricate or guess URLs. If uncertain, omit the url field entirely — the app will build a targeted search link automatically.
+- market_score: integer 1-10. Guide: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny/declining.
+Return ONLY valid JSON with NO extra text:
 {"market_name":"string",
-"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
-"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
-"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
+"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
+"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
+"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
 "growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":7,"market_score_rationale":"2 sentences"}"""
     raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1400)
@@ -3268,16 +3268,16 @@ elif st.session_state.active_stage == 2:
         progress.progress(35)
         system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
 RULES:
-- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global.
+- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, IRENA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global, OREC, Ocean Energy Europe.
 - For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array — never combine two sources into one object.
-- For URLs: provide the EXACT deep-link URL to the specific report page. If you do not know the exact URL, omit the url field entirely.
+- For URLs: ONLY include a url field if you are 100% certain the exact URL exists and returns the specific report. DO NOT guess or fabricate URLs — if uncertain, omit the url field entirely. The app will build a site-specific search link automatically.
 - market_size_current = most recent available year (2024 or 2025). market_size_forecast = 5-7 year projection. cagr = compound annual growth rate for that period.
 - market_score: integer 1-10. Rubric: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny or declining.
 Return ONLY valid JSON with NO extra text, NO comments inside the JSON:
 {"market_name":"string",
-"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
-"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
-"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
+"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
+"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
+"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
 "growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":7,"market_score_rationale":"2 sentences"}"""
         try:
@@ -3354,71 +3354,83 @@ Return ONLY valid JSON with NO inline comments:
 
         import re as _re, urllib.parse as _up
 
-        # Known org → stable publications page (fallback when no deep URL provided)
-        _ORG_PAGES = {
-            "mckinsey":             "https://www.mckinsey.com/mgi/research",
-            "mckinsey global":      "https://www.mckinsey.com/mgi/research",
-            "gartner":              "https://www.gartner.com/en/research/publications",
-            "bloomberg":            "https://www.bloomberg.com/professional/insights/",
-            "bloombergnef":         "https://about.bnef.com/insights/",
-            "bnef":                 "https://about.bnef.com/insights/",
-            "iea":                  "https://www.iea.org/reports",
-            "statista":             "https://www.statista.com/markets/",
-            "roland berger":        "https://www.rolandberger.com/en/Insights/Publications/",
-            "frost & sullivan":     "https://store.frost.com/reports.html",
-            "frost":                "https://store.frost.com/reports.html",
-            "deloitte":             "https://www2.deloitte.com/global/en/insights.html",
-            "pwc":                  "https://www.pwc.com/gx/en/industries/",
-            "ihs markit":           "https://ihsmarkit.com/research-analysis/",
-            "s&p global":           "https://www.spglobal.com/marketintelligence/en/news-insights/research",
-            "wood mackenzie":       "https://www.woodmac.com/reports/",
-            "mordor":               "https://www.mordorintelligence.com/industry-reports",
-            "mordor intelligence":  "https://www.mordorintelligence.com/industry-reports",
-            "grand view":           "https://www.grandviewresearch.com/industry-analysis",
-            "grand view research":  "https://www.grandviewresearch.com/industry-analysis",
-            "allied market":        "https://www.alliedmarketresearch.com/market-research-report",
-            "allied market research": "https://www.alliedmarketresearch.com/market-research-report",
-            "marketsandmarkets":    "https://www.marketsandmarkets.com/Market-Reports/",
-            "fortune business":     "https://www.fortunebusinessinsights.com/reports",
-            "fortune business insights": "https://www.fortunebusinessinsights.com/reports",
-            "idc":                  "https://www.idc.com/research/viewtoc",
-            "precedence":           "https://www.precedenceresearch.com/",
-            "technavio":            "https://www.technavio.com/report-store",
-            "ibisworld":            "https://www.ibisworld.com/global/",
-            "euromonitor":          "https://www.euromonitor.com/reports",
+        # Known org → their domain for site: searches
+        _ORG_DOMAINS = {
+            "mckinsey":             "mckinsey.com",
+            "mckinsey global":      "mckinsey.com",
+            "gartner":              "gartner.com",
+            "bloomberg":            "bloomberg.com",
+            "bloombergnef":         "bnef.com",
+            "bnef":                 "bnef.com",
+            "iea":                  "iea.org",
+            "statista":             "statista.com",
+            "roland berger":        "rolandberger.com",
+            "frost & sullivan":     "frost.com",
+            "frost":                "frost.com",
+            "deloitte":             "deloitte.com",
+            "pwc":                  "pwc.com",
+            "ihs markit":           "ihsmarkit.com",
+            "s&p global":           "spglobal.com",
+            "wood mackenzie":       "woodmac.com",
+            "mordor":               "mordorintelligence.com",
+            "mordor intelligence":  "mordorintelligence.com",
+            "grand view":           "grandviewresearch.com",
+            "grand view research":  "grandviewresearch.com",
+            "allied market":        "alliedmarketresearch.com",
+            "allied market research": "alliedmarketresearch.com",
+            "marketsandmarkets":    "marketsandmarkets.com",
+            "fortune business":     "fortunebusinessinsights.com",
+            "fortune business insights": "fortunebusinessinsights.com",
+            "idc":                  "idc.com",
+            "precedence":           "precedenceresearch.com",
+            "technavio":            "technavio.com",
+            "ibisworld":            "ibisworld.com",
+            "euromonitor":          "euromonitor.com",
+            "irena":                "irena.org",
+            "ocean energy":         "oceanenergy-europe.eu",
+            "orec":                 "ore-catapult.org.uk",
         }
 
         def _resolve_url(src_obj):
             """
-            Test Claude's URL with a HEAD request.
-            Returns (url, is_direct) where is_direct=True means the link lands on the actual page.
-            Falls back to a targeted Google Search if the URL fails or is missing.
+            1. If Claude gave a URL: HEAD-check it. Return it if alive.
+            2. If no URL or URL dead: build a site:-targeted Google search for the specific report.
+            3. Returns (url, is_direct).
             """
             import urllib.parse as _up2
             raw_url = src_obj.get("url", "").strip()
+            org     = src_obj.get("org", "")
+            title   = src_obj.get("title", "")
+            year    = src_obj.get("year", "")
+            org_lower = org.lower()
 
-            # Build the Google Search fallback first — always works
-            q_parts = [src_obj.get("org",""), src_obj.get("title",""), src_obj.get("year","")]
-            q = " ".join(p for p in q_parts if p).strip()
-            google_url = f"https://www.google.com/search?q={_up2.quote(q)}"
+            # Build site-specific search (best fallback — lands on the report search page for that org)
+            domain = None
+            for key, dom in _ORG_DOMAINS.items():
+                if key in org_lower:
+                    domain = dom
+                    break
 
+            title_words = title.replace(year, "").strip()
+            if domain:
+                q = f"site:{domain} {title_words} {year}".strip()
+            else:
+                q = f"{org} {title_words} {year}".strip()
+            fallback_url = f"https://www.google.com/search?q={_up2.quote(q)}"
+
+            # If no URL provided, go straight to site search
             if not raw_url or not raw_url.startswith("http"):
-                # No URL provided — try org page first, then Google
-                org_lower = src_obj.get("org", "").lower()
-                for org_key, org_page in _ORG_PAGES.items():
-                    if org_key in org_lower:
-                        return org_page, False
-                return google_url, False
+                return fallback_url, False
 
-            # Check the URL has a real path (not just homepage)
+            # Reject if URL is just a homepage (path too short)
             try:
                 from urllib.parse import urlparse as _ulp
                 _parsed = _ulp(raw_url)
                 path = _parsed.path.strip("/")
                 if not path or len(path) <= 3:
-                    return google_url, False
+                    return fallback_url, False
             except Exception:
-                return google_url, False
+                return fallback_url, False
 
             # Live HEAD check — 4 second timeout
             try:
@@ -3429,7 +3441,7 @@ Return ONLY valid JSON with NO inline comments:
             except Exception:
                 pass
 
-            return google_url, False
+            return fallback_url, False
 
         def _pill_label(src_obj):
             """Short display label for a source pill."""
@@ -3446,7 +3458,7 @@ Return ONLY valid JSON with NO inline comments:
 
         def render_pills_structured(sources_list):
             """Return HTML for individual pill <a> tags from a list of source dicts.
-            🔗 = direct link verified live. 🔍 = Google Search (guaranteed to open)."""
+            🔗 = direct link verified live. 🔍 = site-specific search on publisher's domain."""
             if not sources_list:
                 return '<span style="color:#4a6fa5;font-size:10px;">no source available</span>'
             html = ""
@@ -3454,8 +3466,9 @@ Return ONLY valid JSON with NO inline comments:
                 url, is_direct = _resolve_url(src)
                 lbl = _pill_label(src)
                 icon = "🔗" if is_direct else "🔍"
+                title_attr = "Direct source link" if is_direct else "Search for this report on publisher site"
                 html += (
-                    f'<a href="{url}" target="_blank" '
+                    f'<a href="{url}" target="_blank" title="{title_attr}" '
                     f'style="display:inline-block;background:#1e3a5f;color:#93c5fd;'
                     f'font-size:10px;padding:3px 10px;border-radius:12px;margin:3px 2px 0;'
                     f'text-decoration:none;border:1px solid #2a4a70;'
