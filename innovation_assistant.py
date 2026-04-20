@@ -1331,9 +1331,9 @@ Return ONLY valid JSON, no markdown backticks:
         c=p3_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt,desc) in enumerate([
-        ("Portfolio",f"{s5d.get('p_portfolio',5):.1f}/10","35%",portfolio.get('cluster_fit','')),
-        ("People",f"{s5d.get('p_people',5):.1f}/10","40%",people.get('competency_gap','')),
-        ("Process",f"{s5d.get('p_process',5):.1f}/10","25%",process.get('investment_required','')),
+        ("Portfolio",f"{s5d.get('p_portfolio',5):.1f}/10","Equal",portfolio.get('cluster_fit','')),
+        ("People",f"{s5d.get('p_people',5):.1f}/10","Equal",people.get('competency_gap','')),
+        ("Process",f"{s5d.get('p_process',5):.1f}/10","Equal",process.get('investment_required','')),
     ]):
         row=p3_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
@@ -1413,7 +1413,7 @@ Return ONLY valid JSON, no markdown backticks:
 def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
     """Generate the full comprehensive Innovation Assessment Word report covering all stages."""
     ipi       = s6d.get("ipi", 0)
-    weights   = s6d.get("weights", {"market":35,"patent":25,"feasibility":25,"org":15})
+    weights   = s6d.get("weights", {"market":25,"patent":25,"feasibility":25,"org":25})
     synthesis = s6d.get("synthesis", {})
     scores    = s6d.get("scores", {})
     market    = s2d.get("market", {})
@@ -1432,7 +1432,7 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
     # Generate enriched narrative for the master report
     master_ctx = (
         f"Idea: {idea}\nQuadrant: {quadrant}\nIPI: {ipi}/10\nRecommendation: {synthesis.get('recommendation','')}\n\n"
-        f"STAGE 02 — Market ({weights.get('market',35)}%): {scores.get('market',5)}/10\n"
+        f"STAGE 02 — Market ({weights.get('market',25)}%): {scores.get('market',5)}/10\n"
         f"Market: {market.get('market_name','')}  Size 2024: {_mval(market.get('market_size_current') or market.get('market_size_2024',''))}  CAGR: {_mval(market.get('cagr',''))}\n"
         f"Primary sectors: {', '.join(s2d.get('sectors',{}).get('primary_sectors',[]))}\n"
         f"Competition: {comp.get('competitive_intensity','')}  White space: {comp.get('white_space','')}\n\n"
@@ -1444,7 +1444,7 @@ def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
         f"TRL: {trl.get('trl_level',3)} — {trl.get('trl_label','')}\n"
         f"Existence: {existence.get('existence_verdict','')}  Entry readiness: {trl.get('schaeffler_entry_readiness','')}\n"
         f"Time to production: {existence.get('time_to_readiness','')}\n\n"
-        f"STAGE 05 — P³ Score ({weights.get('org',15)}%): {scores.get('p3',5)}/10\n"
+        f"STAGE 05 — P³ Score ({weights.get('org',25)}%): {scores.get('p3',5)}/10\n"
         f"Portfolio: {s5d_org.get('p_portfolio',5)}/10  People: {s5d_org.get('p_people',5)}/10  Process: {s5d_org.get('p_process',5)}/10\n"
         f"Strategy: {bop.get('recommendation','')}  Time with partner: {bop.get('time_to_trl6_partner','')}\n"
         f"Critical gap: {people.get('competency_gap','')}\n\n"
@@ -1554,10 +1554,10 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         c=ipi_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(stage,score,wt,contrib) in enumerate([
-        ("02 · Market Intelligence",    f"{scores.get('market',5):.1f}/10",      f"{weights.get('market',35)}%",      f"{scores.get('market',5)*weights.get('market',35)/100:.2f}"),
+        ("02 · Market Intelligence",    f"{scores.get('market',5):.1f}/10",      f"{weights.get('market',25)}%",      f"{scores.get('market',5)*weights.get('market',25)/100:.2f}"),
         ("03 · Patent Intelligence",    f"{scores.get('patent',5):.1f}/10",      f"{weights.get('patent',25)}%",      f"{scores.get('patent',5)*weights.get('patent',25)/100:.2f}"),
         ("04 · Technical Feasibility",  f"{scores.get('feasibility',5):.1f}/10", f"{weights.get('feasibility',25)}%", f"{scores.get('feasibility',5)*weights.get('feasibility',25)/100:.2f}"),
-        ("05 · P³ Perspective",f"{scores.get('p3',5):.1f}/10",        f"{weights.get('org',15)}%",         f"{scores.get('p3',5)*weights.get('org',15)/100:.2f}"),
+        ("05 · P³ Perspective",f"{scores.get('p3',5):.1f}/10",        f"{weights.get('org',25)}%",         f"{scores.get('p3',5)*weights.get('org',25)/100:.2f}"),
     ]):
         row=ipi_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
@@ -1922,9 +1922,9 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt) in enumerate([
-        ("TRL Score",f"{scores['trl_score']:.1f}/10","50%"),
-        ("Existence Quality",f"{scores['existence_score']:.1f}/10","30%"),
-        ("Risk Profile",f"{scores['risk_score']:.1f}/10","20%"),
+        ("TRL Score",f"{scores['trl_score']:.1f}/10","Equal"),
+        ("Existence Quality",f"{scores['existence_score']:.1f}/10","Equal"),
+        ("Risk Profile",f"{scores['risk_score']:.1f}/10","Equal"),
     ]):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
@@ -2144,9 +2144,9 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt) in enumerate([
-        ("Landscape Openness",f"{scores['landscape_score']:.1f}/10","40%"),
-        ("Novelty Signal",f"{scores['novelty_score']:.1f}/10","35%"),
-        ("IP Risk (inverted)",f"{scores['ip_score']:.1f}/10","25%"),
+        ("Landscape Openness",f"{scores['landscape_score']:.1f}/10","Equal"),
+        ("Novelty Signal",f"{scores['novelty_score']:.1f}/10","Equal"),
+        ("IP Risk (inverted)",f"{scores['ip_score']:.1f}/10","Equal"),
     ]):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for j,c in enumerate(row.cells): set_bg(c,fill)
@@ -2369,9 +2369,9 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     st2=doc.add_table(rows=1,cols=4); st2.style="Table Grid"
     hdr_row(st2,["Dimension","Score","Weight","Weighted"])
     rows_data=[
-        ("Market Attractiveness",f"{weights['Market Attractiveness'][0]:.1f}/10","40%",f"{weights['Market Attractiveness'][0]*0.4:.1f}"),
-        ("Sector Fit",f"{weights['Sector Fit'][0]:.1f}/10","35%",f"{weights['Sector Fit'][0]*0.35:.1f}"),
-        ("Competition Opportunity",f"{weights['Competition Opportunity'][0]:.1f}/10","25%",f"{weights['Competition Opportunity'][0]*0.25:.1f}"),
+        ("Market Attractiveness",f"{weights['Market Attractiveness'][0]:.1f}/10","Equal",f"{weights['Market Attractiveness'][0]/3:.1f}"),
+        ("Sector Fit",f"{weights['Sector Fit'][0]:.1f}/10","Equal",f"{weights['Sector Fit'][0]/3:.1f}"),
+        ("Competition Opportunity",f"{weights['Competition Opportunity'][0]:.1f}/10","Equal",f"{weights['Competition Opportunity'][0]/3:.1f}"),
     ]
     for i,(dim,score,weight,weighted) in enumerate(rows_data):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
@@ -2530,11 +2530,11 @@ Return ONLY valid JSON:
     ms = float(market.get("market_score",5))
     ss = float(sectors.get("sector_fit_score",5))
     cs = float(comp.get("competition_score",5))
-    final = round(ms*0.40 + ss*0.35 + cs*0.25, 1)
+    final = round((ms + ss + cs) / 3, 1)
 
     st.session_state.s2_data = {
         "market": market, "comp": comp, "sectors": sectors,
-        "weights": {"Market Attractiveness":(ms,0.40),"Sector Fit":(ss,0.35),"Competition Opportunity":(cs,0.25)},
+        "weights": {"Market Attractiveness":(ms,1/3),"Sector Fit":(ss,1/3),"Competition Opportunity":(cs,1/3)},
         "final_score": final, "web_results": []
     }
     st.session_state.s2_step = "done"
@@ -2613,7 +2613,7 @@ Return ONLY valid JSON:
     landscape_score = float(landscape.get("patent_landscape_score",5))
     novelty_score = {"Strong":9,"Moderate":6,"Weak":3}.get(ansoff_data.get("novelty_signal","Moderate"),6)
     ip_score      = {"Low":8,"Medium":5,"High":2}.get(ansoff_data.get("ip_risk","Medium"),5)
-    final_patent  = round(landscape_score*0.40 + novelty_score*0.35 + ip_score*0.25, 1)
+    final_patent  = round((landscape_score + novelty_score + ip_score) / 3, 1)
 
     st.session_state.s3_data = {
         "landscape": landscape, "ansoff_data": ansoff_data,
@@ -2661,7 +2661,7 @@ Return ONLY valid JSON:
     risks = trl.get("key_technical_risks",[])
     sev_map = {"High":8,"Medium":5,"Low":2}
     risk_score = round(10 - (sum(sev_map.get(r.get("severity","Medium"),5) for r in risks[:3]) / max(len(risks[:3]),1)), 1) if risks else 7.0
-    final_feasibility = round(trl_score*0.50 + existence_score*0.30 + risk_score*0.20, 1)
+    final_feasibility = round((trl_score + existence_score + risk_score) / 3, 1)
 
     st.session_state.s4_data = {
         "existence": existence, "trl": trl,
@@ -2706,17 +2706,14 @@ Return ONLY valid JSON:
 
     raw = call_claude(system_readiness, f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}", max_tokens=2500)
     try:
-        raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-        fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-        if fb >= 0: raw_clean = raw_clean[fb:lb]
-        org_data = json.loads(raw_clean)
+        org_data = _parse_json(raw)
     except:
         org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"p3_perspective_score":5}
 
     p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
     p_people    = float(org_data.get("p3_people",{}).get("score",5))
     p_process   = float(org_data.get("p3_process",{}).get("score",5))
-    final_org   = round(p_portfolio*0.35 + p_people*0.40 + p_process*0.25, 1)
+    final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
 
     st.session_state.s5_data = {
         "org_data": org_data,
@@ -2735,7 +2732,7 @@ def run_stage6_synthesis(idea, quadrant, s1c):
     feasibility_score = st.session_state.s4_data.get("final_score", 5.0)
     org_score         = st.session_state.s5_data.get("final_score", 5.0)
 
-    weights = {"market":35,"patent":25,"feasibility":25,"org":15}
+    weights = {"market":25,"patent":25,"feasibility":25,"org":25}
     wm = weights["market"]/100; wp = weights["patent"]/100
     wf = weights["feasibility"]/100; wo = weights["org"]/100
     ipi = round(market_score*wm + patent_score*wp + feasibility_score*wf + org_score*wo, 1)
@@ -3369,11 +3366,11 @@ Return ONLY valid JSON with NO inline comments:
         ms  = float(market.get("market_score",5))
         ss  = float(sectors.get("sector_fit_score",5))
         cs  = float(comp.get("competition_score",5))
-        final = round(ms*0.40 + ss*0.35 + cs*0.25, 1)
+        final = round((ms + ss + cs) / 3, 1)
 
         st.session_state.s2_data = {
             "market": market, "comp": comp, "sectors": sectors,
-            "weights": {"Market Attractiveness":(ms,0.40),"Sector Fit":(ss,0.35),"Competition Opportunity":(cs,0.25)},
+            "weights": {"Market Attractiveness":(ms,1/3),"Sector Fit":(ss,1/3),"Competition Opportunity":(cs,1/3)},
             "final_score": final, "web_results": search_results
         }
         progress.progress(100)
@@ -3857,7 +3854,7 @@ Return ONLY valid JSON:
         ip_risk_map  = {"Low":8,"Medium":5,"High":2}
         novelty_score = novelty_map.get(ansoff_data.get("novelty_signal","Moderate"), 6)
         ip_score      = ip_risk_map.get(ansoff_data.get("ip_risk","Medium"), 5)
-        final_patent  = round(landscape_score*0.40 + novelty_score*0.35 + ip_score*0.25, 1)
+        final_patent  = round((landscape_score + novelty_score + ip_score) / 3, 1)
 
         st.session_state.s3_data = {
             "landscape": landscape,
@@ -4332,7 +4329,7 @@ Return ONLY valid JSON:
         risk_scores = [{"High":2,"Medium":5,"Low":8}.get(r.get("severity","Medium"),5)
                       for r in trl.get("key_technical_risks",[])]
         risk_score = sum(risk_scores)/len(risk_scores) if risk_scores else 5.0
-        final_feasibility = round(trl_score*0.50 + existence_score*0.30 + risk_score*0.20, 1)
+        final_feasibility = round((trl_score + existence_score + risk_score) / 3, 1)
 
         st.session_state.s4_data = {
             "existence": existence,
@@ -4719,10 +4716,7 @@ Return ONLY valid JSON:
             raw = call_claude(system_readiness,
                 f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL level: {trl_level}",
                 max_tokens=2500)
-            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-            if fb >= 0: raw_clean = raw_clean[fb:lb]
-            org_data = json.loads(raw_clean)
+            org_data = _parse_json(raw)
         except Exception as e:
             org_data = {
                 "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
@@ -4737,11 +4731,11 @@ Return ONLY valid JSON:
         progress.progress(75)
         status.markdown("🔍 Identifying partnership candidates...")
 
-        # Weighted score: Portfolio 35%, People 40%, Process 25%
+        # Equal weights: Portfolio 33%, People 33%, Process 33%
         p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
         p_people    = float(org_data.get("p3_people",{}).get("score",5))
         p_process   = float(org_data.get("p3_process",{}).get("score",5))
-        final_org   = round(p_portfolio*0.35 + p_people*0.40 + p_process*0.25, 1)
+        final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
 
         st.session_state.s5_data = {
             "org_data": org_data,
@@ -4777,9 +4771,9 @@ Return ONLY valid JSON:
         st.markdown("#### P³ Assessment — Portfolio × People × Process")
         st.caption("Schaeffler's own innovation performance formula applied to this idea's P³ Perspective")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "35% weight")
-        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "40% weight")
-        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "25% weight")
+        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "Equal weight")
+        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "Equal weight")
+        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "Equal weight")
         st.markdown("---")
 
         # ── Portfolio dimension ───────────────────────────────
@@ -4972,13 +4966,13 @@ elif st.session_state.active_stage == 6:
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            w_market = st.slider("Market Intelligence", 0, 100, 35, 5, key="w_market")
+            w_market = st.slider("Market Intelligence", 0, 100, 25, 5, key="w_market")
         with col2:
             w_patent = st.slider("Patent Intelligence", 0, 100, 25, 5, key="w_patent")
         with col3:
             w_feasibility = st.slider("Technical Feasibility", 0, 100, 25, 5, key="w_feasibility")
         with col4:
-            w_org = st.slider("P³ Score", 0, 100, 15, 5, key="w_org")
+            w_org = st.slider("P³ Score", 0, 100, 25, 5, key="w_org")
 
         total_weight = w_market + w_patent + w_feasibility + w_org
         if total_weight != 100:
@@ -4995,7 +4989,7 @@ elif st.session_state.active_stage == 6:
         progress = st.progress(0)
         status   = st.empty()
 
-        weights = st.session_state.get("s6_weights", {"market":35,"patent":25,"feasibility":25,"org":15})
+        weights = st.session_state.get("s6_weights", {"market":25,"patent":25,"feasibility":25,"org":25})
 
         status.markdown("📐 Calculating Innovation Potential Index...")
         progress.progress(20)
@@ -5003,7 +4997,7 @@ elif st.session_state.active_stage == 6:
         wm = weights["market"] / 100
         wp = weights["patent"] / 100
         wf = weights["feasibility"] / 100
-        wo = weights.get("org", 15) / 100
+        wo = weights.get("org", 25) / 100
         ipi = round(market_score * wm + patent_score * wp + feasibility_score * wf + org_score * wo, 1)
 
         status.markdown("🧠 Writing narrative synthesis...")
@@ -5067,7 +5061,7 @@ Stage 04 — Technical Feasibility ({weights['feasibility']}% weight): {feasibil
 - Time to readiness: {s4d.get('existence',{}).get('time_to_readiness','')}
 {('⚠️ SENSING PHASE (FUTURE OPTIONS TRACK): This idea was classified as a Future Option at Stage 1 — technology novelty in the borderline 5.0–6.5 band or no innovation cluster assigned yet. Frame the recommendation and next steps around what evidence is needed to graduate this idea to the full pipeline. Use "SENSING PHASE — CONTINUE MONITORING" as the recommendation where the data supports further maturation rather than immediate investment or rejection.' if st.session_state.s1_classification.get('route') == 'FUTURE_OPTIONS' else '')}
 
-Stage 05 — P³ Perspective ({weights.get('org',15)}% weight): {org_score}/10
+Stage 05 — P³ Perspective ({weights.get('org',25)}% weight): {org_score}/10
 - P³ Portfolio: {s5d.get('p_portfolio',5)}/10
 - P³ People: {s5d.get('p_people',5)}/10
 - P³ Process: {s5d.get('p_process',5)}/10
@@ -5160,7 +5154,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
     elif st.session_state.s6_step == "done":
         d         = st.session_state.s6_data
         ipi       = d.get("ipi", 0)
-        weights   = d.get("weights", {"market":35,"patent":25,"feasibility":25,"org":15})
+        weights   = d.get("weights", {"market":25,"patent":25,"feasibility":25,"org":25})
         synthesis = d.get("synthesis", {})
         scores    = d.get("scores", {"market":5,"patent":5,"feasibility":5,"p3":5})
 
@@ -5312,7 +5306,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         col1.metric("Market Intelligence",   f"{scores['market']} / 10",   f"{weights['market']}% weight")
         col2.metric("Patent Intelligence",   f"{scores['patent']} / 10",   f"{weights['patent']}% weight")
         col3.metric("Technical Feasibility", f"{scores['feasibility']} / 10", f"{weights['feasibility']}% weight")
-        col4.metric("P³ Score",         f"{scores.get('p3',5)} / 10", f"{weights.get('org',15)}% weight")
+        col4.metric("P³ Score",         f"{scores.get('p3',5)} / 10", f"{weights.get('org',25)}% weight")
         st.markdown("---")
 
         # ── Recommendation ────────────────────────────────────
@@ -5369,7 +5363,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         # ── Chart 1: IPI Contribution Waterfall ───────────────
         _wf_stages   = ["Market\nIntelligence", "Patent\nIntelligence", "Technical\nFeasibility", "P³ Score", "IPI Total"]
         _wf_raw      = [scores["market"], scores["patent"], scores["feasibility"], scores.get("p3",5), ipi]
-        _wf_wts      = [weights["market"], weights["patent"], weights["feasibility"], weights.get("org",15), 100]
+        _wf_wts      = [weights["market"], weights["patent"], weights["feasibility"], weights.get("org",25), 100]
         _wf_contrib  = [round(_wf_raw[i]*_wf_wts[i]/100, 1) for i in range(4)] + [ipi]
         _wf_colours  = ["#60a5fa","#a78bfa","#34d399","#f59e0b",
                         "#22c55e" if ipi>=7 else "#f59e0b" if ipi>=4 else "#ef4444"]
