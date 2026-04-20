@@ -2370,13 +2370,13 @@ def run_stage2(idea, quadrant, s1c):
 RULES:
 - Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, IRENA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global, OREC, Ocean Energy Europe.
 - For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array.
-- For URLs: ONLY include a url field if you are certain the exact URL exists and is correct. DO NOT fabricate or guess URLs. If uncertain, omit the url field entirely — the app will build a targeted search link automatically.
+- For URLs: Include the best URL you know for each source from your training data — the app will verify it with a live HEAD check and automatically fall back to a targeted Google search if the URL is unreachable. Omit the url field only if you genuinely have no URL knowledge for this specific report.
 - market_score: integer 1-10. Guide: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny/declining.
 Return ONLY valid JSON with NO extra text:
 {"market_name":"string",
-"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
-"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
-"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
+"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
+"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
+"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
 "growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":7,"market_score_rationale":"2 sentences"}"""
     raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1400)
@@ -3270,14 +3270,14 @@ elif st.session_state.active_stage == 2:
 RULES:
 - Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, IRENA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global, OREC, Ocean Energy Europe.
 - For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array — never combine two sources into one object.
-- For URLs: ONLY include a url field if you are 100% certain the exact URL exists and returns the specific report. DO NOT guess or fabricate URLs — if uncertain, omit the url field entirely. The app will build a site-specific search link automatically.
+- Include the best URL you know for each source from your training data — the app verifies it with a live HEAD check and falls back to a targeted search automatically. Omit the url field only if you genuinely have no URL for this specific report.
 - market_size_current = most recent available year (2024 or 2025). market_size_forecast = 5-7 year projection. cagr = compound annual growth rate for that period.
 - market_score: integer 1-10. Rubric: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny or declining.
 Return ONLY valid JSON with NO extra text, NO comments inside the JSON:
 {"market_name":"string",
-"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
-"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
-"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024"}]},
+"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
+"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
+"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
 "growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":7,"market_score_rationale":"2 sentences"}"""
         try:
@@ -3394,17 +3394,16 @@ Return ONLY valid JSON with NO inline comments:
         def _resolve_url(src_obj):
             """
             1. If Claude gave a URL: HEAD-check it. Return it if alive.
-            2. If no URL or URL dead: build a site:-targeted Google search for the specific report.
+            2. If no URL or URL dead: build a site:-targeted Google search with quoted title.
             3. Returns (url, is_direct).
             """
             import urllib.parse as _up2
-            raw_url = src_obj.get("url", "").strip()
-            org     = src_obj.get("org", "")
-            title   = src_obj.get("title", "")
-            year    = src_obj.get("year", "")
+            raw_url  = src_obj.get("url", "").strip()
+            org      = src_obj.get("org", "")
+            title    = src_obj.get("title", "")
+            year     = src_obj.get("year", "")
             org_lower = org.lower()
 
-            # Build site-specific search (best fallback — lands on the report search page for that org)
             domain = None
             for key, dom in _ORG_DOMAINS.items():
                 if key in org_lower:
@@ -3413,16 +3412,18 @@ Return ONLY valid JSON with NO inline comments:
 
             title_words = title.replace(year, "").strip()
             if domain:
-                q = f"site:{domain} {title_words} {year}".strip()
+                q = f'"{title_words}" site:{domain}'
+                if year:
+                    q += f" {year}"
             else:
-                q = f"{org} {title_words} {year}".strip()
-            fallback_url = f"https://www.google.com/search?q={_up2.quote(q)}"
+                q = f'"{title_words}" {org}'
+                if year:
+                    q += f" {year}"
+            fallback_url = f"https://www.google.com/search?q={_up2.quote(q.strip())}"
 
-            # If no URL provided, go straight to site search
             if not raw_url or not raw_url.startswith("http"):
                 return fallback_url, False
 
-            # Reject if URL is just a homepage (path too short)
             try:
                 from urllib.parse import urlparse as _ulp
                 _parsed = _ulp(raw_url)
@@ -3432,7 +3433,6 @@ Return ONLY valid JSON with NO inline comments:
             except Exception:
                 return fallback_url, False
 
-            # Live HEAD check — 4 second timeout
             try:
                 resp = requests.head(raw_url, timeout=4, allow_redirects=True,
                                      headers={"User-Agent": "Mozilla/5.0"})
@@ -3464,11 +3464,10 @@ Return ONLY valid JSON with NO inline comments:
             html = ""
             for src in sources_list:
                 url, is_direct = _resolve_url(src)
-                lbl = _pill_label(src)
+                lbl  = _pill_label(src)
                 icon = "🔗" if is_direct else "🔍"
-                title_attr = "Direct source link" if is_direct else "Search for this report on publisher site"
                 html += (
-                    f'<a href="{url}" target="_blank" title="{title_attr}" '
+                    f'<a href="{url}" target="_blank" '
                     f'style="display:inline-block;background:#1e3a5f;color:#93c5fd;'
                     f'font-size:10px;padding:3px 10px;border-radius:12px;margin:3px 2px 0;'
                     f'text-decoration:none;border:1px solid #2a4a70;'
@@ -3507,7 +3506,7 @@ Return ONLY valid JSON with NO inline comments:
 </div>""", unsafe_allow_html=True)
 
         st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
-        st.caption("🔗 = direct link verified · 🔍 = Google Search to find the report (both always open)")
+        st.caption("🔗 = direct link  ·  🔍 = search on publisher site")
 
         col_l, col_r = st.columns(2)
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
