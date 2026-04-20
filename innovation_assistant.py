@@ -26,7 +26,7 @@ def _mval(field):
 
 TAVILY_KEY = ""  # optional
 
-st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="centered", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="wide", initial_sidebar_state="expanded")
 
 # ═══════════════════════════════════════════════════════════════
 #  INTRO PAGE  —  runs before everything, including API key check
@@ -929,8 +929,8 @@ defaults = {
     "s2_step": "intro",
     "s2_data": {},
     "s2_chat": [],
-    # Stage 06 blueprint
-    "s6_blueprint": None,
+    # Stage 06 visual brief
+    "s6_action_brief": None,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -3151,7 +3151,7 @@ Be specific and concise — 2-4 sentences. Reference Schaeffler's context (elect
                       "s3_data","s3_step","s3_chat",
                       "s4_data","s4_step","s4_chat",
                       "s5_data","s5_step","s5_chat",
-                      "s6_data","s6_step","s6_chat","s6_blueprint",
+                      "s6_data","s6_step","s6_chat","s6_action_brief",
                       "_s6_saved_to_sheets","s6_report_buf"]:
                 if k in st.session_state:
                     del st.session_state[k]
@@ -5239,201 +5239,181 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
         with st.expander("#### 📖 Full Narrative Synthesis", expanded=False):
             st.markdown(synthesis.get("narrative",""))
 
-        # ── Solution Blueprint ────────────────────────────────
+        # ── Visual Innovation Brief ───────────────────────────
         st.markdown("---")
-        st.markdown("#### 🎨 Solution Blueprint")
-        st.caption("A structured engineering blueprint grounded in the full pipeline analysis — problem framing, solution architecture, integration, deployment, and Schaeffler fit.")
+        st.markdown("#### 📊 Visual Innovation Brief")
+        st.caption("Data-driven visuals synthesised from the full pipeline — ready for executive presentation.")
 
-        if st.session_state.get("s6_blueprint") is None:
-            if st.button(T("s6_image_btn"), type="secondary", key="s6_blueprint_btn"):
-                with st.spinner("Generating blueprint..."):
-                    try:
-                        # Safely pull all available pipeline data
-                        _s2 = st.session_state.get("s2_data", {})
-                        _s3 = st.session_state.get("s3_data", {})
-                        _s4 = st.session_state.get("s4_data", {})
-                        _s5 = st.session_state.get("s5_data", {})
-                        _s1c = st.session_state.get("s1_classification", {})
+        import re as _re_bp
+        _s2v = st.session_state.get("s2_data", {})
+        _s3v = st.session_state.get("s3_data", {})
+        _s4v = st.session_state.get("s4_data", {})
+        _s5v = st.session_state.get("s5_data", {})
 
-                        _market_name   = _s2.get("market", {}).get("market_name", "")
-                        _market_size   = _mval(_s2.get("market", {}).get("market_size_current") or _s2.get("market", {}).get("market_size_2024", ""))
-                        _cagr          = _mval(_s2.get("market", {}).get("cagr", ""))
-                        _competitors   = _s2.get("market", {}).get("key_competitors", [])
-                        _trl_level     = _s4.get("trl", {}).get("trl_level", "Unknown")
-                        _trl_label     = _s4.get("trl", {}).get("trl_label", "")
-                        _trl_readiness = _s4.get("trl", {}).get("schaeffler_entry_readiness", "")
-                        _existence_sum = _s4.get("existence", {}).get("summary", "")
-                        _build_strat   = _s5.get("org_data", {}).get("build_or_partner", {}).get("recommendation", "")
-                        _cluster       = _s1c.get("innovation_cluster", "")
-                        _product_fam   = _s1c.get("product_family", "")
-                        _project_type  = _s1c.get("project_type", "")
-                        _pipeline_rt   = _s1c.get("pipeline_route", "")
-                        _org_gaps      = _s5.get("org_data", {}).get("org_gaps", [])
-                        _org_gaps_str  = "; ".join([g.get("gap","") for g in _org_gaps[:3]]) if _org_gaps else "None identified"
-                        _partners      = _s5.get("org_data", {}).get("partnership_candidates", [])
-                        _partners_str  = "; ".join([p.get("name","") for p in _partners[:3]]) if _partners else "None identified"
-                        _patent_white  = _s3.get("whitespace", {}).get("summary", "") if _s3 else ""
-                        _qa_pairs      = list(zip(
-                            st.session_state.get("s1_questions", []),
-                            st.session_state.get("s1_answers", [])
-                        ))
-                        _qa_str = "\n".join([f"Q: {q} / A: {a}" for q,a in _qa_pairs[:5]]) if _qa_pairs else ""
+        # ── Chart 1: IPI Contribution Waterfall ───────────────
+        _wf_stages   = ["Market\nIntelligence", "Patent\nIntelligence", "Technical\nFeasibility", "P³ Score", "IPI Total"]
+        _wf_raw      = [scores["market"], scores["patent"], scores["feasibility"], scores.get("p3",5), ipi]
+        _wf_wts      = [weights["market"], weights["patent"], weights["feasibility"], weights.get("org",15), 100]
+        _wf_contrib  = [round(_wf_raw[i]*_wf_wts[i]/100, 1) for i in range(4)] + [ipi]
+        _wf_colours  = ["#60a5fa","#a78bfa","#34d399","#f59e0b",
+                        "#22c55e" if ipi>=7 else "#f59e0b" if ipi>=4 else "#ef4444"]
+        _wf_text     = [f"{_wf_raw[i]}/10 × {_wf_wts[i]}% = {_wf_contrib[i]}" for i in range(4)] + [f"IPI: {ipi}/10"]
 
-                        bp_system = """You are a senior Schaeffler engineering strategist. Your job is to generate a detailed, idea-specific solution blueprint for an early-stage innovation concept.
+        fig_wf = go.Figure(go.Bar(
+            x=_wf_stages, y=_wf_contrib,
+            marker_color=_wf_colours,
+            text=_wf_text, textposition="outside",
+            textfont=dict(color=WHITE, size=10),
+        ))
+        fig_wf.update_layout(
+            title=dict(text="IPI Score — Stage Contributions", font=dict(size=13,color=WHITE), x=0.5),
+            plot_bgcolor=BG, paper_bgcolor=BG, height=320,
+            yaxis=dict(range=[0,12], showgrid=True, gridcolor="#2a4a70",
+                       tickfont=dict(color=WHITE), title="Weighted Contribution",
+                       title_font=dict(color=DIM)),
+            xaxis=dict(tickfont=dict(color=WHITE, size=11)),
+            margin=dict(l=40,r=40,t=50,b=40), font=dict(color=WHITE)
+        )
+        st.plotly_chart(fig_wf, use_container_width=True)
 
-The blueprint must be grounded in the specific idea and all pipeline intelligence provided. Do NOT use placeholder phrases like "string" or "TRL X" — use real, specific content derived from the idea description and context.
+        # ── Charts 2 & 3: TRL Gauge + Competitive Landscape ──
+        col_gauge, col_comp = st.columns(2)
 
-Return ONLY valid JSON in exactly this structure:
-{
-  "problem_being_solved": "2-3 sentences describing the specific real-world problem or unmet need this idea addresses",
-  "value_proposition": "2 sentences on the unique value this solution delivers vs current alternatives",
-  "core_components": [
-    {"name": "specific component name", "function": "what it does in one concrete sentence", "technology_basis": "underlying technology or method", "trl_assumption": "TRL 1-9"}
-  ],
-  "integration_points": [
-    {"system": "specific Schaeffler system or external system", "interface": "how they connect", "complexity": "Low/Medium/High"}
-  ],
-  "deployment_scenario": {
-    "environment": "where and how deployed — be specific",
-    "scale": "pilot / business unit / global",
-    "timeline": "realistic estimate given TRL level"
-  },
-  "key_risks": [
-    {"risk": "specific risk", "mitigation": "concrete mitigation approach"}
-  ],
-  "schaeffler_fit": "2 sentences mapping this to Schaeffler's capabilities, clusters, and product families",
-  "recommended_next_action": "single most important concrete action Schaeffler should take in the next 90 days"
-}"""
+        with col_gauge:
+            _trl_val = _s4v.get("trl", {}).get("trl_level", 3)
+            try: _trl_val = int(_trl_val)
+            except: _trl_val = 3
+            _trl_c = "#ef4444" if _trl_val<=2 else "#f59e0b" if _trl_val<=5 else "#22c55e"
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=_trl_val,
+                title=dict(text="Technology Readiness Level", font=dict(color=WHITE, size=13)),
+                number=dict(font=dict(color=_trl_c, size=44), suffix="/9"),
+                gauge=dict(
+                    axis=dict(range=[0,9], tickvals=list(range(1,10)),
+                              ticktext=[f"TRL {i}" for i in range(1,10)],
+                              tickfont=dict(color=WHITE, size=9)),
+                    bar=dict(color=_trl_c, thickness=0.3),
+                    bgcolor=BG, borderwidth=0,
+                    steps=[dict(range=[0,3],color="#ef444418"),
+                           dict(range=[3,6],color="#f59e0b18"),
+                           dict(range=[6,9],color="#22c55e18")],
+                    threshold=dict(line=dict(color=_trl_c,width=3), thickness=0.75, value=_trl_val)
+                )
+            ))
+            fig_gauge.update_layout(paper_bgcolor=BG, height=270,
+                                    margin=dict(l=20,r=20,t=50,b=10), font=dict(color=WHITE))
+            st.plotly_chart(fig_gauge, use_container_width=True)
+            _readiness = _s4v.get("trl",{}).get("schaeffler_entry_readiness","")
+            _rc = "#22c55e" if "Ready" in _readiness else "#f59e0b" if "Near" in _readiness else "#ef4444"
+            st.markdown(f'<div style="text-align:center;color:{_rc};font-size:12px;font-weight:600;margin-top:-6px;">Entry readiness: {_readiness}</div>', unsafe_allow_html=True)
 
-                        bp_user = f"""INNOVATION IDEA: {idea}
+        with col_comp:
+            _comp_list = _s2v.get("comp", {}).get("competitors", [])[:6]
+            if _comp_list:
+                _cnames = [c.get("name","")[:22] for c in _comp_list]
+                _ctypes = [c.get("type","Incumbent") for c in _comp_list]
+                _ccols  = [{"Incumbent":"#60a5fa","Startup":"#22c55e","Research":"#a78bfa"}.get(t,"#60a5fa") for t in _ctypes]
+                _cvals  = [6,5,5,4,4,3][:len(_cnames)]
+                fig_comp = go.Figure(go.Bar(
+                    x=_cvals, y=_cnames, orientation="h",
+                    marker_color=_ccols,
+                    text=_ctypes, textposition="inside",
+                    textfont=dict(color=WHITE, size=10),
+                ))
+                fig_comp.update_layout(
+                    title=dict(text="Competitive Landscape", font=dict(size=13,color=WHITE), x=0.5),
+                    plot_bgcolor=BG, paper_bgcolor=BG, height=270,
+                    xaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
+                    yaxis=dict(tickfont=dict(color=WHITE, size=11)),
+                    margin=dict(l=10,r=30,t=50,b=20), font=dict(color=WHITE)
+                )
+                st.plotly_chart(fig_comp, use_container_width=True)
+            else:
+                st.info("No competitor data available from Stage 02.")
 
-QUADRANT: {quadrant}
-INNOVATION CLUSTER: {_cluster}
-PRODUCT FAMILY: {_product_fam}
-PROJECT TYPE: {_project_type}
-PIPELINE ROUTE: {_pipeline_rt}
+        # ── Chart 4: Development Roadmap ──────────────────────
+        def _parse_months(s, default):
+            nums = _re_bp.findall(r'\d+', str(s))
+            return int(nums[0]) if nums else default
 
-CLARIFYING Q&A FROM INNOVATOR:
-{_qa_str if _qa_str else "None recorded"}
+        _t_partner  = _parse_months(_s5v.get("org_data",{}).get("build_or_partner",{}).get("time_to_trl6_partner","18"), 18)
+        _t_internal = _parse_months(_s5v.get("org_data",{}).get("build_or_partner",{}).get("time_to_trl6_internal","30"), 30)
 
-MARKET CONTEXT:
-- Market: {_market_name}
-- Market Size: {_market_size}
-- CAGR: {_cagr}
-- Key competitors: {", ".join(_competitors[:4]) if isinstance(_competitors, list) else _competitors}
+        _roadmap = [
+            ("Sensing & Validation",        0,           3,            "#818cf8"),
+            ("Proof of Concept (TRL 4)",    3,           6,            "#60a5fa"),
+            ("Prototype (TRL 5–6)",         6,           _t_partner,   "#34d399"),
+            ("Pilot / Field Trial (TRL 7–8)",_t_partner, _t_partner+10,"#f59e0b"),
+            ("Commercialisation (TRL 9)",   _t_partner+10,_t_partner+16,"#22c55e"),
+        ]
+        fig_road = go.Figure()
+        for task, start, end, colour in _roadmap:
+            fig_road.add_trace(go.Bar(
+                x=[max(1, end-start)], y=[task], base=[start], orientation="h",
+                marker_color=colour, marker_line_width=0,
+                text=f"M{start}–M{end}", textposition="inside",
+                textfont=dict(color=WHITE, size=10), showlegend=False,
+                hovertemplate=f"<b>{task}</b><br>Month {start} → Month {end}<extra></extra>"
+            ))
+        _trl_month = {1:0,2:1,3:2,4:4,5:7,6:10,7:14,8:20,9:28}.get(_trl_val, 3)
+        fig_road.add_vline(x=_trl_month, line_color="#ef4444", line_width=2, line_dash="dot",
+                           annotation_text=f"Current TRL {_trl_val}",
+                           annotation_font_color="#ef4444", annotation_position="top right")
+        fig_road.update_layout(
+            title=dict(text="Indicative Development Roadmap (months from today)", font=dict(size=13,color=WHITE), x=0.5),
+            barmode="overlay", plot_bgcolor=BG, paper_bgcolor=BG, height=280,
+            xaxis=dict(title="Months", tickfont=dict(color=WHITE), gridcolor="#2a4a70",
+                       title_font=dict(color=DIM), range=[0, _t_partner+18]),
+            yaxis=dict(tickfont=dict(color=WHITE, size=11)),
+            margin=dict(l=10,r=40,t=50,b=40), font=dict(color=WHITE)
+        )
+        st.plotly_chart(fig_road, use_container_width=True)
 
-TECHNOLOGY READINESS:
-- TRL Level: {_trl_level} ({_trl_label})
-- Schaeffler Entry Readiness: {_trl_readiness}
-- Technology Evidence: {_existence_sum}
-
-PATENT LANDSCAPE:
-- White Space Summary: {_patent_white}
-
-ORGANISATIONAL CONTEXT:
-- Build vs Partner Recommendation: {_build_strat}
-- Key Org Gaps: {_org_gaps_str}
-- Relevant Partnership Candidates: {_partners_str}
-
-IPI SCORE: {ipi}/10 | RECOMMENDATION: {rec}
-HEADLINE: {synthesis.get("headline","")}
-STRATEGIC FIT: {synthesis.get("strategic_fit","")}
-
-Generate a blueprint that directly addresses this specific idea, not a generic template."""
-
-                        blueprint_raw = call_claude(bp_system, bp_user, max_tokens=2500)
-                        bp = _parse_json(blueprint_raw)
-                        st.session_state.s6_blueprint = bp
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Blueprint generation error: {e}")
-        else:
-            bp = st.session_state.s6_blueprint
-
-            # ── Problem & Value ───────────────────────────────
-            if bp.get("problem_being_solved") or bp.get("value_proposition"):
-                col_prob, col_val = st.columns(2)
-                with col_prob:
-                    st.markdown(f"""
-<div style="background:#0f1e35;border:1px solid #2a4a70;border-radius:6px;padding:14px 16px;height:100%;">
-  <div style="color:#94a3b8;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">PROBLEM BEING SOLVED</div>
-  <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">{bp.get("problem_being_solved","")}</div>
-</div>""", unsafe_allow_html=True)
-                with col_val:
-                    st.markdown(f"""
-<div style="background:#0f1e35;border:1px solid #007A3D44;border-radius:6px;padding:14px 16px;height:100%;">
-  <div style="color:#22c55e;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">VALUE PROPOSITION</div>
-  <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">{bp.get("value_proposition","")}</div>
-</div>""", unsafe_allow_html=True)
-                st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
-
-            # ── Core Components ───────────────────────────────
-            if bp.get("core_components"):
-                st.markdown("**🔩 Core Components**")
-                for comp_item in bp["core_components"]:
-                    _trl_str = str(comp_item.get("trl_assumption",""))
-                    trl_c = "#ef4444" if _trl_str in ("TRL 1","TRL 2") else \
-                            "#f59e0b" if _trl_str in ("TRL 3","TRL 4","TRL 5") else \
-                            "#22c55e" if _trl_str in ("TRL 6","TRL 7","TRL 8","TRL 9") else "#60a5fa"
-                    st.markdown(f"""
-<div style="background:#1a2d45;border-radius:6px;padding:12px 16px;margin:4px 0;border-left:3px solid {trl_c};">
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-    <span style="color:#e2e8f0;font-weight:600;font-size:13px;">{comp_item.get("name","")}</span>
-    <span style="color:{trl_c};font-size:11px;background:{trl_c}22;padding:2px 10px;border-radius:8px;font-weight:600;">{_trl_str}</span>
-  </div>
-  <div style="color:#cbd5e1;font-size:12px;margin-top:5px;">{comp_item.get("function","")}</div>
-  <div style="color:#60a5fa;font-size:11px;margin-top:3px;">⚙ {comp_item.get("technology_basis","")}</div>
-</div>""", unsafe_allow_html=True)
-
-            # ── Integration Points ────────────────────────────
-            if bp.get("integration_points"):
-                st.markdown("**🔗 Integration Points**")
-                _ips = bp["integration_points"][:3]
-                cols_bp = st.columns(len(_ips))
-                for i, ip in enumerate(_ips):
-                    comp_col = {"Low":"#22c55e","Medium":"#f59e0b","High":"#ef4444"}.get(ip.get("complexity","Medium"),"#f59e0b")
-                    cols_bp[i].markdown(f"""
-<div style="background:#1a2d45;border-radius:6px;padding:12px;text-align:center;height:100%;">
-  <div style="color:#e2e8f0;font-weight:600;font-size:12px;margin-bottom:4px;">{ip.get("system","")}</div>
-  <div style="color:#94a3b8;font-size:11px;margin-bottom:6px;">{ip.get("interface","")}</div>
-  <div style="color:{comp_col};font-size:10px;background:{comp_col}22;padding:2px 8px;border-radius:8px;display:inline-block;">{ip.get("complexity","")} complexity</div>
-</div>""", unsafe_allow_html=True)
-
-            # ── Deployment + Risks ────────────────────────────
-            st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
-            col_dep, col_risk = st.columns(2)
-            dep = bp.get("deployment_scenario", {})
-            with col_dep:
-                if dep:
-                    st.markdown(f"""
-<div style="background:#1a2d45;border-radius:6px;padding:12px 14px;">
-  <div style="color:#94a3b8;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">🏭 DEPLOYMENT</div>
-  <div style="color:#e2e8f0;font-size:12px;margin-bottom:3px;"><b>Environment:</b> {dep.get("environment","")}</div>
-  <div style="color:#e2e8f0;font-size:12px;margin-bottom:3px;"><b>Scale:</b> {dep.get("scale","")}</div>
-  <div style="color:#e2e8f0;font-size:12px;"><b>Timeline:</b> {dep.get("timeline","")}</div>
-</div>""", unsafe_allow_html=True)
-            with col_risk:
-                if bp.get("key_risks"):
-                    st.markdown(f"""
-<div style="background:#1a2d45;border-radius:6px;padding:12px 14px;">
-  <div style="color:#f59e0b;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">⚠️ KEY RISKS</div>
-  {"".join([f'<div style="margin-bottom:6px;"><span style="color:#e2e8f0;font-size:12px;"><b>{r.get("risk","")}</b></span><div style="color:#94a3b8;font-size:11px;margin-top:1px;">→ {r.get("mitigation","")}</div></div>' for r in bp["key_risks"][:3]])}
-</div>""", unsafe_allow_html=True)
-
-            # ── Schaeffler Fit + Next Action ──────────────────
-            st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
-            if bp.get("schaeffler_fit"):
-                st.info(f"**Schaeffler Fit:** {bp['schaeffler_fit']}")
-            if bp.get("recommended_next_action"):
+        # ── Risk Register ─────────────────────────────────────
+        _risks_vis = synthesis.get("risks", [])
+        if _risks_vis:
+            st.markdown("**⚠️ Risk Register**")
+            _sev_map = {"High":"#ef4444","Medium":"#f59e0b","Low":"#22c55e"}
+            for r in _risks_vis[:4]:
+                _r_text = r.get("risk", str(r)) if isinstance(r, dict) else str(r)
+                _r_mit  = r.get("mitigation","") if isinstance(r, dict) else ""
+                _sev = "High" if any(w in _r_text.lower() for w in ["critical","major","significant","high"]) else \
+                       "Low"  if any(w in _r_text.lower() for w in ["minor","low","small"]) else "Medium"
+                _rc2 = _sev_map[_sev]
                 st.markdown(f"""
-<div style="background:#007A3D22;border:1px solid #007A3D66;border-radius:6px;padding:12px 16px;margin-top:8px;">
-  <div style="color:#22c55e;font-size:10px;letter-spacing:1.5px;font-weight:700;margin-bottom:4px;">📍 RECOMMENDED NEXT ACTION (90 DAYS)</div>
-  <div style="color:#e2e8f0;font-size:13px;">{bp["recommended_next_action"]}</div>
+<div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:4px 0;border-left:3px solid {_rc2};">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <span style="color:#e2e8f0;font-size:12px;font-weight:600;">{_r_text}</span>
+    <span style="color:{_rc2};font-size:10px;background:{_rc2}22;padding:2px 8px;border-radius:8px;">{_sev}</span>
+  </div>
+  {f'<div style="color:#94a3b8;font-size:11px;margin-top:4px;">→ {_r_mit}</div>' if _r_mit else ''}
 </div>""", unsafe_allow_html=True)
 
-            st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
-            if st.button(T("s6_image_redo"), key="s6_blueprint_redo"):
-                st.session_state.s6_blueprint = None
+        # ── 90-Day Action Brief (plain text — no JSON) ────────
+        st.markdown("---")
+        st.markdown("#### 📍 90-Day Action Brief")
+        if st.session_state.get("s6_action_brief") is None:
+            if st.button("Generate 90-Day Action Brief →", type="secondary", key="s6_action_brief_btn"):
+                with st.spinner("Writing action brief..."):
+                    _brief_sys = "You are a senior Schaeffler innovation strategist. Write a concise, direct 90-day action brief for this idea. 3–4 short paragraphs. Plain prose — no bullet points, no JSON. Reference Schaeffler's specific context, the innovation cluster, and the build/partner recommendation. Be concrete about who does what and by when."
+                    _brief_ctx = (
+                        f"Idea: {idea}\nQuadrant: {quadrant}\nIPI: {ipi}/10\nRecommendation: {rec}\n"
+                        f"Cluster: {s1c.get('innovation_cluster','')}\n"
+                        f"Build strategy: {_s5v.get('org_data',{}).get('build_or_partner',{}).get('recommendation','')}\n"
+                        f"Key concern: {synthesis.get('key_concerns',[''])[0]}\n"
+                        f"Strategic fit: {synthesis.get('strategic_fit','')}"
+                    )
+                    _brief = call_claude(_brief_sys, _brief_ctx, max_tokens=600)
+                    st.session_state.s6_action_brief = _brief.strip().replace("```","")
+                    st.rerun()
+        else:
+            st.markdown(f"""
+<div style="background:#007A3D11;border:1px solid #007A3D44;border-radius:8px;padding:16px 20px;">
+  <div style="color:#e2e8f0;font-size:13px;line-height:1.75;">{st.session_state.s6_action_brief}</div>
+</div>""", unsafe_allow_html=True)
+            if st.button("↺ Regenerate", key="s6_action_brief_redo"):
+                st.session_state.s6_action_brief = None
                 st.rerun()
 
         # ── Master report download ────────────────────────────
