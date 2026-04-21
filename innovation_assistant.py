@@ -2653,16 +2653,26 @@ def run_stage5(idea, quadrant, s1c):
     )
     user_msg = f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}\nInnovation cluster: {s1c.get('innovation_cluster','')}"
 
-    raw = call_claude(system_readiness, user_msg, max_tokens=2000)
-    org_data = _parse_json_robust(raw)
-    if not org_data or not isinstance(org_data, dict):
-        org_data = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"p3_perspective_score":5}
+    _s5_fallback = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"p3_perspective_score":5}
+    try:
+        raw = call_claude(system_readiness, user_msg, max_tokens=3000)
+        org_data = _parse_json_robust(raw)
+        if not org_data or not isinstance(org_data, dict):
+            # retry once with explicit instruction to stay concise
+            raw2 = call_claude(
+                system_readiness + "\nIMPORTANT: Keep all text fields to ONE sentence. Return compact JSON only.",
+                user_msg, max_tokens=3000)
+            org_data = _parse_json_robust(raw2)
+        if not org_data or not isinstance(org_data, dict):
+            org_data = _s5_fallback
+    except Exception:
+        org_data = _s5_fallback
 
     p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
     p_people    = float(org_data.get("p3_people",{}).get("score",5))
     p_process   = float(org_data.get("p3_process",{}).get("score",5))
-    # P³ weights: Portfolio 35%, People 40%, Process 25%
-    final_org   = round(p_portfolio * 0.35 + p_people * 0.40 + p_process * 0.25, 1)
+    # P³ weights: equal (33.3% each — per P³ formula, dimensions are not differentially weighted)
+    final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
 
     st.session_state.s5_data = {
         "org_data": org_data,
@@ -4606,8 +4616,13 @@ elif st.session_state.active_stage == 5:
         user_msg = f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}\nInnovation cluster: {s1c.get('innovation_cluster','')}"
 
         try:
-            raw = call_claude(system_readiness, user_msg, max_tokens=2000)
+            raw = call_claude(system_readiness, user_msg, max_tokens=3000)
             org_data = _parse_json_robust(raw)
+            if not org_data or not isinstance(org_data, dict):
+                raw = call_claude(
+                    system_readiness + "\nIMPORTANT: Keep all text fields to ONE sentence. Return compact JSON only.",
+                    user_msg, max_tokens=3000)
+                org_data = _parse_json_robust(raw)
             if not org_data or not isinstance(org_data, dict):
                 raise ValueError("parse failed")
         except Exception:
@@ -4624,8 +4639,8 @@ elif st.session_state.active_stage == 5:
         p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
         p_people    = float(org_data.get("p3_people",{}).get("score",5))
         p_process   = float(org_data.get("p3_process",{}).get("score",5))
-        # P³ weights: Portfolio 35%, People 40%, Process 25%
-        final_org   = round(p_portfolio * 0.35 + p_people * 0.40 + p_process * 0.25, 1)
+        # P³ weights: equal (33.3% each — per P³ formula, dimensions are not differentially weighted)
+        final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
 
         st.session_state.s5_data = {
             "org_data": org_data,
@@ -4661,9 +4676,9 @@ elif st.session_state.active_stage == 5:
         st.markdown("#### P³ Assessment — Portfolio × People × Process")
         st.caption("Schaeffler's own innovation performance formula applied to this idea's P³ Perspective")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "35% weight")
-        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "40% weight")
-        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "25% weight")
+        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "33% weight")
+        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "33% weight")
+        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "33% weight")
         st.markdown("---")
 
         # ── Portfolio dimension ───────────────────────────────
