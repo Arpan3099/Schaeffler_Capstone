@@ -4717,7 +4717,7 @@ elif st.session_state.active_stage == 5:
                 st.markdown(f"""
 <div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
-    <div style="color:{WHITE};font-weight:600;font-size:13px;">{p.get('name','')}</div>
+    <div style="color:#e2e8f0;font-weight:600;font-size:13px;">{p.get('name','')}</div>
     <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{p.get('type','')} · {p.get('rationale','')}</div>
   </div>
   <div style="background:{rc}22;color:{rc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{p.get('route','')}</div>
@@ -4734,7 +4734,7 @@ elif st.session_state.active_stage == 5:
                 st.markdown(f"""
 <div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
-    <div style="color:{WHITE};font-weight:600;font-size:13px;">{g.get('gap','')}</div>
+    <div style="color:#e2e8f0;font-weight:600;font-size:13px;">{g.get('gap','')}</div>
     <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{g.get('closure_route','')} · Est. {g.get('timeline','')}</div>
   </div>
   <div style="background:{sc}22;color:{sc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{g.get('severity','')} severity</div>
