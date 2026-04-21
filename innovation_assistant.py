@@ -3962,7 +3962,7 @@ Return ONLY valid JSON:
 </div>
 """, unsafe_allow_html=True)
 
-        st.caption("Each point = a company's patent filing position. Your idea shown in green. Schaeffler's existing IP shown in orange.")
+        st.caption("Each point = a company's patent filing position. Your idea shown in orange. Schaeffler's existing IP shown in green.")
 
         fig = go.Figure()
 
@@ -4015,11 +4015,11 @@ Return ONLY valid JSON:
             fig.add_trace(go.Scatter(
                 x=[schaeffler_pos.get("x_score",2)], y=[schaeffler_pos.get("y_score",2)],
                 mode="markers+text",
-                marker=dict(size=16, color="#f97316", symbol="diamond",
+                marker=dict(size=18, color="#22c55e", symbol="star",
                            line=dict(color="white",width=2)),
                 text=["  Schaeffler IP"],
                 textposition="middle right",
-                textfont=dict(size=11,color="#f97316",family="Arial Bold"),
+                textfont=dict(size=11,color="#22c55e",family="Arial Bold"),
                 showlegend=False,
                 hovertemplate=f"<b>Schaeffler existing IP</b><br>{schaeffler_pos.get('existing_ip','')}<extra></extra>"
             ))
@@ -4028,11 +4028,11 @@ Return ONLY valid JSON:
         fig.add_trace(go.Scatter(
             x=[idea_pos.get("x_score",7)], y=[idea_pos.get("y_score",7)],
             mode="markers+text",
-            marker=dict(size=18, color="#22c55e", symbol="star",
+            marker=dict(size=16, color="#f97316", symbol="diamond",
                        line=dict(color="white",width=2)),
             text=["  Your idea"],
             textposition="middle right",
-            textfont=dict(size=12,color="#22c55e",family="Arial Bold"),
+            textfont=dict(size=12,color="#f97316",family="Arial Bold"),
             showlegend=False,
             hovertemplate="<b>Your innovation idea</b><extra></extra>"
         ))
@@ -4058,7 +4058,7 @@ Return ONLY valid JSON:
         st.plotly_chart(fig, use_container_width=True)
 
         # Legend
-        legend_items = [("🔴","Competitor"),("🔵","Customer"),("🟣","Research Institution"),("🟡","Adjacent Player"),("🟠","Schaeffler existing IP"),("🟢","Your idea")]
+        legend_items = [("🔴","Competitor"),("🔵","Customer"),("🟣","Research Institution"),("🟡","Adjacent Player"),("🟢","Schaeffler existing IP"),("🟠","Your idea")]
         st.markdown("  ".join([f"{e} {l}" for e,l in legend_items]))
         st.markdown("---")
 
