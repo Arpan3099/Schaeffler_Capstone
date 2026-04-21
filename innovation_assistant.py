@@ -2425,20 +2425,15 @@ Return ONLY valid JSON:
 
 
 def _parse_json_robust(raw):
-    """Robustly parse JSON from Claude output, handling common failure modes."""
+    """Robustly parse JSON from Claude output.
+    Delegates to _parse_json which uses the full character-by-character sanitiser
+    capable of handling multi-line rationale strings, lone backslashes, bare quotes,
+    and all other common Claude response issues. Returns None on any failure.
+    """
     if not raw:
         return None
     try:
-        text = raw.strip().replace("```json", "").replace("```", "").strip()
-        fb = text.find("{"); lb = text.rfind("}") + 1
-        if fb >= 0 and lb > fb:
-            text = text[fb:lb]
-        # Fix common issues: trailing commas before } or ]
-        import re as _re_jr
-        text = _re_jr.sub(r',\s*([}\]])', r'\1', text)
-        # Fix literal newlines inside string values
-        text = _re_jr.sub(r'(?<=: ")([^"]*)\n([^"]*)"', r'\1 \2"', text)
-        return json.loads(text)
+        return _parse_json(raw)
     except Exception:
         return None
 
@@ -2666,7 +2661,8 @@ def run_stage5(idea, quadrant, s1c):
     p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
     p_people    = float(org_data.get("p3_people",{}).get("score",5))
     p_process   = float(org_data.get("p3_process",{}).get("score",5))
-    final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
+    # P³ weights: Portfolio 35%, People 40%, Process 25%
+    final_org   = round(p_portfolio * 0.35 + p_people * 0.40 + p_process * 0.25, 1)
 
     st.session_state.s5_data = {
         "org_data": org_data,
@@ -4614,12 +4610,7 @@ elif st.session_state.active_stage == 5:
             org_data = _parse_json_robust(raw)
             if not org_data or not isinstance(org_data, dict):
                 raise ValueError("parse failed")
-        except Exception as e:
-            error_msg = str(e)
-            st.error(f"⚠️ Stage 5 API Error: {error_msg}")
-            st.info("Falling back to default assessment. Check API key and Claude connectivity.")
-            import traceback
-            st.caption(f"Debug: {traceback.format_exc()[:200]}")
+        except Exception:
             org_data = {
                 "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
                 "p3_people":{"score":5,"rationale":"Assessment unavailable.","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},
@@ -4633,7 +4624,8 @@ elif st.session_state.active_stage == 5:
         p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
         p_people    = float(org_data.get("p3_people",{}).get("score",5))
         p_process   = float(org_data.get("p3_process",{}).get("score",5))
-        final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
+        # P³ weights: Portfolio 35%, People 40%, Process 25%
+        final_org   = round(p_portfolio * 0.35 + p_people * 0.40 + p_process * 0.25, 1)
 
         st.session_state.s5_data = {
             "org_data": org_data,
@@ -4669,9 +4661,9 @@ elif st.session_state.active_stage == 5:
         st.markdown("#### P³ Assessment — Portfolio × People × Process")
         st.caption("Schaeffler's own innovation performance formula applied to this idea's P³ Perspective")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "33% weight")
-        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "33% weight")
-        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "33% weight")
+        col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "35% weight")
+        col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "40% weight")
+        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "25% weight")
         st.markdown("---")
 
         # ── Portfolio dimension ───────────────────────────────
@@ -4722,7 +4714,7 @@ elif st.session_state.active_stage == 5:
                 st.markdown(f"""
 <div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
-    <div style="color:#e2e8f0;font-weight:600;font-size:13px;">{p.get('name','')}</div>
+    <div style="color:{WHITE};font-weight:600;font-size:13px;">{p.get('name','')}</div>
     <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{p.get('type','')} · {p.get('rationale','')}</div>
   </div>
   <div style="background:{rc}22;color:{rc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{p.get('route','')}</div>
@@ -4739,7 +4731,7 @@ elif st.session_state.active_stage == 5:
                 st.markdown(f"""
 <div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
-    <div style="color:#e2e8f0;font-weight:600;font-size:13px;">{g.get('gap','')}</div>
+    <div style="color:{WHITE};font-weight:600;font-size:13px;">{g.get('gap','')}</div>
     <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{g.get('closure_route','')} · Est. {g.get('timeline','')}</div>
   </div>
   <div style="background:{sc}22;color:{sc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{g.get('severity','')} severity</div>
