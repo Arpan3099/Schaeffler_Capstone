@@ -4614,7 +4614,12 @@ elif st.session_state.active_stage == 5:
             org_data = _parse_json_robust(raw)
             if not org_data or not isinstance(org_data, dict):
                 raise ValueError("parse failed")
-        except Exception:
+        except Exception as e:
+            error_msg = str(e)
+            st.error(f"⚠️ Stage 5 API Error: {error_msg}")
+            st.info("Falling back to default assessment. Check API key and Claude connectivity.")
+            import traceback
+            st.caption(f"Debug: {traceback.format_exc()[:200]}")
             org_data = {
                 "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
                 "p3_people":{"score":5,"rationale":"Assessment unavailable.","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},
