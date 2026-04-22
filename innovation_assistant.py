@@ -2968,10 +2968,29 @@ def run_stage5(idea, quadrant, s1c):
     innovation_model = s1c.get("innovation_model", "Integrated") or "Integrated"
 
     system_readiness = (
-        "You are a Schaeffler innovation strategist. Assess P3 Perspective (Portfolio x People x Process) "
+        "You are a Schaeffler innovation strategist. Assess P³ Perspective (Portfolio × People × Process) "
         "for this innovation idea. Innovation model: " + innovation_model + ". "
         "Schaeffler competencies: precision bearings, mechatronics, power electronics (Vitesco), "
-        "EV drivetrains, embedded sensors, OEM Tier 1. "
+        "EV drivetrains, embedded sensors, OEM Tier 1.\n\n"
+        "SCORING RUBRICS (apply strictly to all three dimensions):\n"
+        "Portfolio score (strategic fit):\n"
+        "  9-10 = Direct alignment with a Schaeffler innovation cluster, addresses a defined strategic trend, clear product family fit\n"
+        "  7-8  = Good alignment with one cluster, moderate trend relevance, identifiable product family\n"
+        "  5-6  = Partial fit, indirect relevance to cluster or trend\n"
+        "  3-4  = Weak strategic fit, marginal cluster relevance\n"
+        "  1-2  = No clear fit with any innovation cluster or strategic direction\n"
+        "People score (competency readiness):\n"
+        "  9-10 = Core competencies fully matched within Schaeffler, no critical gaps, can execute immediately\n"
+        "  7-8  = Most competencies matched, one manageable gap with a clear closure route (hire/upskill)\n"
+        "  5-6  = Partial match, 1-2 significant gaps requiring external sourcing or partnership\n"
+        "  3-4  = Major competency gaps, requires significant hiring, acquisition, or JDA\n"
+        "  1-2  = Fundamental capability mismatch, no relevant expertise at Schaeffler\n"
+        "Process score (infrastructure & asset readiness):\n"
+        "  9-10 = Existing Schaeffler processes and assets directly applicable, minimal new investment needed\n"
+        "  7-8  = Most processes applicable, some adaptation or moderate investment required\n"
+        "  5-6  = Moderate process fit, meaningful investment and new tooling required\n"
+        "  3-4  = Few applicable processes, significant new infrastructure needed\n"
+        "  1-2  = No applicable processes, requires building capability from scratch\n\n"
         "Return ONLY valid JSON with this exact structure:\n"
         '{"p3_portfolio":{"score":7,"rationale":"two sentences","cluster_fit":"one sentence","strengths":["s1","s2"],"gaps":["g1"]},'
         '"p3_people":{"score":7,"rationale":"two sentences","matched_competencies":["c1","c2","c3"],"competency_gap":"string","sourcing_route":"string"},'
@@ -2983,7 +3002,7 @@ def run_stage5(idea, quadrant, s1c):
     )
     user_msg = f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}\nInnovation cluster: {s1c.get('innovation_cluster','')}"
 
-    _s5_fallback = {"p3_portfolio":{"score":5,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":5,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":5,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"p3_perspective_score":5}
+    _s5_fallback = {"p3_portfolio":{"score":0,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":0,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":0,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"p3_perspective_score":0}
     try:
         raw = call_claude(system_readiness, user_msg, max_tokens=3000)
         org_data = _parse_json_robust(raw)
@@ -2998,10 +3017,10 @@ def run_stage5(idea, quadrant, s1c):
     except Exception:
         org_data = _s5_fallback
 
-    p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
-    p_people    = float(org_data.get("p3_people",{}).get("score",5))
-    p_process   = float(org_data.get("p3_process",{}).get("score",5))
-    # P³ weights: equal (33.3% each — per P³ formula, dimensions are not differentially weighted)
+    p_portfolio = float(org_data.get("p3_portfolio",{}).get("score", 0))
+    p_people    = float(org_data.get("p3_people",{}).get("score", 0))
+    p_process   = float(org_data.get("p3_process",{}).get("score", 0))
+    # P³ final score: equal weight (33.3% each — per Lau et al., no differential weighting specified)
     final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
 
     st.session_state.s5_data = {
@@ -5030,10 +5049,29 @@ elif st.session_state.active_stage == 5:
         innovation_model = s1c.get("innovation_model", "Integrated") or "Integrated"
 
         system_readiness = (
-            "You are a Schaeffler innovation strategist. Assess P3 Perspective (Portfolio x People x Process) "
+            "You are a Schaeffler innovation strategist. Assess P³ Perspective (Portfolio × People × Process) "
             "for this innovation idea. Innovation model: " + innovation_model + ". "
             "Schaeffler competencies: precision bearings, mechatronics, power electronics (Vitesco), "
-            "EV drivetrains, embedded sensors, OEM Tier 1. "
+            "EV drivetrains, embedded sensors, OEM Tier 1.\n\n"
+            "SCORING RUBRICS (apply strictly to all three dimensions):\n"
+            "Portfolio score (strategic fit):\n"
+            "  9-10 = Direct alignment with a Schaeffler innovation cluster, addresses a defined strategic trend, clear product family fit\n"
+            "  7-8  = Good alignment with one cluster, moderate trend relevance, identifiable product family\n"
+            "  5-6  = Partial fit, indirect relevance to cluster or trend\n"
+            "  3-4  = Weak strategic fit, marginal cluster relevance\n"
+            "  1-2  = No clear fit with any innovation cluster or strategic direction\n"
+            "People score (competency readiness):\n"
+            "  9-10 = Core competencies fully matched within Schaeffler, no critical gaps, can execute immediately\n"
+            "  7-8  = Most competencies matched, one manageable gap with a clear closure route (hire/upskill)\n"
+            "  5-6  = Partial match, 1-2 significant gaps requiring external sourcing or partnership\n"
+            "  3-4  = Major competency gaps, requires significant hiring, acquisition, or JDA\n"
+            "  1-2  = Fundamental capability mismatch, no relevant expertise at Schaeffler\n"
+            "Process score (infrastructure & asset readiness):\n"
+            "  9-10 = Existing Schaeffler processes and assets directly applicable, minimal new investment needed\n"
+            "  7-8  = Most processes applicable, some adaptation or moderate investment required\n"
+            "  5-6  = Moderate process fit, meaningful investment and new tooling required\n"
+            "  3-4  = Few applicable processes, significant new infrastructure needed\n"
+            "  1-2  = No applicable processes, requires building capability from scratch\n\n"
             "Return ONLY valid JSON with this exact structure:\n"
             '{"p3_portfolio":{"score":7,"rationale":"two sentences","cluster_fit":"one sentence","strengths":["s1","s2"],"gaps":["g1"]},'
             '"p3_people":{"score":7,"rationale":"two sentences","matched_competencies":["c1","c2","c3"],"competency_gap":"string","sourcing_route":"string"},'
@@ -5057,19 +5095,18 @@ elif st.session_state.active_stage == 5:
                 raise ValueError("parse failed")
         except Exception:
             org_data = {
-                "p3_portfolio":{"score":5,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
-                "p3_people":{"score":5,"rationale":"Assessment unavailable.","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},
-                "p3_process":{"score":5,"rationale":"Assessment unavailable.","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},
+                "p3_portfolio":{"score":0,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
+                "p3_people":{"score":0,"rationale":"Assessment unavailable.","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},
+                "p3_process":{"score":0,"rationale":"Assessment unavailable.","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},
                 "partnership_candidates":[],"org_gaps":[],
                 "build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},
-                "p3_perspective_score":5
+                "p3_perspective_score":0
             }
 
-        # Weighted score: Portfolio 35%, People 40%, Process 25%
-        p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
-        p_people    = float(org_data.get("p3_people",{}).get("score",5))
-        p_process   = float(org_data.get("p3_process",{}).get("score",5))
-        # P³ weights: equal (33.3% each — per P³ formula, dimensions are not differentially weighted)
+        # P³ final score: equal weight (33.3% each — per Lau et al. P³ formula, no differential weighting specified)
+        p_portfolio = float(org_data.get("p3_portfolio",{}).get("score", 0))
+        p_people    = float(org_data.get("p3_people",{}).get("score", 0))
+        p_process   = float(org_data.get("p3_process",{}).get("score", 0))
         final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
 
         st.session_state.s5_data = {
