@@ -2471,7 +2471,7 @@ Return ONLY valid JSON:
 }"""
 
     raw = call_claude(system_landscape,
-        f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2000)
+        f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=3000)
     landscape = _parse_json_robust(raw)
     if not landscape or not isinstance(landscape, dict):
         landscape = {"technology_keywords":[],"landscape_summary":"Analysis unavailable — JSON parse failed.","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","key_filers":[],"white_spaces":[],"patent_landscape_score":5}
@@ -2525,7 +2525,7 @@ Return ONLY valid JSON:
         f"Idea: {idea}\nQuadrant: {quadrant}\n"
         f"IMPORTANT: You MUST map ALL {len(key_filers_run3)} filers listed below. Do not skip any.\n"
         f"Key filers (map every single one): {filers_full_run3}",
-        max_tokens=max(2000, len(key_filers_run3) * 250 + 1000))
+        max_tokens=max(3000, len(key_filers_run3) * 300 + 1500))
     ansoff_data = _parse_json_robust(raw2)
     if not ansoff_data or not isinstance(ansoff_data, dict):
         ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
@@ -3704,7 +3704,7 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_landscape,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2000)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=3000)
             raw_clean = raw.strip().replace("```json","").replace("```","").strip()
             fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
             if fb >= 0: raw_clean = raw_clean[fb:lb]
@@ -3776,7 +3776,7 @@ Return ONLY valid JSON:
                 f"Idea: {idea}\nQuadrant: {quadrant}\nTech keywords: {landscape.get('technology_keywords','')}\n"
                 f"IMPORTANT: You MUST map ALL {len(key_filers)} filers listed below. Do not skip any.\n"
                 f"Key filers (map every single one): {filers_full_context}",
-                max_tokens=max(1800, len(key_filers) * 200 + 800))
+                max_tokens=max(3000, len(key_filers) * 300 + 1500))
             raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
             fb2 = raw2_clean.find("{"); lb2 = raw2_clean.rfind("}") + 1
             if fb2 >= 0: raw2_clean = raw2_clean[fb2:lb2]
