@@ -26,6 +26,16 @@ def _mval(field):
 
 TAVILY_KEY = ""  # optional
 
+# ── EPO OPS credentials ────────────────────────────────────────────────────────
+# Register free at: https://developers.epo.org/user/register
+# Add to Streamlit secrets as EPO_CONSUMER_KEY and EPO_CONSUMER_SECRET
+try:
+    EPO_CONSUMER_KEY    = st.secrets.get("EPO_CONSUMER_KEY", "")
+    EPO_CONSUMER_SECRET = st.secrets.get("EPO_CONSUMER_SECRET", "")
+except Exception:
+    EPO_CONSUMER_KEY    = ""
+    EPO_CONSUMER_SECRET = ""
+
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="wide", initial_sidebar_state="expanded")
 
 # ═══════════════════════════════════════════════════════════════
@@ -832,6 +842,245 @@ def tavily_search(query):
                  "content": r.get("content","")} for r in resp.json().get("results",[])]
     except:
         return []
+
+
+def _epo_get_token():
+    """Obtain OAuth2 bearer token from EPO OPS. Returns token string or None."""
+    if not EPO_CONSUMER_KEY or not EPO_CONSUMER_SECRET:
+        return None
+    try:
+        import base64
+        creds = base64.b64encode(
+            f"{EPO_CONSUMER_KEY}:{EPO_CONSUMER_SECRET}".encode()
+        ).decode()
+        resp = requests.post(
+            "https://ops.epo.org/3.2/auth/accesstoken",
+            headers={
+                "Authorization": f"Basic {creds}",
+                "Content-Type":  "application/x-www-form-urlencoded",
+            },
+            data="grant_type=client_credentials",
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return resp.json().get("access_token")
+    except Exception:
+        pass
+    return None
+
+
+def fetch_epo_patent_data(keywords, idea=""):
+    """
+    Fetch real patent landscape data from EPO OPS.
+
+    Runs two CQL searches:
+      1. Title-keyword search  — who is filing in this technology space
+      2. Assignee search for 'Schaeffler' — what Schaeffler already holds
+
+    Returns a structured dict consumed by Stage 3 as grounding context for Claude.
+    Returns {} if EPO credentials are not configured — Stage 3 falls back to
+    LLM-only analysis in that case (no disruption to the app).
+    """
+    import xml.etree.ElementTree as ET
+
+    if not EPO_CONSUMER_KEY or not EPO_CONSUMER_SECRET:
+        return {}
+
+    token = _epo_get_token()
+    if not token:
+        return {}
+
+    auth_headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept":        "application/xml",
+        "X-OPS-Range":   "1-25",
+    }
+
+    def _strip_ns(tag):
+        """Strip XML namespace from a tag string."""
+        return tag.split("}")[-1] if "}" in tag else tag
+
+    def _search_epo(cql):
+        """Run one CQL search, return parsed XML root or None."""
+        try:
+            r = requests.get(
+                "https://ops.epo.org/3.2/rest-services/published-data/search/biblio",
+                params={"q": cql},
+                headers=auth_headers,
+                timeout=15,
+            )
+            if r.status_code == 200:
+                return ET.fromstring(r.content)
+        except Exception:
+            pass
+        return None
+
+    def _parse_results(root):
+        """
+        Extract assignees, publication years, and titles from an EPO biblio XML root.
+        Returns (total_count, assignee_counts, years, titles).
+        """
+        total_count = 0
+        assignee_counts = {}
+        years = []
+        titles = []
+
+        # Total result count lives on the biblio-search element
+        for elem in root.iter():
+            tag = _strip_ns(elem.tag)
+            if tag == "biblio-search":
+                try:
+                    total_count = int(elem.get("total-result-count", 0))
+                except Exception:
+                    pass
+                break
+
+        for doc in root.iter():
+            tag = _strip_ns(doc.tag)
+
+            if tag == "exchange-document":
+                # Extract publication year from document-id date
+                for child in doc.iter():
+                    ct = _strip_ns(child.tag)
+                    if ct == "date" and child.text and len(child.text) >= 4:
+                        try:
+                            years.append(int(child.text[:4]))
+                        except Exception:
+                            pass
+                        break  # first date per doc is publication date
+
+                # Extract applicant names
+                for child in doc.iter():
+                    ct = _strip_ns(child.tag)
+                    if ct == "applicant-name":
+                        for sub in child.iter():
+                            if _strip_ns(sub.tag) == "name" and sub.text:
+                                # Clean up name (EPO often appends [CC])
+                                name = sub.text.strip()
+                                name = name.split("[")[0].strip().title()
+                                if name:
+                                    assignee_counts[name] = assignee_counts.get(name, 0) + 1
+                        break
+
+                # Extract English title
+                for child in doc.iter():
+                    ct = _strip_ns(child.tag)
+                    if ct == "invention-title" and child.get("lang") == "en" and child.text:
+                        titles.append(child.text.strip())
+                        break
+
+        return total_count, assignee_counts, years, titles
+
+    # ── Search 1: technology keyword search ───────────────────────────────────
+    kw = [k.strip() for k in (keywords or []) if k.strip()][:3]
+    if not kw:
+        # Fallback: use first 6 words of idea as a single keyword
+        kw = [" ".join(idea.split()[:6])]
+    cql_tech = " OR ".join(f'ti="{k}"' for k in kw)
+
+    root_tech = _search_epo(cql_tech)
+    total, assignee_counts, years, titles = (0, {}, [], [])
+    if root_tech is not None:
+        total, assignee_counts, years, titles = _parse_results(root_tech)
+
+    # ── Search 2: Schaeffler own IP in this space ──────────────────────────────
+    schaeffler_count = 0
+    if kw:
+        inner = " OR ".join('ti="' + k + '"' for k in kw)
+        cql_sch = 'pa="schaeffler" AND (' + inner + ')'
+        root_sch = _search_epo(cql_sch)
+        if root_sch is not None:
+            sch_total, _, _, _ = _parse_results(root_sch)
+            schaeffler_count = sch_total
+
+    # ── Derive filing trend from year distribution ─────────────────────────────
+    filing_trend = "Unknown"
+    if len(years) >= 6:
+        sorted_years = sorted(years)
+        mid = len(sorted_years) // 2
+        older_avg = sum(sorted_years[:mid]) / mid
+        newer_avg = sum(sorted_years[mid:]) / (len(sorted_years) - mid)
+        filing_trend = "Increasing" if newer_avg > older_avg + 0.5 else (
+            "Decreasing" if newer_avg < older_avg - 0.5 else "Stable"
+        )
+
+    # ── Top assignees sorted by filing count ──────────────────────────────────
+    top_assignees = sorted(assignee_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    return {
+        "total_results":    total,
+        "top_assignees":    [{"name": n, "count": c} for n, c in top_assignees],
+        "filing_trend":     filing_trend,
+        "schaeffler_count": schaeffler_count,
+        "sample_titles":    titles[:5],
+        "cql_query":        cql_tech,
+        "data_source":      "EPO OPS (live)",
+    }
+
+
+def _build_epo_context(epo_data):
+    """
+    Convert EPO fetch result into a plain-text context block for Claude.
+    Returns empty string when epo_data is empty (fallback mode).
+    """
+    if not epo_data:
+        return ""
+    assignees_str = ", ".join(
+        f"{a['name']} ({a['count']} filing{'s' if a['count']!=1 else ''})"
+        for a in epo_data["top_assignees"][:8]
+    )
+    titles_str = "; ".join(epo_data["sample_titles"][:3]) if epo_data["sample_titles"] else "N/A"
+    return (
+        f"\n\n--- REAL EPO OPS PATENT DATA (live — ground your analysis on this) ---\n"
+        f"Total patent results for this technology space: {epo_data['total_results']}\n"
+        f"Filing trend (based on publication dates): {epo_data['filing_trend']}\n"
+        f"Schaeffler patents in this space: {epo_data['schaeffler_count']}\n"
+        f"Top assignees (real data): {assignees_str if assignees_str else 'None identified'}\n"
+        f"Sample recent patent titles: {titles_str}\n"
+        f"CQL query used: {epo_data['cql_query']}\n"
+        f"INSTRUCTION: Base your key_filers list primarily on the real assignees above. "
+        f"Use your knowledge to add company type, threat level, and strategic context for each.\n"
+        f"---"
+    )
+
+
+def _compute_ip_proximity_risk(filer_positions, ref_x, ref_y, threshold=2.0):
+    """
+    Deterministically compute IP risk score from Ansoff matrix filer positions.
+
+    Counts how many patent filers sit within `threshold` units on BOTH axes
+    of the reference point (idea position or Schaeffler position).
+
+    Thresholds per spec:
+      ≥5 nearby → High risk  → score 2
+      2–4 nearby → Medium risk → score 5
+      <2 nearby  → Low risk  → score 8
+
+    Returns (label, score, nearby_count)
+    """
+    nearby = sum(
+        1 for f in filer_positions
+        if abs(float(f.get("x_score", 5)) - ref_x) <= threshold
+        and abs(float(f.get("y_score", 5)) - ref_y) <= threshold
+    )
+    if nearby >= 5:
+        return "High", 2, nearby
+    elif nearby >= 2:
+        return "Medium", 5, nearby
+    else:
+        return "Low", 8, nearby
+
+
+def _compute_landscape_score_from_epo(total_results):
+    """
+    Derive patent landscape openness score directly from EPO total result count.
+    Rubric: <50=9 · 50-199=7.5 · 200-499=5.5 · 500-999=3.5 · ≥1000=1.5
+    """
+    if   total_results <  50:  return 9.0
+    elif total_results < 200:  return 7.5
+    elif total_results < 500:  return 5.5
+    elif total_results < 1000: return 3.5
+    else:                      return 1.5
 
 
 import re as _re_global
@@ -2440,6 +2689,13 @@ def _parse_json_robust(raw):
 
 def run_stage3(idea, quadrant, s1c):
     """Run Stage 03 Patent Intelligence and store results in session state."""
+    # ── EPO OPS live patent fetch (if credentials configured) ─────────────────
+    epo_data = fetch_epo_patent_data(
+        keywords=s1c.get("trend_alignment", []) + [s1c.get("innovation_cluster", "")],
+        idea=idea
+    )
+    epo_ctx = _build_epo_context(epo_data)
+
     system_landscape = """You are a patent intelligence analyst specialising in industrial technology.
 Analyse the external patent landscape for this innovation idea.
 
@@ -2471,7 +2727,7 @@ Return ONLY valid JSON:
 }"""
 
     raw = call_claude(system_landscape,
-        f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=3000)
+        f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}{epo_ctx}", max_tokens=3000)
     landscape = _parse_json_robust(raw)
     if not landscape or not isinstance(landscape, dict):
         landscape = {"technology_keywords":[],"landscape_summary":"Analysis unavailable — JSON parse failed.","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","key_filers":[],"white_spaces":[],"patent_landscape_score":5}
@@ -2495,6 +2751,7 @@ Quadrant positions:
 - DISRUPT  (bottom-right): new tech      + existing market  — x_score 5-10, y_score 0-5
 
 IMPORTANT: Every filer in the input list MUST appear in filer_positions — do not skip any.
+Use decimal values (e.g. 6.3, 7.8) for x_score and y_score — not integers — for accurate placement.
 
 Return ONLY valid JSON:
 {
@@ -2502,23 +2759,19 @@ Return ONLY valid JSON:
     {
       "company": "company name",
       "matrix_position": "EXPLOIT/EXTEND/RADICAL/DISRUPT",
-      "x_score": 7,
-      "y_score": 7,
+      "x_score": 7.2,
+      "y_score": 6.8,
       "rationale": "one sentence"
     }
   ],
   "schaeffler_position": {
     "matrix_position": "EXPLOIT",
-    "x_score": 3,
-    "y_score": 3,
+    "x_score": 3.1,
+    "y_score": 2.9,
     "existing_ip": "one sentence on what Schaeffler already has in this space",
     "gap": "one sentence on the IP gap this idea addresses"
   },
-  "idea_position": {"x_score": 7, "y_score": 7},
-  "novelty_signal": "Strong / Moderate / Weak",
-  "novelty_rationale": "one sentence",
-  "ip_risk": "Low / Medium / High",
-  "ip_risk_rationale": "one sentence"
+  "idea_position": {"x_score": 7.4, "y_score": 7.1}
 }"""
 
     raw2 = call_claude(system_ansoff,
@@ -2528,18 +2781,16 @@ Return ONLY valid JSON:
         max_tokens=max(3000, len(key_filers_run3) * 300 + 1500))
     ansoff_data = _parse_json_robust(raw2)
     if not ansoff_data or not isinstance(ansoff_data, dict):
-        ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
+        ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2.0,"y_score":2.0,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7.0,"y_score":7.0}}
 
     # Guarantee every key_filer has a position
-    # X=Technology, Y=Market — EXPLOIT(low x,low y), EXTEND(low x,high y),
-    # RADICAL(high x,high y), DISRUPT(high x,low y)
     positioned_run3 = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
     type_defaults_run3 = {
-        "Competitor":          ("EXPLOIT", 3.0, 3.0),   # established tech + established market
-        "Customer":            ("EXTEND",  2.5, 6.5),   # established tech + new market
-        "Research Institution":("RADICAL", 7.0, 7.5),  # new tech + new market
-        "Adjacent Player":     ("DISRUPT", 6.5, 3.5),  # new tech + established market
-        "Patent Troll":        ("EXPLOIT", 2.0, 2.0),  # established tech + established market
+        "Competitor":          ("EXPLOIT", 3.0, 3.0),
+        "Customer":            ("EXTEND",  2.5, 6.5),
+        "Research Institution":("RADICAL", 7.0, 7.5),
+        "Adjacent Player":     ("DISRUPT", 6.5, 3.5),
+        "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
     }
     for i, f in enumerate(key_filers_run3):
         name = f.get("company","")
@@ -2555,15 +2806,81 @@ Return ONLY valid JSON:
                 "rationale": f.get("focus","Auto-placed based on filer type")
             })
 
-    landscape_score = float(landscape.get("patent_landscape_score",5))
-    novelty_score = {"Strong":9,"Moderate":6,"Weak":3}.get(ansoff_data.get("novelty_signal","Moderate"),6)
-    ip_score      = {"Low":8,"Medium":5,"High":2}.get(ansoff_data.get("ip_risk","Medium"),5)
-    final_patent  = round((landscape_score + novelty_score + ip_score) / 3, 1)
+    # ── Landscape score: EPO-derived if available, else LLM ───────────────────
+    if epo_data and epo_data.get("total_results", 0) > 0:
+        landscape_score = _compute_landscape_score_from_epo(epo_data["total_results"])
+    else:
+        landscape_score = float(landscape.get("patent_landscape_score", 5))
+
+    # ── Novelty score: separate academic domain expert Claude call ─────────────
+    filer_summary = ", ".join(
+        f"{f.get('company','')} ({f.get('type','')})"
+        for f in key_filers_run3[:8]
+    )
+    system_novelty = """You are a domain expert academic assessing patent novelty for an innovation idea.
+Evaluate the novelty signal based on the patent landscape and filer data provided.
+
+Novelty Signal definitions (these are precise — apply them strictly):
+- High:   Blue ocean. Very few patent filers in this specific technology/market combination.
+          The idea occupies largely uncontested IP territory.
+- Medium: Oligopoly. A handful of established players dominate filings, but the specific
+          combination or application has meaningful differentiation potential.
+- Low:    Red ocean. Many patent filers are active. Technology is well-covered by existing patents.
+
+Return ONLY valid JSON:
+{
+  "novelty_signal": "High / Medium / Low",
+  "novelty_rationale": "2-3 sentences from a domain expert perspective explaining the assessment",
+  "novelty_score": <integer 1-10>
+}
+Scoring guide for novelty_score:
+9-10 = High — genuinely uncontested territory
+7-8  = High-leaning — few filers, clear differentiation opportunity
+5-6  = Medium — some prior art but meaningful gaps remain
+3-4  = Medium-low — significant prior art, differentiation is challenging
+1-2  = Low — red ocean, technology space is saturated"""
+
+    novelty_ctx = (
+        f"Idea: {idea}\nQuadrant: {quadrant}\n"
+        f"Landscape summary: {landscape.get('landscape_summary','')}\n"
+        f"Activity level: {landscape.get('activity_level','')}\n"
+        f"Filing trend: {landscape.get('filing_trend','')}\n"
+        f"Key filers identified: {filer_summary}\n"
+        f"Total EPO patent results: {epo_data.get('total_results','Unknown') if epo_data else 'Unknown'}"
+    )
+    raw_nov = call_claude(system_novelty, novelty_ctx, max_tokens=500)
+    novelty_data = _parse_json_robust(raw_nov)
+    if not novelty_data or not isinstance(novelty_data, dict):
+        novelty_data = {"novelty_signal":"Medium","novelty_rationale":"Assessment unavailable.","novelty_score":6}
+    novelty_score = float(novelty_data.get("novelty_score", 6))
+
+    # ── IP Risk scores: deterministic from Ansoff matrix proximity ─────────────
+    filer_positions  = ansoff_data.get("filer_positions", [])
+    idea_x  = float(ansoff_data.get("idea_position", {}).get("x_score", 7.0))
+    idea_y  = float(ansoff_data.get("idea_position", {}).get("y_score", 7.0))
+    sch_x   = float(ansoff_data.get("schaeffler_position", {}).get("x_score", 3.0))
+    sch_y   = float(ansoff_data.get("schaeffler_position", {}).get("y_score", 3.0))
+
+    ip_idea_label, ip_idea_score, ip_idea_nearby       = _compute_ip_proximity_risk(filer_positions, idea_x, idea_y)
+    ip_schaeffler_label, ip_schaeffler_score, ip_sch_nearby = _compute_ip_proximity_risk(filer_positions, sch_x, sch_y)
+
+    # ── Final Patent Intelligence Score (equal 25% weight across 4 dimensions) ─
+    final_patent = round((landscape_score + novelty_score + ip_idea_score + ip_schaeffler_score) / 4, 1)
 
     st.session_state.s3_data = {
-        "landscape": landscape, "ansoff_data": ansoff_data,
-        "novelty_score": novelty_score, "ip_score": ip_score,
-        "landscape_score": landscape_score, "final_score": final_patent
+        "landscape":           landscape,
+        "ansoff_data":         ansoff_data,
+        "novelty_data":        novelty_data,
+        "landscape_score":     landscape_score,
+        "novelty_score":       novelty_score,
+        "ip_idea_label":       ip_idea_label,
+        "ip_idea_score":       ip_idea_score,
+        "ip_idea_nearby":      ip_idea_nearby,
+        "ip_schaeffler_label": ip_schaeffler_label,
+        "ip_schaeffler_score": ip_schaeffler_score,
+        "ip_sch_nearby":       ip_sch_nearby,
+        "epo_data":            epo_data,
+        "final_score":         final_patent,
     }
     st.session_state.s3_step = "done"
 
@@ -2616,18 +2933,31 @@ schaeffler_entry_readiness must be: Too Early / Ready for Innovation / Ready for
     if not trl or not isinstance(trl, dict):
         trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":3}
 
-    trl_score  = float(trl.get("trl_score", round((trl.get("trl_level",3) / 9) * 10, 1)))
+    # ── TRL score: fully deterministic lookup ─────────────────────────────────
+    _TRL_SCORE_MAP = {1:1.0, 2:2.0, 3:3.5, 4:5.0, 5:6.0, 6:7.0, 7:8.0, 8:9.0, 9:10.0}
+    trl_level_val = int(trl.get("trl_level", 0))
+    trl_score = _TRL_SCORE_MAP.get(trl_level_val, 0.0)
+
     ev_map = {"Demonstrated":9,"Partially Demonstrated":6,"Research Stage":3,"Theoretical":1}
-    existence_score = ev_map.get(existence.get("existence_verdict","Research Stage"),3)
-    risks = trl.get("key_technical_risks",[])
-    sev_map = {"High":8,"Medium":5,"Low":2}
-    risk_score = round(10 - (sum(sev_map.get(r.get("severity","Medium"),5) for r in risks[:3]) / max(len(risks[:3]),1)), 1) if risks else 7.0
+    existence_score = ev_map.get(existence.get("existence_verdict","Research Stage"), 0.0)
+
+    # ── Risk Score: safety direction (High=2, Medium=5, Low=8), ALL risks used ─
+    # Higher score = lower risk = better for feasibility
+    _sev_safety = {"High":2, "Medium":5, "Low":8}
+    risks = trl.get("key_technical_risks", [])
+    risk_score = round(
+        sum(_sev_safety.get(r.get("severity","Medium"), 5) for r in risks) / max(len(risks), 1), 1
+    ) if risks else 0.0
+
     final_feasibility = round((trl_score + existence_score + risk_score) / 3, 1)
 
     st.session_state.s4_data = {
-        "existence": existence, "trl": trl,
-        "trl_score": trl_score, "existence_score": existence_score, "risk_score": risk_score,
-        "final_score": final_feasibility
+        "existence":       existence,
+        "trl":             trl,
+        "trl_score":       trl_score,
+        "existence_score": existence_score,
+        "risk_score":      risk_score,
+        "final_score":     final_feasibility
     }
     st.session_state.s4_step = "done"
 
@@ -3672,6 +4002,23 @@ elif st.session_state.active_stage == 3:
         status.markdown("🔍 Analysing external patent landscape...")
         progress.progress(20)
 
+        # ── EPO OPS live patent fetch (if credentials configured) ──────────────
+        status.markdown("🌐 Fetching live patent data from EPO OPS...")
+        epo_data = fetch_epo_patent_data(
+            keywords=s1c.get("trend_alignment", []) + [s1c.get("innovation_cluster", "")],
+            idea=idea
+        )
+        epo_ctx = _build_epo_context(epo_data)
+        if epo_data:
+            progress.progress(35)
+            status.markdown(
+                f"✓ EPO data: {epo_data['total_results']} patents found · "
+                f"Top filer: {epo_data['top_assignees'][0]['name'] if epo_data['top_assignees'] else 'N/A'}"
+            )
+        else:
+            progress.progress(35)
+            status.markdown("ℹ️ EPO credentials not configured — using LLM knowledge for patent landscape.")
+
         system_landscape = """You are a patent intelligence analyst specialising in industrial technology.
 Analyse the external patent landscape for this innovation idea.
 
@@ -3704,7 +4051,7 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_landscape,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=3000)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}{epo_ctx}", max_tokens=3000)
             raw_clean = raw.strip().replace("```json","").replace("```","").strip()
             fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
             if fb >= 0: raw_clean = raw_clean[fb:lb]
@@ -3730,11 +4077,7 @@ Quadrant positions (identical to Schaeffler's quadrant classifier):
 - RADICAL  (top-right):    new tech       + new market       — x_score 5–10, y_score 5–10
 - DISRUPT  (bottom-right): new tech       + existing market  — x_score 5–10, y_score 0–5
 
-For each company, assign:
-- matrix_position: which quadrant their patent activity sits in
-- x_score: 0-10 (0=existing technology, 10=new to the world technology)
-- y_score: 0-10 (0=existing market, 10=new to the world market)
-
+Use decimal values (e.g. 6.3, 7.8) for x_score and y_score — not integers — for accurate placement.
 Also map where SCHAEFFLER's own known IP sits relative to this idea.
 
 Return ONLY valid JSON:
@@ -3743,29 +4086,25 @@ Return ONLY valid JSON:
     {
       "company": "company name",
       "matrix_position": "EXPLOIT/EXTEND/RADICAL/DISRUPT",
-      "x_score": 0-10,
-      "y_score": 0-10,
+      "x_score": 7.2,
+      "y_score": 6.8,
       "rationale": "one sentence"
     }
   ],
   "schaeffler_position": {
     "matrix_position": "EXPLOIT/EXTEND/RADICAL/DISRUPT",
-    "x_score": 0-10,
-    "y_score": 0-10,
+    "x_score": 3.1,
+    "y_score": 2.9,
     "existing_ip": "one sentence on what Schaeffler already has in this space",
     "gap": "one sentence on the IP gap this idea addresses"
   },
   "idea_position": {
-    "x_score": 0-10,
-    "y_score": 0-10
-  },
-  "novelty_signal": "Strong / Moderate / Weak",
-  "novelty_rationale": "one sentence",
-  "ip_risk": "Low / Medium / High",
-  "ip_risk_rationale": "one sentence"
+    "x_score": 7.4,
+    "y_score": 7.1
+  }
 }"""
 
-        # Pass FULL filer objects (not just names) so Claude can map every one
+        # Pass FULL filer objects so Claude can map every one
         key_filers = landscape.get("key_filers", [])
         filers_full_context = json.dumps([
             {"company": f.get("company",""), "type": f.get("type",""), "focus": f.get("focus",""), "threat_level": f.get("threat_level","")}
@@ -3782,29 +4121,22 @@ Return ONLY valid JSON:
             if fb2 >= 0: raw2_clean = raw2_clean[fb2:lb2]
             ansoff_data = json.loads(raw2_clean)
         except Exception as e:
-            ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},
-                          "idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
+            ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2.0,"y_score":2.0,"existing_ip":"N/A","gap":"N/A"},
+                          "idea_position":{"x_score":7.0,"y_score":7.0}}
 
-        # ── Guarantee every key_filer appears in filer_positions ──────────
-        # Build a lookup of which companies already have positions
+        # Guarantee every key_filer appears in filer_positions
         positioned_companies = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
-        # Quadrant → default score ranges for auto-placement fallback
-        # Quadrant → default score ranges (X=Technology, Y=Market — matches Stage 1 convention)
-        # EXPLOIT=bottom-left(low x,low y), EXTEND=top-left(low x,high y),
-        # RADICAL=top-right(high x,high y), DISRUPT=bottom-right(high x,low y)
         type_defaults = {
-            "Competitor":          ("EXPLOIT", 3.0, 3.0),   # established tech + established market
-            "Customer":            ("EXTEND",  2.5, 6.5),   # established tech + new market
-            "Research Institution":("RADICAL", 7.0, 7.5),  # new tech + new market
-            "Adjacent Player":     ("DISRUPT", 6.5, 3.5),  # new tech + established market
-            "Patent Troll":        ("EXPLOIT", 2.0, 2.0),  # established tech + established market
+            "Competitor":          ("EXPLOIT", 3.0, 3.0),
+            "Customer":            ("EXTEND",  2.5, 6.5),
+            "Research Institution":("RADICAL", 7.0, 7.5),
+            "Adjacent Player":     ("DISRUPT", 6.5, 3.5),
+            "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
         }
-        import random
         for i, f in enumerate(key_filers):
             name = f.get("company","")
             if name.lower() not in positioned_companies and name:
                 quad, bx, by = type_defaults.get(f.get("type","Adjacent Player"), ("EXPLOIT", 4.0, 4.0))
-                # Small deterministic nudge so overlapping filers spread out
                 nudge_x = ((i * 0.7) % 2.0) - 1.0
                 nudge_y = ((i * 1.1) % 2.0) - 1.0
                 ansoff_data.setdefault("filer_positions", []).append({
@@ -3816,24 +4148,90 @@ Return ONLY valid JSON:
                     "rationale": f.get("focus","Auto-placed based on filer type")
                 })
 
-        progress.progress(80)
+        progress.progress(70)
+        status.markdown("🔬 Assessing novelty signal...")
+
+        # ── Novelty: separate academic domain expert Claude call ───────────────
+        filer_summary = ", ".join(
+            f"{f.get('company','')} ({f.get('type','')})"
+            for f in key_filers[:8]
+        )
+        system_novelty = """You are a domain expert academic assessing patent novelty for an innovation idea.
+Evaluate the novelty signal based on the patent landscape and filer data provided.
+
+Novelty Signal definitions (apply these strictly):
+- High:   Blue ocean. Very few patent filers in this specific technology/market combination.
+          The idea occupies largely uncontested IP territory.
+- Medium: Oligopoly. A handful of established players dominate filings but the specific
+          combination or application has meaningful differentiation potential.
+- Low:    Red ocean. Many patent filers are active. Technology is well-covered by existing patents.
+
+Return ONLY valid JSON:
+{
+  "novelty_signal": "High / Medium / Low",
+  "novelty_rationale": "2-3 sentences from a domain expert perspective",
+  "novelty_score": <integer 1-10>
+}
+Scoring guide:
+9-10 = High — genuinely uncontested territory
+7-8  = High-leaning — few filers, clear differentiation opportunity
+5-6  = Medium — some prior art but meaningful gaps remain
+3-4  = Medium-low — significant prior art, differentiation is challenging
+1-2  = Low — red ocean, technology space is saturated"""
+
+        novelty_ctx = (
+            f"Idea: {idea}\nQuadrant: {quadrant}\n"
+            f"Landscape summary: {landscape.get('landscape_summary','')}\n"
+            f"Activity level: {landscape.get('activity_level','')}\n"
+            f"Filing trend: {landscape.get('filing_trend','')}\n"
+            f"Key filers identified: {filer_summary}\n"
+            f"Total EPO patent results: {epo_data.get('total_results','Unknown') if epo_data else 'Unknown'}"
+        )
+        try:
+            raw_nov = call_claude(system_novelty, novelty_ctx, max_tokens=500)
+            novelty_data = _parse_json_robust(raw_nov)
+            if not novelty_data or not isinstance(novelty_data, dict):
+                novelty_data = {"novelty_signal":"Medium","novelty_rationale":"Assessment unavailable.","novelty_score":6}
+        except Exception:
+            novelty_data = {"novelty_signal":"Medium","novelty_rationale":"Assessment unavailable.","novelty_score":6}
+        novelty_score = float(novelty_data.get("novelty_score", 6))
+
+        progress.progress(85)
         status.markdown("📊 Calculating patent intelligence score...")
 
-        # Patent score: landscape openness + novelty signal + ip risk
-        landscape_score = float(landscape.get("patent_landscape_score", 5))
-        novelty_map = {"Strong":9,"Moderate":6,"Weak":3}
-        ip_risk_map  = {"Low":8,"Medium":5,"High":2}
-        novelty_score = novelty_map.get(ansoff_data.get("novelty_signal","Moderate"), 6)
-        ip_score      = ip_risk_map.get(ansoff_data.get("ip_risk","Medium"), 5)
-        final_patent  = round((landscape_score + novelty_score + ip_score) / 3, 1)
+        # ── Landscape score: EPO-derived if available, else LLM ───────────────
+        if epo_data and epo_data.get("total_results", 0) > 0:
+            landscape_score = _compute_landscape_score_from_epo(epo_data["total_results"])
+        else:
+            landscape_score = float(landscape.get("patent_landscape_score", 5))
+
+        # ── IP Risk scores: deterministic from Ansoff matrix proximity ─────────
+        filer_positions  = ansoff_data.get("filer_positions", [])
+        idea_x  = float(ansoff_data.get("idea_position", {}).get("x_score", 7.0))
+        idea_y  = float(ansoff_data.get("idea_position", {}).get("y_score", 7.0))
+        sch_x   = float(ansoff_data.get("schaeffler_position", {}).get("x_score", 3.0))
+        sch_y   = float(ansoff_data.get("schaeffler_position", {}).get("y_score", 3.0))
+
+        ip_idea_label, ip_idea_score, ip_idea_nearby           = _compute_ip_proximity_risk(filer_positions, idea_x, idea_y)
+        ip_schaeffler_label, ip_schaeffler_score, ip_sch_nearby = _compute_ip_proximity_risk(filer_positions, sch_x, sch_y)
+
+        # ── Final score: equal 25% weight across 4 dimensions ─────────────────
+        final_patent = round((landscape_score + novelty_score + ip_idea_score + ip_schaeffler_score) / 4, 1)
 
         st.session_state.s3_data = {
-            "landscape": landscape,
-            "ansoff_data": ansoff_data,
-            "novelty_score": novelty_score,
-            "ip_score": ip_score,
-            "landscape_score": landscape_score,
-            "final_score": final_patent
+            "landscape":           landscape,
+            "ansoff_data":         ansoff_data,
+            "novelty_data":        novelty_data,
+            "landscape_score":     landscape_score,
+            "novelty_score":       novelty_score,
+            "ip_idea_label":       ip_idea_label,
+            "ip_idea_score":       ip_idea_score,
+            "ip_idea_nearby":      ip_idea_nearby,
+            "ip_schaeffler_label": ip_schaeffler_label,
+            "ip_schaeffler_score": ip_schaeffler_score,
+            "ip_sch_nearby":       ip_sch_nearby,
+            "epo_data":            epo_data,
+            "final_score":         final_patent,
         }
 
         progress.progress(100)
@@ -3859,11 +4257,14 @@ Return ONLY valid JSON:
 </div>
 """, unsafe_allow_html=True)
 
-        # Score breakdown
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Landscape Openness", f"{d['landscape_score']:.1f} / 10", "33% weight")
-        col2.metric("Novelty Signal",      f"{d['novelty_score']:.1f} / 10",  "33% weight")
-        col3.metric("IP Risk",             f"{d['ip_score']:.1f} / 10",       "33% weight")
+        # Score breakdown — 4 components at 25% each
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Landscape Openness",  f"{d['landscape_score']:.1f} / 10", "25% weight")
+        col2.metric("Novelty Signal",       f"{d['novelty_score']:.1f} / 10",  "25% weight")
+        col3.metric("IP Risk — Idea",       f"{d['ip_idea_score']:.1f} / 10",
+                    f"25% · {d.get('ip_idea_label','?')} ({d.get('ip_idea_nearby',0)} nearby filers)")
+        col4.metric("IP Risk — Schaeffler", f"{d['ip_schaeffler_score']:.1f} / 10",
+                    f"25% · {d.get('ip_schaeffler_label','?')} ({d.get('ip_sch_nearby',0)} nearby filers)")
         st.markdown("---")
 
         # ── Patent activity overview ──────────────────────────
@@ -4086,9 +4487,16 @@ Return ONLY valid JSON:
         # ── Schaeffler IP position ────────────────────────────
         st.markdown("#### 🏭 Schaeffler IP Position")
         sc1, sc2, sc3 = st.columns(3)
-        sc1.metric("Novelty Signal", ansoff_data.get("novelty_signal",""))
-        sc2.metric("IP Risk",        ansoff_data.get("ip_risk",""))
-        sc3.metric("IP Score",       f"{d['ip_score']:.1f} / 10")
+        sc1.metric("Novelty Signal",
+                   d.get("novelty_data",{}).get("novelty_signal","—"),
+                   f"Score: {d.get('novelty_score',0):.1f}/10")
+        sc2.metric("IP Risk — Idea",
+                   d.get("ip_idea_label","—"),
+                   f"{d.get('ip_idea_nearby',0)} filers within 2 units")
+        sc3.metric("IP Risk — Schaeffler",
+                   d.get("ip_schaeffler_label","—"),
+                   f"{d.get('ip_sch_nearby',0)} filers within 2 units")
+        st.caption(f"Novelty rationale: {d.get('novelty_data',{}).get('novelty_rationale','')}")
         st.caption(f"Existing Schaeffler IP: {schaeffler_pos.get('existing_ip','')}")
         st.caption(f"IP gap this idea addresses: {schaeffler_pos.get('gap','')}")
 
@@ -4223,14 +4631,9 @@ Return ONLY valid JSON:
         try:
             raw = call_claude(system_existence,
                 f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
-            # Strip everything before first { and after last }
-            raw_clean = raw.strip()
-            raw_clean = raw_clean.replace("```json","").replace("```","").strip()
-            first_brace = raw_clean.find("{")
-            last_brace  = raw_clean.rfind("}") + 1
-            if first_brace >= 0:
-                raw_clean = raw_clean[first_brace:last_brace]
-            existence = json.loads(raw_clean)
+            existence = _parse_json_robust(raw)
+            if not existence or not isinstance(existence, dict):
+                raise ValueError("Parse failed")
         except Exception as e:
             st.warning(f"Evidence parsing issue: {e} — using fallback")
             existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"",
@@ -4270,45 +4673,51 @@ Return ONLY valid JSON:
     {"risk": "technical risk description", "severity": "High/Medium/Low", "mitigation": "one sentence"},
     {"risk": "technical risk description", "severity": "High/Medium/Low", "mitigation": "one sentence"}
   ],
-  "analogous_schaeffler_technologies": "one sentence on which of Schaeffler's 8 Motion Product Families (Guide Motion/Transmit Motion/Control Motion/Generate Motion/Power Motion/Drive Motion/Energize Motion/Sustain Motion) this technology is closest to",
-  "trl_score": integer 1-10 mapped directly from TRL level. TRL1=1, TRL2=2, TRL3=3.5, TRL4=5, TRL5=6, TRL6=7, TRL7=8, TRL8=9, TRL9=10
+  "analogous_schaeffler_technologies": "one sentence on which of Schaeffler's 8 Motion Product Families this technology is closest to"
 }"""
 
         try:
             raw2 = call_claude(system_trl,
                 f"Idea: {idea}\nExistence verdict: {existence.get('existence_verdict','')}\nEvidence: {json.dumps(existence.get('evidence',[])[:3])}\nGaps: {existence.get('technology_gaps',[])}",
                 max_tokens=1500)
-            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
-            first_brace = raw2_clean.find("{")
-            last_brace  = raw2_clean.rfind("}") + 1
-            if first_brace >= 0:
-                raw2_clean = raw2_clean[first_brace:last_brace]
-            trl = json.loads(raw2_clean)
+            trl = _parse_json_robust(raw2)
+            if not trl or not isinstance(trl, dict):
+                raise ValueError("Parse failed")
         except Exception as e:
             st.warning(f"TRL parsing issue: {e} — using fallback")
-            trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept",
-                  "trl_rationale":"","schaeffler_entry_readiness":"Ready for Innovation",
-                  "entry_rationale":"","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":5}
+            trl = {"trl_level":0,"trl_label":"TRL — parse failed, re-run",
+                  "trl_rationale":"","schaeffler_entry_readiness":"Too Early",
+                  "entry_rationale":"","key_technical_risks":[],"analogous_schaeffler_technologies":""}
 
         progress.progress(85)
         status.markdown("📐 Calculating feasibility score...")
 
-        # Feasibility score: TRL score (50%) + existence quality (30%) + risk profile (20%)
-        trl_score = float(trl.get("trl_score", 5))
+        # ── TRL score: fully deterministic lookup (no LLM variance) ──────────
+        _TRL_SCORE_MAP = {1:1.0, 2:2.0, 3:3.5, 4:5.0, 5:6.0, 6:7.0, 7:8.0, 8:9.0, 9:10.0}
+        trl_level_val = int(trl.get("trl_level", 0))
+        trl_score = _TRL_SCORE_MAP.get(trl_level_val, 0.0)
+
+        # ── Existence score: deterministic map ────────────────────────────────
         existence_map = {"Demonstrated":9,"Partially Demonstrated":6,"Research Stage":3,"Theoretical":1}
-        existence_score = existence_map.get(existence.get("existence_verdict","Research Stage"), 5)
-        risk_scores = [{"High":2,"Medium":5,"Low":8}.get(r.get("severity","Medium"),5)
-                      for r in trl.get("key_technical_risks",[])]
-        risk_score = sum(risk_scores)/len(risk_scores) if risk_scores else 5.0
+        existence_score = existence_map.get(existence.get("existence_verdict","Research Stage"), 0.0)
+
+        # ── Risk Score: safety direction (High=2, Medium=5, Low=8), ALL risks ──
+        # Higher score = lower risk = better for feasibility
+        _sev_safety = {"High":2, "Medium":5, "Low":8}
+        all_risks = trl.get("key_technical_risks", [])
+        risk_score = round(
+            sum(_sev_safety.get(r.get("severity","Medium"), 5) for r in all_risks) / max(len(all_risks), 1), 1
+        ) if all_risks else 0.0
+
         final_feasibility = round((trl_score + existence_score + risk_score) / 3, 1)
 
         st.session_state.s4_data = {
-            "existence": existence,
-            "trl": trl,
-            "trl_score": trl_score,
+            "existence":       existence,
+            "trl":             trl,
+            "trl_score":       trl_score,
             "existence_score": existence_score,
-            "risk_score": round(risk_score,1),
-            "final_score": final_feasibility
+            "risk_score":      risk_score,
+            "final_score":     final_feasibility
         }
 
         progress.progress(100)
@@ -4347,9 +4756,9 @@ Return ONLY valid JSON:
 
         # Score breakdown
         col1, col2, col3 = st.columns(3)
-        col1.metric("TRL Score",        f"{d['trl_score']:.1f} / 10", "33% weight")
-        col2.metric("Existence Quality", f"{d['existence_score']:.1f} / 10", "33% weight")
-        col3.metric("Risk Profile",      f"{d['risk_score']:.1f} / 10", "33% weight")
+        col1.metric("TRL Score",         f"{d['trl_score']:.1f} / 10",      "33% weight")
+        col2.metric("Existence Quality",  f"{d['existence_score']:.1f} / 10","33% weight")
+        col3.metric("Risk Profile", f"{d['risk_score']:.1f} / 10", "33% weight")
         st.markdown("---")
 
         # ── TRL gauge ─────────────────────────────────────────
@@ -4433,7 +4842,6 @@ Return ONLY valid JSON:
             }
             rel_cols = {"Direct":"#22c55e","Adjacent":"#60a5fa","Analogous":"#f59e0b"}
             conf_cols = {"High":"#22c55e","Medium":"#f59e0b","Low":"#ef4444"}
-            # Sort: Direct > Adjacent > Analogous, then High > Medium > Low confidence
             rel_order  = {"Direct":0,"Adjacent":1,"Analogous":2}
             conf_order = {"High":0,"Medium":1,"Low":2}
             sorted_ev = sorted(evidence_items,
@@ -4457,6 +4865,28 @@ Return ONLY valid JSON:
   <div style="color:#cbd5e1;font-size:12px;">{ev.get("description","")} <span style="color:#4a6fa5;">{ev.get("source","")}</span></div>
 </div>
 """, unsafe_allow_html=True)
+
+            # ── Research paper search links dropdown ──────────────
+            import urllib.parse as _up4
+            with st.expander(f"🔗 Search links for {len(top_ev)} evidence items"):
+                st.caption("Links open targeted searches — paper titles from LLM training memory, verify before citing.")
+                for ev in top_ev:
+                    title  = ev.get("title","")
+                    source = ev.get("source","")
+                    etype  = ev.get("type","")
+                    if not title:
+                        continue
+                    # Build targeted search URLs
+                    q_gs    = _up4.quote(f'"{title}" {source}')
+                    q_ss    = _up4.quote(f'{title} {source}')
+                    url_gs  = f"https://scholar.google.com/scholar?q={q_gs}"
+                    url_ss  = f"https://www.semanticscholar.org/search?q={q_ss}&sort=Relevance"
+                    url_pub = f"https://pubmed.ncbi.nlm.nih.gov/?term={_up4.quote(title)}" if etype=="Academic Paper" else ""
+                    links = f'[Google Scholar]({url_gs})  ·  [Semantic Scholar]({url_ss})'
+                    if url_pub:
+                        links += f'  ·  [PubMed]({url_pub})'
+                    st.markdown(f"**{title}**  \n{source}  \n{links}")
+                    st.markdown("---")
         st.markdown("---")
 
         # ── Keyword map ───────────────────────────────────────
