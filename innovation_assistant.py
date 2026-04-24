@@ -812,6 +812,28 @@ def call_claude(system, user, max_tokens=2000):
             else:
                 raise e
 
+def call_claude_market(system, user, max_tokens=1400):
+    """Temperature=0 variant for market data — deterministic retrieval,
+    not creative generation. Ensures consistent figures across runs."""
+    client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+    full_sys = system + _lang_suffix()
+    for attempt in range(3):
+        try:
+            msg = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=max_tokens,
+                temperature=0,
+                system=full_sys,
+                messages=[{"role": "user", "content": user}]
+            )
+            return msg.content[0].text
+        except Exception as e:
+            err = str(e)
+            if "overloaded" in err.lower() and attempt < 2:
+                time.sleep(3)
+            else:
+                return call_claude(system, user, max_tokens)
+
 def call_claude_chat(system, history, max_tokens=500):
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
     full_sys = system + _lang_suffix()
@@ -2615,20 +2637,25 @@ Write substantive, specific content using the data provided. Return ONLY valid J
 def run_stage2(idea, quadrant, s1c):
     """Run Stage 02 Market Intelligence and store results in session state."""
     web_ctx = ""
-    system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
-RULES:
-- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, IRENA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global, OREC, Ocean Energy Europe.
-- For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array.
-- For URLs: Only provide a deep-link URL pointing to the SPECIFIC report page (e.g. https://www.grandviewresearch.com/industry-analysis/bearing-market). NEVER return a homepage or root domain. If you do not know the exact report-level URL, omit the url field entirely — a missing url is better than a homepage URL.
-- market_score: integer 1-10. Guide: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny/declining.
+    system_market = """You are a market data retrieval assistant. Your task is to recall — not estimate — specific market research figures from your training data for the given innovation idea.
+
+RETRIEVAL RULES:
+- Think: which single named market research report in your training data best covers this exact market?
+- Report the market size and CAGR figures from THAT specific report only.
+- If you recall figures from multiple reports, pick the most authoritative and recent one.
+- Do NOT blend or average figures across reports — anchor all three numbers (current size, forecast, CAGR) to the SAME report wherever possible.
+- If you are genuinely uncertain about a specific figure, prefix the value with "est." (e.g. "est. $4.2B") — do not invent precision.
+- The org + title + year you provide will be used directly to build a search link. Make them exact and specific — a vague title like "Bearing Market Report" is useless.
+- Do NOT include a url field. Do NOT include homepage URLs. The app builds the search link from title + org.
+- market_score: integer 1-10. Rubric: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny or declining.
 Return ONLY valid JSON with NO extra text:
 {"market_name":"string",
-"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
-"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
-"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
+"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title as Published","year":"2024"}]},
+"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title as Published","year":"2024"}]},
+"cagr":{"value":"X.X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title as Published","year":"2024"}]},
 "growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":7,"market_score_rationale":"2 sentences"}"""
-    raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1400)
+    raw = call_claude_market(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}")
     try:
         market = _parse_json(raw)
     except Exception:
@@ -3621,22 +3648,25 @@ elif st.session_state.active_stage == 2:
 
         status.markdown("📊 Analysing market size and growth...")
         progress.progress(35)
-        system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
-RULES:
-- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, IRENA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global, OREC, Ocean Energy Europe.
-- For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array — never combine two sources into one object.
-- For URLs: Only provide a deep-link URL pointing to the SPECIFIC report page. NEVER return a homepage or root domain. If you do not know the exact report-level URL, omit the url field entirely — a missing url is better than a homepage URL.
-- market_size_current = most recent available year (2024 or 2025). market_size_forecast = 5-7 year projection. cagr = compound annual growth rate for that period.
+        system_market = """You are a market data retrieval assistant. Your task is to recall — not estimate — specific market research figures from your training data for the given innovation idea.
+
+RETRIEVAL RULES:
+- Think: which single named market research report in your training data best covers this exact market?
+- Report the market size and CAGR figures from THAT specific report only.
+- Do NOT blend or average figures across reports — anchor all three numbers to the SAME report wherever possible.
+- If you are genuinely uncertain about a specific figure, prefix the value with "est." (e.g. "est. $4.2B") — do not invent precision.
+- The org + title + year you provide will be used directly to build a search link. Make them exact and specific.
+- Do NOT include a url field. The app builds the search link from title + org.
 - market_score: integer 1-10. Rubric: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny or declining.
 Return ONLY valid JSON with NO extra text, NO comments inside the JSON:
 {"market_name":"string",
-"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
-"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
-"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
+"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title as Published","year":"2024"}]},
+"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title as Published","year":"2024"}]},
+"cagr":{"value":"X.X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title as Published","year":"2024"}]},
 "growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":7,"market_score_rationale":"2 sentences"}"""
         try:
-            raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}", max_tokens=1400)
+            raw = call_claude_market(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}{web_ctx}")
             market = _parse_json(raw)
         except Exception:
             market = {"market_name":"N/A","market_size_current":{"value":"N/A","year":"2024","sources":[]},"market_size_forecast":{"value":"N/A","year":"2030","sources":[]},"cagr":{"value":"N/A","period":"","sources":[]},"growth_drivers":[],"market_maturity":"N/A","geographic_focus":"N/A","market_score":5,"market_score_rationale":""}
@@ -3748,76 +3778,61 @@ Return ONLY valid JSON with NO inline comments:
 
         def _resolve_url(src_obj):
             """
-            Priority order:
-            1. Tavily live search — if key available, search for exact report title
-               and return first result with a meaningful deep-link path.
-            2. Claude-supplied URL — only accepted if path depth > 15 chars
-               (rejects homepages like /reports or /research) AND HEAD check passes.
-            3. Targeted Google search fallback — quoted title + org + year.
-               Never returns a bare domain homepage.
-            Returns (url, is_direct).  is_direct=True only for a verified deep link.
+            URL resolution — Claude never provides URLs (hallucination risk).
+            Priority:
+              1. Tavily live search  → first result whose path looks like a real
+                 report page (depth > 1 segment, len > 15 chars).  🔗
+              2. Targeted Google search → quoted title + org + year.            🔍
             """
             import urllib.parse as _up2
             from urllib.parse import urlparse as _ulp
 
-            raw_url   = src_obj.get("url", "").strip()
-            org       = src_obj.get("org", "")
-            title     = src_obj.get("title", "")
-            year      = src_obj.get("year", "")
+            org   = src_obj.get("org", "")
+            title = src_obj.get("title", "")
+            year  = src_obj.get("year", "")
 
-            # ── Build Google search fallback (always available) ───────────
+            # ── Always-available Google search fallback ───────────────────
+            # Quote both title AND org so Google surfaces the exact report page.
+            # Format: "Exact Report Title" "OrgName" year
             q_parts = []
             if title:
                 q_parts.append(f'"{title}"')
             if org:
-                q_parts.append(org)
+                q_parts.append(f'"{org}"')
             if year:
                 q_parts.append(year)
-            q_parts.append("market size report")
             fallback_url = (
                 "https://www.google.com/search?q="
                 + _up2.quote(" ".join(q_parts).strip())
             )
 
-            def _path_deep(url, min_len=15):
-                """Return True only if the URL path is a real deep link, not a homepage."""
+            def _is_deep(url):
+                """True only if URL points to a specific page, not a homepage."""
                 try:
                     p = _ulp(url).path.strip("/")
-                    # Reject pure root, single-segment catches like /reports /research /en
-                    if not p or len(p) < min_len:
-                        return False
-                    # Reject paths with no slug depth (e.g. /reports/list)
-                    if p.count("/") == 0 and len(p) < 20:
-                        return False
-                    return True
+                    return len(p) >= 15 and ("/" in p or len(p) >= 25)
                 except Exception:
                     return False
 
-            # ── 1. Try Tavily live search first ───────────────────────────
+            # ── 1. Tavily live search ─────────────────────────────────────
             if TAVILY_KEY and title:
                 try:
-                    query = f'"{title}" {org} {year} market size report'
-                    results = tavily_search(query)
+                    results = tavily_search(f'"{title}" {org} {year}')
                     for r in results:
                         u = r.get("url", "")
-                        if u and u.startswith("http") and _path_deep(u):
+                        if u and u.startswith("http") and _is_deep(u):
                             return u, True
+                    # Broader fallback query if exact title found nothing
+                    if not results:
+                        results = tavily_search(f'{org} {title[:60]} market report')
+                        for r in results:
+                            u = r.get("url", "")
+                            if u and u.startswith("http") and _is_deep(u):
+                                return u, True
                 except Exception:
                     pass
 
-            # ── 2. Claude-supplied URL — strict deep-link check ───────────
-            if raw_url and raw_url.startswith("http") and _path_deep(raw_url):
-                try:
-                    resp = requests.head(
-                        raw_url, timeout=4, allow_redirects=True,
-                        headers={"User-Agent": "Mozilla/5.0"}
-                    )
-                    if resp.status_code < 400:
-                        return raw_url, True
-                except Exception:
-                    pass
-
-            # ── 3. Google search fallback ─────────────────────────────────
+            # ── 2. Google search fallback (always a targeted query) ───────
             return fallback_url, False
 
         def _pill_label(src_obj):
@@ -3853,9 +3868,14 @@ Return ONLY valid JSON with NO inline comments:
             return html
 
         def _compat_field(field_val, fallback_key=None):
-            """Handle both new structured format and legacy string format gracefully."""
+            """Handle both new structured format and legacy string format gracefully.
+            Also strips any url key from source objects so hallucinated URLs never reach
+            _resolve_url — only org/title/year are used for live lookup."""
             if isinstance(field_val, dict):
-                return field_val
+                # Scrub url from every source object — app resolves URLs live
+                srcs = field_val.get("sources", [])
+                clean_srcs = [{k: v for k, v in s.items() if k != "url"} for s in srcs]
+                return {**field_val, "sources": clean_srcs}
             # Legacy string format — wrap it
             raw = str(field_val) if field_val else "N/A"
             val = raw.split("[Source:")[0].strip().split("(")[0].split(";")[0].strip()
@@ -3883,7 +3903,7 @@ Return ONLY valid JSON with NO inline comments:
 </div>""", unsafe_allow_html=True)
 
         st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
-        st.caption("🔗 = verified direct link  ·  🔍 = targeted Google search for this exact report")
+        st.caption("🔗 = live-verified source link  ·  🔍 = targeted Google search for this exact report")
 
         col_l, col_r = st.columns(2)
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
