@@ -2619,7 +2619,7 @@ def run_stage2(idea, quadrant, s1c):
 RULES:
 - Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, IRENA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global, OREC, Ocean Energy Europe.
 - For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array.
-- For URLs: Include the best URL you know for each source from your training data — the app will verify it with a live HEAD check and automatically fall back to a targeted Google search if the URL is unreachable. Omit the url field only if you genuinely have no URL knowledge for this specific report.
+- For URLs: Only provide a deep-link URL pointing to the SPECIFIC report page (e.g. https://www.grandviewresearch.com/industry-analysis/bearing-market). NEVER return a homepage or root domain. If you do not know the exact report-level URL, omit the url field entirely — a missing url is better than a homepage URL.
 - market_score: integer 1-10. Guide: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny/declining.
 Return ONLY valid JSON with NO extra text:
 {"market_name":"string",
@@ -3625,7 +3625,7 @@ elif st.session_state.active_stage == 2:
 RULES:
 - Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, IRENA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global, OREC, Ocean Energy Europe.
 - For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array — never combine two sources into one object.
-- Include the best URL you know for each source from your training data — the app verifies it with a live HEAD check and falls back to a targeted search automatically. Omit the url field only if you genuinely have no URL for this specific report.
+- For URLs: Only provide a deep-link URL pointing to the SPECIFIC report page. NEVER return a homepage or root domain. If you do not know the exact report-level URL, omit the url field entirely — a missing url is better than a homepage URL.
 - market_size_current = most recent available year (2024 or 2025). market_size_forecast = 5-7 year projection. cagr = compound annual growth rate for that period.
 - market_score: integer 1-10. Rubric: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny or declining.
 Return ONLY valid JSON with NO extra text, NO comments inside the JSON:
@@ -3748,54 +3748,76 @@ Return ONLY valid JSON with NO inline comments:
 
         def _resolve_url(src_obj):
             """
-            1. If Claude gave a URL: HEAD-check it. Return it if alive.
-            2. If no URL or URL dead: build a site:-targeted Google search with quoted title.
-            3. Returns (url, is_direct).
+            Priority order:
+            1. Tavily live search — if key available, search for exact report title
+               and return first result with a meaningful deep-link path.
+            2. Claude-supplied URL — only accepted if path depth > 15 chars
+               (rejects homepages like /reports or /research) AND HEAD check passes.
+            3. Targeted Google search fallback — quoted title + org + year.
+               Never returns a bare domain homepage.
+            Returns (url, is_direct).  is_direct=True only for a verified deep link.
             """
             import urllib.parse as _up2
-            raw_url  = src_obj.get("url", "").strip()
-            org      = src_obj.get("org", "")
-            title    = src_obj.get("title", "")
-            year     = src_obj.get("year", "")
-            org_lower = org.lower()
+            from urllib.parse import urlparse as _ulp
 
-            domain = None
-            for key, dom in _ORG_DOMAINS.items():
-                if key in org_lower:
-                    domain = dom
-                    break
+            raw_url   = src_obj.get("url", "").strip()
+            org       = src_obj.get("org", "")
+            title     = src_obj.get("title", "")
+            year      = src_obj.get("year", "")
 
-            title_words = title.replace(year, "").strip()
-            if domain:
-                q = f'"{title_words}" site:{domain}'
-                if year:
-                    q += f" {year}"
-            else:
-                q = f'"{title_words}" {org}'
-                if year:
-                    q += f" {year}"
-            fallback_url = f"https://www.google.com/search?q={_up2.quote(q.strip())}"
+            # ── Build Google search fallback (always available) ───────────
+            q_parts = []
+            if title:
+                q_parts.append(f'"{title}"')
+            if org:
+                q_parts.append(org)
+            if year:
+                q_parts.append(year)
+            q_parts.append("market size report")
+            fallback_url = (
+                "https://www.google.com/search?q="
+                + _up2.quote(" ".join(q_parts).strip())
+            )
 
-            if not raw_url or not raw_url.startswith("http"):
-                return fallback_url, False
+            def _path_deep(url, min_len=15):
+                """Return True only if the URL path is a real deep link, not a homepage."""
+                try:
+                    p = _ulp(url).path.strip("/")
+                    # Reject pure root, single-segment catches like /reports /research /en
+                    if not p or len(p) < min_len:
+                        return False
+                    # Reject paths with no slug depth (e.g. /reports/list)
+                    if p.count("/") == 0 and len(p) < 20:
+                        return False
+                    return True
+                except Exception:
+                    return False
 
-            try:
-                from urllib.parse import urlparse as _ulp
-                _parsed = _ulp(raw_url)
-                path = _parsed.path.strip("/")
-                if not path or len(path) <= 3:
-                    return fallback_url, False
-            except Exception:
-                return fallback_url, False
+            # ── 1. Try Tavily live search first ───────────────────────────
+            if TAVILY_KEY and title:
+                try:
+                    query = f'"{title}" {org} {year} market size report'
+                    results = tavily_search(query)
+                    for r in results:
+                        u = r.get("url", "")
+                        if u and u.startswith("http") and _path_deep(u):
+                            return u, True
+                except Exception:
+                    pass
 
-            try:
-                resp = requests.head(raw_url, timeout=4, allow_redirects=True,
-                                     headers={"User-Agent": "Mozilla/5.0"})
-                if resp.status_code < 400:
-                    return raw_url, True
-            except Exception:
-                pass
+            # ── 2. Claude-supplied URL — strict deep-link check ───────────
+            if raw_url and raw_url.startswith("http") and _path_deep(raw_url):
+                try:
+                    resp = requests.head(
+                        raw_url, timeout=4, allow_redirects=True,
+                        headers={"User-Agent": "Mozilla/5.0"}
+                    )
+                    if resp.status_code < 400:
+                        return raw_url, True
+                except Exception:
+                    pass
 
+            # ── 3. Google search fallback ─────────────────────────────────
             return fallback_url, False
 
         def _pill_label(src_obj):
@@ -3861,7 +3883,7 @@ Return ONLY valid JSON with NO inline comments:
 </div>""", unsafe_allow_html=True)
 
         st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
-        st.caption("🔗 = direct link  ·  🔍 = search on publisher site")
+        st.caption("🔗 = verified direct link  ·  🔍 = targeted Google search for this exact report")
 
         col_l, col_r = st.columns(2)
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
