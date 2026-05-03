@@ -2103,10 +2103,16 @@ _XML_CTRL_RE = _re_xml_san.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
 def _sanitize_doc(doc):
     """Walk every XML text node and strip XML-illegal control characters."""
     for el in doc.element.iter():
-        if el.text:
-            el.text = _XML_CTRL_RE.sub('', el.text)
-        if el.tail:
-            el.tail = _XML_CTRL_RE.sub('', el.tail)
+        try:
+            if el.text:
+                el.text = _XML_CTRL_RE.sub('', el.text)
+        except (AttributeError, TypeError):
+            pass
+        try:
+            if el.tail:
+                el.tail = _XML_CTRL_RE.sub('', el.tail)
+        except (AttributeError, TypeError):
+            pass
 
 def generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, final_score):
     """Generate a formatted Word document market intelligence report."""
