@@ -23,32 +23,8 @@ def _mval(field):
     if isinstance(field, dict):
         return field.get("value", "N/A")
     return str(field) if field else "N/A"
-import re as _re_xml
-
-_ILLEGAL_XML_RE = _re_xml.compile(
-    r"[\x00-\x08\x0b\x0c\x0e-\x1f]"
-)
-
-def _xml_safe(text) -> str:
-    """Strip XML-illegal control chars from any string (docx/python-docx requirement)."""
-    if text is None:
-        return ""
-    s = str(text)
-    return _ILLEGAL_XML_RE.sub("", s)
-
-
 
 TAVILY_KEY = ""  # optional
-
-# ── EPO OPS credentials ────────────────────────────────────────────────────────
-# Register free at: https://developers.epo.org/user/register
-# Add to Streamlit secrets as EPO_CONSUMER_KEY and EPO_CONSUMER_SECRET
-try:
-    EPO_CONSUMER_KEY    = st.secrets.get("EPO_CONSUMER_KEY", "")
-    EPO_CONSUMER_SECRET = st.secrets.get("EPO_CONSUMER_SECRET", "")
-except Exception:
-    EPO_CONSUMER_KEY    = ""
-    EPO_CONSUMER_SECRET = ""
 
 st.set_page_config(page_title="Schaeffler Innovation Assistant", page_icon="🟢", layout="wide", initial_sidebar_state="expanded")
 
@@ -858,245 +834,6 @@ def tavily_search(query):
         return []
 
 
-def _epo_get_token():
-    """Obtain OAuth2 bearer token from EPO OPS. Returns token string or None."""
-    if not EPO_CONSUMER_KEY or not EPO_CONSUMER_SECRET:
-        return None
-    try:
-        import base64
-        creds = base64.b64encode(
-            f"{EPO_CONSUMER_KEY}:{EPO_CONSUMER_SECRET}".encode()
-        ).decode()
-        resp = requests.post(
-            "https://ops.epo.org/3.2/auth/accesstoken",
-            headers={
-                "Authorization": f"Basic {creds}",
-                "Content-Type":  "application/x-www-form-urlencoded",
-            },
-            data="grant_type=client_credentials",
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            return resp.json().get("access_token")
-    except Exception:
-        pass
-    return None
-
-
-def fetch_epo_patent_data(keywords, idea=""):
-    """
-    Fetch real patent landscape data from EPO OPS.
-
-    Runs two CQL searches:
-      1. Title-keyword search  — who is filing in this technology space
-      2. Assignee search for 'Schaeffler' — what Schaeffler already holds
-
-    Returns a structured dict consumed by Stage 3 as grounding context for Claude.
-    Returns {} if EPO credentials are not configured — Stage 3 falls back to
-    LLM-only analysis in that case (no disruption to the app).
-    """
-    import xml.etree.ElementTree as ET
-
-    if not EPO_CONSUMER_KEY or not EPO_CONSUMER_SECRET:
-        return {}
-
-    token = _epo_get_token()
-    if not token:
-        return {}
-
-    auth_headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept":        "application/xml",
-        "X-OPS-Range":   "1-25",
-    }
-
-    def _strip_ns(tag):
-        """Strip XML namespace from a tag string."""
-        return tag.split("}")[-1] if "}" in tag else tag
-
-    def _search_epo(cql):
-        """Run one CQL search, return parsed XML root or None."""
-        try:
-            r = requests.get(
-                "https://ops.epo.org/3.2/rest-services/published-data/search/biblio",
-                params={"q": cql},
-                headers=auth_headers,
-                timeout=15,
-            )
-            if r.status_code == 200:
-                return ET.fromstring(r.content)
-        except Exception:
-            pass
-        return None
-
-    def _parse_results(root):
-        """
-        Extract assignees, publication years, and titles from an EPO biblio XML root.
-        Returns (total_count, assignee_counts, years, titles).
-        """
-        total_count = 0
-        assignee_counts = {}
-        years = []
-        titles = []
-
-        # Total result count lives on the biblio-search element
-        for elem in root.iter():
-            tag = _strip_ns(elem.tag)
-            if tag == "biblio-search":
-                try:
-                    total_count = int(elem.get("total-result-count", 0))
-                except Exception:
-                    pass
-                break
-
-        for doc in root.iter():
-            tag = _strip_ns(doc.tag)
-
-            if tag == "exchange-document":
-                # Extract publication year from document-id date
-                for child in doc.iter():
-                    ct = _strip_ns(child.tag)
-                    if ct == "date" and child.text and len(child.text) >= 4:
-                        try:
-                            years.append(int(child.text[:4]))
-                        except Exception:
-                            pass
-                        break  # first date per doc is publication date
-
-                # Extract applicant names
-                for child in doc.iter():
-                    ct = _strip_ns(child.tag)
-                    if ct == "applicant-name":
-                        for sub in child.iter():
-                            if _strip_ns(sub.tag) == "name" and sub.text:
-                                # Clean up name (EPO often appends [CC])
-                                name = sub.text.strip()
-                                name = name.split("[")[0].strip().title()
-                                if name:
-                                    assignee_counts[name] = assignee_counts.get(name, 0) + 1
-                        break
-
-                # Extract English title
-                for child in doc.iter():
-                    ct = _strip_ns(child.tag)
-                    if ct == "invention-title" and child.get("lang") == "en" and child.text:
-                        titles.append(child.text.strip())
-                        break
-
-        return total_count, assignee_counts, years, titles
-
-    # ── Search 1: technology keyword search ───────────────────────────────────
-    kw = [k.strip() for k in (keywords or []) if k.strip()][:3]
-    if not kw:
-        # Fallback: use first 6 words of idea as a single keyword
-        kw = [" ".join(idea.split()[:6])]
-    cql_tech = " OR ".join(f'ti="{k}"' for k in kw)
-
-    root_tech = _search_epo(cql_tech)
-    total, assignee_counts, years, titles = (0, {}, [], [])
-    if root_tech is not None:
-        total, assignee_counts, years, titles = _parse_results(root_tech)
-
-    # ── Search 2: Schaeffler own IP in this space ──────────────────────────────
-    schaeffler_count = 0
-    if kw:
-        inner = " OR ".join('ti="' + k + '"' for k in kw)
-        cql_sch = 'pa="schaeffler" AND (' + inner + ')'
-        root_sch = _search_epo(cql_sch)
-        if root_sch is not None:
-            sch_total, _, _, _ = _parse_results(root_sch)
-            schaeffler_count = sch_total
-
-    # ── Derive filing trend from year distribution ─────────────────────────────
-    filing_trend = "Unknown"
-    if len(years) >= 6:
-        sorted_years = sorted(years)
-        mid = len(sorted_years) // 2
-        older_avg = sum(sorted_years[:mid]) / mid
-        newer_avg = sum(sorted_years[mid:]) / (len(sorted_years) - mid)
-        filing_trend = "Increasing" if newer_avg > older_avg + 0.5 else (
-            "Decreasing" if newer_avg < older_avg - 0.5 else "Stable"
-        )
-
-    # ── Top assignees sorted by filing count ──────────────────────────────────
-    top_assignees = sorted(assignee_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-
-    return {
-        "total_results":    total,
-        "top_assignees":    [{"name": n, "count": c} for n, c in top_assignees],
-        "filing_trend":     filing_trend,
-        "schaeffler_count": schaeffler_count,
-        "sample_titles":    titles[:5],
-        "cql_query":        cql_tech,
-        "data_source":      "EPO OPS (live)",
-    }
-
-
-def _build_epo_context(epo_data):
-    """
-    Convert EPO fetch result into a plain-text context block for Claude.
-    Returns empty string when epo_data is empty (fallback mode).
-    """
-    if not epo_data:
-        return ""
-    assignees_str = ", ".join(
-        f"{a['name']} ({a['count']} filing{'s' if a['count']!=1 else ''})"
-        for a in epo_data["top_assignees"][:8]
-    )
-    titles_str = "; ".join(epo_data["sample_titles"][:3]) if epo_data["sample_titles"] else "N/A"
-    return (
-        f"\n\n--- REAL EPO OPS PATENT DATA (live — ground your analysis on this) ---\n"
-        f"Total patent results for this technology space: {epo_data['total_results']}\n"
-        f"Filing trend (based on publication dates): {epo_data['filing_trend']}\n"
-        f"Schaeffler patents in this space: {epo_data['schaeffler_count']}\n"
-        f"Top assignees (real data): {assignees_str if assignees_str else 'None identified'}\n"
-        f"Sample recent patent titles: {titles_str}\n"
-        f"CQL query used: {epo_data['cql_query']}\n"
-        f"INSTRUCTION: Base your key_filers list primarily on the real assignees above. "
-        f"Use your knowledge to add company type, threat level, and strategic context for each.\n"
-        f"---"
-    )
-
-
-def _compute_ip_proximity_risk(filer_positions, ref_x, ref_y, threshold=2.0):
-    """
-    Deterministically compute IP risk score from Ansoff matrix filer positions.
-
-    Counts how many patent filers sit within `threshold` units on BOTH axes
-    of the reference point (idea position or Schaeffler position).
-
-    Thresholds per spec:
-      ≥5 nearby → High risk  → score 2
-      2–4 nearby → Medium risk → score 5
-      <2 nearby  → Low risk  → score 8
-
-    Returns (label, score, nearby_count)
-    """
-    nearby = sum(
-        1 for f in filer_positions
-        if abs(float(f.get("x_score", 5)) - ref_x) <= threshold
-        and abs(float(f.get("y_score", 5)) - ref_y) <= threshold
-    )
-    if nearby >= 5:
-        return "High", 2, nearby
-    elif nearby >= 2:
-        return "Medium", 5, nearby
-    else:
-        return "Low", 8, nearby
-
-
-def _compute_landscape_score_from_epo(total_results):
-    """
-    Derive patent landscape openness score directly from EPO total result count.
-    Rubric: <50=9 · 50-199=7.5 · 200-499=5.5 · 500-999=3.5 · ≥1000=1.5
-    """
-    if   total_results <  50:  return 9.0
-    elif total_results < 200:  return 7.5
-    elif total_results < 500:  return 5.5
-    elif total_results < 1000: return 3.5
-    else:                      return 1.5
-
-
 import re as _re_global
 
 def _parse_json(raw: str) -> dict:
@@ -1441,21 +1178,21 @@ Return ONLY valid JSON, no markdown backticks:
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(14); p.paragraph_format.space_after=Pt(4)
         pPr=p._p.get_or_add_pPr(); pBdr=OxmlElement("w:pBdr"); bot=OxmlElement("w:bottom")
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8"); bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
-        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(_xml_safe(text))
+        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(text)
         r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
     def h2(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(8); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(_xml_safe(text)); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
+        r=p.add_run(text); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
     def body(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
-        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(_xml_safe(text)); r.font.size=Pt(10.5)
+        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(text); r.font.size=Pt(10.5)
     def kv(doc, label, value):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
         r1=p.add_run(f"{label}: "); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2=p.add_run(_xml_safe(value)); r2.font.size=Pt(10.5)
+        r2=p.add_run(str(value)); r2.font.size=Pt(10.5)
     def bul(doc, text):
         p=doc.add_paragraph(style="List Bullet"); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(_xml_safe(text)); r.font.size=Pt(10.5)
+        r=p.add_run(str(text)); r.font.size=Pt(10.5)
 
     doc=DocxDocument()
     for sec in doc.sections:
@@ -1478,14 +1215,14 @@ Return ONLY valid JSON, no markdown backticks:
         c=p3_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt,desc) in enumerate([
-        ("Portfolio",f"{s5d.get('p_portfolio',5):.1f}/10","33%",portfolio.get('cluster_fit','')),
-        ("People",f"{s5d.get('p_people',5):.1f}/10","33%",people.get('competency_gap','')),
-        ("Process",f"{s5d.get('p_process',5):.1f}/10","33%",process.get('investment_required','')),
+        ("Portfolio",f"{s5d.get('p_portfolio',5):.1f}/10","35%",portfolio.get('cluster_fit','')),
+        ("People",f"{s5d.get('p_people',5):.1f}/10","40%",people.get('competency_gap','')),
+        ("Process",f"{s5d.get('p_process',5):.1f}/10","25%",process.get('investment_required','')),
     ]):
         row=p3_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
         for j,val in enumerate([dim,score,wt,desc[:80] if desc else ""]):
-            r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==0)
+            r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
     fr=p3_tbl.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("OVERALL READINESS"); r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
@@ -1524,7 +1261,7 @@ Return ONLY valid JSON, no markdown backticks:
             sev_fill={"High":"FFE4E4","Medium":"FFF8E4","Low":"E4FFE9"}.get(g.get("severity",""),"FFFFFF")
             for c in row.cells: set_bg(c,sev_fill if idx==0 else fill)
             for j,val in enumerate([g.get("gap",""),g.get("severity",""),g.get("closure_route",""),g.get("timeline","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
 
     if partners:
         h1(doc,"Partnership Candidates"); body(doc, ext.get("partnership_strategy",""))
@@ -1536,7 +1273,7 @@ Return ONLY valid JSON, no markdown backticks:
             row=pt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([p.get("name",""),p.get("type",""),p.get("rationale",""),p.get("route","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
 
     h1(doc,"Build-or-Partner Recommendation")
     kv(doc,"Recommendation", bop.get("recommendation",""))
@@ -1560,7 +1297,7 @@ Return ONLY valid JSON, no markdown backticks:
 def generate_master_report(idea, quadrant, s1c, s2d, s3d, s4d, s5d_org, s6d):
     """Generate the full comprehensive Innovation Assessment Word report covering all stages."""
     ipi       = s6d.get("ipi", 0)
-    weights   = s6d.get("weights", {"market":25,"patent":25,"feasibility":25,"org":25})
+    weights   = s6d.get("weights", {"market":35,"patent":25,"feasibility":25,"org":15})
     synthesis = s6d.get("synthesis", {})
     scores    = s6d.get("scores", {})
     market    = s2d.get("market", {})
@@ -1643,24 +1380,24 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(14); p.paragraph_format.space_after=Pt(4)
         pPr=p._p.get_or_add_pPr(); pBdr=OxmlElement("w:pBdr"); bot=OxmlElement("w:bottom")
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8"); bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
-        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(_xml_safe(text))
+        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(text)
         r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
     def h2(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(8); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(_xml_safe(text)); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
+        r=p.add_run(text); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
     def body(doc, text):
         if not text: return
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
-        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(_xml_safe(text)); r.font.size=Pt(10.5)
+        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(str(text)); r.font.size=Pt(10.5)
     def kv(doc, label, value):
         if not value: return
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
         r1=p.add_run(f"{label}: "); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2=p.add_run(_xml_safe(value)); r2.font.size=Pt(10.5)
+        r2=p.add_run(str(value)); r2.font.size=Pt(10.5)
     def bul(doc, text):
         if not text: return
         p=doc.add_paragraph(style="List Bullet"); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(_xml_safe(text)); r.font.size=Pt(10.5)
+        r=p.add_run(str(text)); r.font.size=Pt(10.5)
 
     doc=DocxDocument()
     for sec in doc.sections:
@@ -1676,11 +1413,11 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     doc.add_paragraph()
 
     # ── Title ──────────────────────────────────────────────────────
-    p=doc.add_paragraph(); r=p.add_run(_xml_safe(market.get("market_name", idea[:80]) or idea[:80]))
+    p=doc.add_paragraph(); r=p.add_run(market.get("market_name", idea[:80]) or idea[:80])
     r.bold=True; r.font.size=Pt(22); r.font.color.rgb=NAVY
     p2=doc.add_paragraph()
     rec_text = synthesis.get("recommendation","")
-    r2=p2.add_run(_xml_safe(f"IPI: {ipi}/10  ·  {rec_text}  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}"  ))
+    r2=p2.add_run(f"IPI: {ipi}/10  ·  {rec_text}  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}")
     r2.font.size=Pt(10); r2.italic=True; r2.font.color.rgb=GREY
 
     # ── Idea box ──────────────────────────────────────────────────
@@ -1691,7 +1428,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     rp=c2.paragraphs[0]; rp.paragraph_format.space_before=Pt(8); rp.paragraph_format.space_after=Pt(2)
     rb=rp.add_run("Innovation Idea"); rb.bold=True; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
     rp2=c2.add_paragraph(); rp2.paragraph_format.space_before=Pt(0); rp2.paragraph_format.space_after=Pt(8)
-    ri=rp2.add_run(_xml_safe(idea)); ri.font.size=Pt(10); ri.italic=True
+    ri=rp2.add_run(idea); ri.font.size=Pt(10); ri.italic=True
     doc.add_paragraph()
 
     # ── IPI Score table ───────────────────────────────────────────
@@ -1701,15 +1438,15 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         c=ipi_tbl.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(stage,score,wt,contrib) in enumerate([
-        ("02 · Market Intelligence",    f"{scores.get('market',5):.1f}/10",      f"25%",      f"{scores.get('market',5)*weights.get('market',35)/100:.2f}"),
-        ("03 · Patent Intelligence",    f"{scores.get('patent',5):.1f}/10",      f"25%",      f"{scores.get('patent',5)*weights.get('patent',25)/100:.2f}"),
-        ("04 · Technical Feasibility",  f"{scores.get('feasibility',5):.1f}/10", f"25%", f"{scores.get('feasibility',5)*weights.get('feasibility',25)/100:.2f}"),
-        ("05 · P³ Perspective",f"{scores.get('p3',5):.1f}/10",        f"25%",         f"{scores.get('p3',5)*weights.get('org',15)/100:.2f}"),
+        ("02 · Market Intelligence",    f"{scores.get('market',5):.1f}/10",      f"{weights.get('market',35)}%",      f"{scores.get('market',5)*weights.get('market',35)/100:.2f}"),
+        ("03 · Patent Intelligence",    f"{scores.get('patent',5):.1f}/10",      f"{weights.get('patent',25)}%",      f"{scores.get('patent',5)*weights.get('patent',25)/100:.2f}"),
+        ("04 · Technical Feasibility",  f"{scores.get('feasibility',5):.1f}/10", f"{weights.get('feasibility',25)}%", f"{scores.get('feasibility',5)*weights.get('feasibility',25)/100:.2f}"),
+        ("05 · P³ Perspective",f"{scores.get('p3',5):.1f}/10",        f"{weights.get('org',15)}%",         f"{scores.get('p3',5)*weights.get('org',15)/100:.2f}"),
     ]):
         row=ipi_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
         for j,val in enumerate([stage,score,wt,contrib]):
-            r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(10); r.bold=(j==0)
+            r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
     fr=ipi_tbl.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("INNOVATION POTENTIAL INDEX"); r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
@@ -1723,9 +1460,9 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     rec_tbl=doc.add_table(rows=1,cols=1); rec_tbl.style="Table Grid"
     rc=rec_tbl.cell(0,0); set_bg(rc, rec_fill)
     p=rc.paragraphs[0]; p.paragraph_format.space_before=Pt(8); p.paragraph_format.space_after=Pt(4)
-    r=p.add_run(_xml_safe(rec_text)); r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
+    r=p.add_run(rec_text); r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
     p2=rc.add_paragraph(); p2.paragraph_format.space_before=Pt(0); p2.paragraph_format.space_after=Pt(8)
-    r2=p2.add_run(_xml_safe(synthesis.get("recommendation_rationale",""))); r2.font.size=Pt(10)
+    r2=p2.add_run(synthesis.get("recommendation_rationale","")); r2.font.size=Pt(10)
     doc.add_paragraph()
 
     if synthesis.get("strongest_signals"):
@@ -1775,7 +1512,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=ct.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ci.get("name",""),ci.get("type",""),ci.get("relevance","")+" "+ci.get("source","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
     if sectors.get("sector_scores"):
         h2(doc,"Schaeffler Sector Cluster Scores")
         primary=sectors.get("primary_sectors",[])
@@ -1788,7 +1525,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             for c in row.cells: set_bg(c,fill)
             r0=row.cells[0].paragraphs[0].add_run(sec); r0.font.size=Pt(10); r0.bold=(sec in primary)
             r1=row.cells[1].paragraphs[0].add_run(f"{data.get('score',0)}/10"); r1.font.size=Pt(10); r1.bold=True
-            r2=row.cells[2].paragraphs[0].add_run(_xml_safe(data.get("rationale",""))); r2.font.size=Pt(9.5)
+            r2=row.cells[2].paragraphs[0].add_run(data.get("rationale","")); r2.font.size=Pt(9.5)
 
     # ── Stage 03 — Patent Intelligence ───────────────────────────
     h1(doc,"Stage 03 · Patent Intelligence  ·  Score: " + str(scores.get("patent",5)) + "/10")
@@ -1820,7 +1557,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=ft.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([fi.get("company",""),fi.get("type",""),fi.get("threat_level",""),fi.get("focus","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
         if landscape.get("landscape_summary"):
             doc.add_paragraph(); body(doc, landscape["landscape_summary"])
 
@@ -1847,7 +1584,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=ev_tbl.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ev.get("type",""), ev.get("title","")+" — "+ev.get("description",""), ev.get("relevance","")+" / "+ev.get("confidence",""), ev.get("source","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==1)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==1)
     if existence.get("technology_gaps"):
         h2(doc,"Technology Gaps to Bridge")
         for gap in existence["technology_gaps"]: bul(doc, gap)
@@ -1864,7 +1601,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=rt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([risk.get("risk",""),risk.get("severity",""),risk.get("mitigation","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
 
     # ── Stage 05 — P³ Perspective ──────────────────────
     h1(doc,"Stage 05 · P³ Perspective  ·  Score: " + str(scores.get("p3",5)) + "/10")
@@ -1897,7 +1634,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=gt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([g.get("gap",""),g.get("severity",""),g.get("closure_route",""),g.get("timeline","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
     if org_data.get("partnership_candidates"):
         h2(doc,"Partnership Candidates")
         pt=doc.add_table(rows=1,cols=4); pt.style="Table Grid"
@@ -1908,7 +1645,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=pt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([p.get("name",""),p.get("type",""),p.get("rationale",""),p.get("route","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
 
     # ── Integrated Risk Register ──────────────────────────────────
     h1(doc,"Integrated Risk Register")
@@ -1929,7 +1666,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     if enr.get("action_plan"):
         for i, step in enumerate(enr["action_plan"], 1):
             p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
-            r=p.add_run(_xml_safe(f"{i}.  {step}")); r.font.size=Pt(10.5)
+            r=p.add_run(f"{i}.  {step}"); r.font.size=Pt(10.5)
     if synthesis.get("next_steps"):
         h2(doc,"Additional Next Steps")
         for step in synthesis["next_steps"]: bul(doc, step)
@@ -2016,21 +1753,21 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(14); p.paragraph_format.space_after=Pt(4)
         pPr=p._p.get_or_add_pPr(); pBdr=OxmlElement("w:pBdr"); bot=OxmlElement("w:bottom")
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8"); bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
-        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(_xml_safe(text))
+        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(text)
         r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
 
     def body(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
-        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(_xml_safe(text)); r.font.size=Pt(10.5)
+        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(text); r.font.size=Pt(10.5)
 
     def kv(doc, label, value):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
         r1=p.add_run(f"{label}: "); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2=p.add_run(_xml_safe(value)); r2.font.size=Pt(10.5)
+        r2=p.add_run(value); r2.font.size=Pt(10.5)
 
     def bul(doc, text):
         p=doc.add_paragraph(style="List Bullet"); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(_xml_safe(text)); r.font.size=Pt(10.5)
+        r=p.add_run(text); r.font.size=Pt(10.5)
 
     doc=DocxDocument()
     for sec in doc.sections:
@@ -2048,7 +1785,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
     p=doc.add_paragraph(); p.paragraph_format.space_after=Pt(2)
     r=p.add_run("Technical Feasibility Assessment"); r.bold=True; r.font.size=Pt(18); r.font.color.rgb=NAVY
     p2=doc.add_paragraph()
-    r2=p2.add_run(_xml_safe(f"Score: {scores['final_score']}/10  ·  TRL {trl.get('trl_level','')}  ·  {datetime.now().strftime('%d %B %Y')}"))
+    r2=p2.add_run(f"Score: {scores['final_score']}/10  ·  TRL {trl.get('trl_level','')}  ·  {datetime.now().strftime('%d %B %Y')}")
     r2.font.size=Pt(10); r2.italic=True; r2.font.color.rgb=GREY
 
     # Idea box
@@ -2059,7 +1796,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
     rp=c2.paragraphs[0]; rp.paragraph_format.space_before=Pt(8); rp.paragraph_format.space_after=Pt(2)
     rb=rp.add_run("Innovation Idea"); rb.bold=True; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
     rp2=c2.add_paragraph(); rp2.paragraph_format.space_before=Pt(0); rp2.paragraph_format.space_after=Pt(8)
-    ri=rp2.add_run(_xml_safe(idea)); ri.font.size=Pt(10); ri.italic=True
+    ri=rp2.add_run(idea); ri.font.size=Pt(10); ri.italic=True
     doc.add_paragraph()
 
     # Score summary
@@ -2069,14 +1806,14 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt) in enumerate([
-        ("TRL Score",f"{scores['trl_score']:.1f}/10","33%"),
-        ("Existence Quality",f"{scores['existence_score']:.1f}/10","33%"),
-        ("Risk Profile",f"{scores['risk_score']:.1f}/10","33%"),
+        ("TRL Score",f"{scores['trl_score']:.1f}/10","50%"),
+        ("Existence Quality",f"{scores['existence_score']:.1f}/10","30%"),
+        ("Risk Profile",f"{scores['risk_score']:.1f}/10","20%"),
     ]):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
         for j,val in enumerate([dim,score,wt]):
-            r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(10); r.bold=(j==0)
+            r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
     fr=st2.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("FINAL SCORE"); r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
@@ -2137,13 +1874,13 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
             row=ev_tbl.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ev.get("type",""),ev.get("title",""),ev.get("relevance",""),ev.get("source","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==1)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==1)
         # Description column
         doc.add_paragraph()
         for ev in evidence:
             p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-            r1=p.add_run(_xml_safe(f"{ev.get('title','')}: ")); r1.bold=True; r1.font.size=Pt(10)
-            r2=p.add_run(_xml_safe(ev.get("description",""))); r2.font.size=Pt(10)
+            r1=p.add_run(f"{ev.get('title','')}: "); r1.bold=True; r1.font.size=Pt(10)
+            r2=p.add_run(ev.get("description","")); r2.font.size=Pt(10)
 
     # Technology gaps
     if existence.get("technology_gaps"):
@@ -2162,7 +1899,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
             row=rt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([risk.get("risk",""),risk.get("severity",""),risk.get("mitigation","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
 
     # Schaeffler readiness & development pathway
     h1(doc,"Schaeffler Readiness"); body(doc,ext.get("schaeffler_readiness",""))
@@ -2238,21 +1975,21 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         pPr=p._p.get_or_add_pPr(); pBdr=OxmlElement("w:pBdr"); bot=OxmlElement("w:bottom")
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8"); bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
         pBdr.append(bot); pPr.append(pBdr)
-        r=p.add_run(_xml_safe(text)); r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
+        r=p.add_run(text); r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
 
     def body(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
         p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY
-        r=p.add_run(_xml_safe(text)); r.font.size=Pt(10.5)
+        r=p.add_run(text); r.font.size=Pt(10.5)
 
     def kv(doc, label, value):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
         r1=p.add_run(f"{label}: "); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2=p.add_run(_xml_safe(value)); r2.font.size=Pt(10.5)
+        r2=p.add_run(value); r2.font.size=Pt(10.5)
 
     def bul(doc, text):
         p=doc.add_paragraph(style="List Bullet"); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(_xml_safe(text)); r.font.size=Pt(10.5)
+        r=p.add_run(text); r.font.size=Pt(10.5)
 
     doc = DocxDocument()
     for sec in doc.sections:
@@ -2281,7 +2018,7 @@ Write specific, actionable content based on the data provided. Return ONLY valid
     rp=c2.paragraphs[0]; rp.paragraph_format.space_before=Pt(8); rp.paragraph_format.space_after=Pt(2)
     rb=rp.add_run("Innovation Idea"); rb.bold=True; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
     rp2=c2.add_paragraph(); rp2.paragraph_format.space_before=Pt(0); rp2.paragraph_format.space_after=Pt(8)
-    ri=rp2.add_run(_xml_safe(idea)); ri.font.size=Pt(10); ri.italic=True
+    ri=rp2.add_run(idea); ri.font.size=Pt(10); ri.italic=True
     doc.add_paragraph()
 
     # Score summary
@@ -2291,14 +2028,14 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt) in enumerate([
-        ("Landscape Openness",f"{scores['landscape_score']:.1f}/10","33%"),
-        ("Novelty Signal",f"{scores['novelty_score']:.1f}/10","33%"),
-        ("IP Risk (inverted)",f"{scores['ip_score']:.1f}/10","33%"),
+        ("Landscape Openness",f"{scores['landscape_score']:.1f}/10","40%"),
+        ("Novelty Signal",f"{scores['novelty_score']:.1f}/10","35%"),
+        ("IP Risk (inverted)",f"{scores['ip_score']:.1f}/10","25%"),
     ]):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for j,c in enumerate(row.cells): set_bg(c,fill)
         for j,val in enumerate([dim,score,wt]):
-            r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(10); r.bold=(j==0)
+            r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
     fr=st2.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("FINAL PATENT INTELLIGENCE SCORE"); r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
@@ -2330,7 +2067,7 @@ Write specific, actionable content based on the data provided. Return ONLY valid
             row=ft.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([fi.get("company",""),fi.get("type",""),fi.get("threat_level",""),fi.get("focus","")+" "+fi.get("source","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
 
     # Schaeffler IP position
     h1(doc,"Schaeffler IP Position")
@@ -2359,6 +2096,17 @@ Write specific, actionable content based on the data provided. Return ONLY valid
     buf=io.BytesIO(); doc.save(buf); buf.seek(0)
     return buf
 
+
+import re as _re_xml_san
+_XML_CTRL_RE = _re_xml_san.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
+
+def _sanitize_doc(doc):
+    """Walk every XML text node and strip XML-illegal control characters."""
+    for el in doc.element.iter():
+        if el.text:
+            el.text = _XML_CTRL_RE.sub('', el.text)
+        if el.tail:
+            el.tail = _XML_CTRL_RE.sub('', el.tail)
 
 def generate_market_report(idea, quadrant, s1c, market, comp, sectors, weights, final_score):
     """Generate a formatted Word document market intelligence report."""
@@ -2429,14 +2177,14 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8")
         bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
         pBdr.append(bot); pPr.append(pBdr)
-        r = p.add_run(_xml_safe(text))
+        r = p.add_run(text)
         r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
 
     def h2(doc, text):
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(8)
         p.paragraph_format.space_after  = Pt(2)
-        r = p.add_run(_xml_safe(text))
+        r = p.add_run(text)
         r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
 
     def body(doc, text):
@@ -2444,7 +2192,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         p.paragraph_format.space_before = Pt(3)
         p.paragraph_format.space_after  = Pt(3)
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        r = p.add_run(_xml_safe(text))
+        r = p.add_run(text)
         r.font.size=Pt(10.5)
 
     def kv(doc, label, value):
@@ -2453,13 +2201,13 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         p.paragraph_format.space_after  = Pt(2)
         r1 = p.add_run(f"{label}: ")
         r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2 = p.add_run(_xml_safe(value))
+        r2 = p.add_run(value)
         r2.font.size=Pt(10.5)
 
     def bul(doc, text):
         p = doc.add_paragraph(style="List Bullet")
         p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r = p.add_run(_xml_safe(text)); r.font.size=Pt(10.5)
+        r = p.add_run(text); r.font.size=Pt(10.5)
 
     def hdr_row(tbl, headers):
         row = tbl.rows[0]
@@ -2489,7 +2237,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     # ── Title ─────────────────────────────────────────────────
     p = doc.add_paragraph()
     p.paragraph_format.space_after=Pt(2)
-    r = p.add_run(_xml_safe(market.get("market_name", idea[:80])))
+    r = p.add_run(market.get("market_name", idea[:80]))
     r.bold=True; r.font.size=Pt(18); r.font.color.rgb=NAVY
     p2 = doc.add_paragraph()
     r2 = p2.add_run(f"Score: {final_score}/10  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}")
@@ -2508,7 +2256,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     rb=rp.runs[0]; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
     rp2=c2.add_paragraph()
     rp2.paragraph_format.space_before=Pt(0); rp2.paragraph_format.space_after=Pt(8)
-    ri=rp2.add_run(_xml_safe(idea)); ri.font.size=Pt(10); ri.italic=True
+    ri=rp2.add_run(idea); ri.font.size=Pt(10); ri.italic=True
     doc.add_paragraph()
 
     # ── Score summary ─────────────────────────────────────────
@@ -2516,15 +2264,15 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     st2=doc.add_table(rows=1,cols=4); st2.style="Table Grid"
     hdr_row(st2,["Dimension","Score","Weight","Weighted"])
     rows_data=[
-        ("Market Attractiveness",f"{weights['Market Attractiveness'][0]:.1f}/10","33%",f"{weights['Market Attractiveness'][0]/3:.1f}"),
-        ("Sector Fit",f"{weights['Sector Fit'][0]:.1f}/10","33%",f"{weights['Sector Fit'][0]/3:.1f}"),
-        ("Competition Opportunity",f"{weights['Competition Opportunity'][0]:.1f}/10","33%",f"{weights['Competition Opportunity'][0]/3:.1f}"),
+        ("Market Attractiveness",f"{weights['Market Attractiveness'][0]:.1f}/10","40%",f"{weights['Market Attractiveness'][0]*0.4:.1f}"),
+        ("Sector Fit",f"{weights['Sector Fit'][0]:.1f}/10","35%",f"{weights['Sector Fit'][0]*0.35:.1f}"),
+        ("Competition Opportunity",f"{weights['Competition Opportunity'][0]:.1f}/10","25%",f"{weights['Competition Opportunity'][0]*0.25:.1f}"),
     ]
     for i,(dim,score,weight,weighted) in enumerate(rows_data):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for j,val in enumerate([dim,score,weight,weighted]):
             c=row.cells[j]; set_bg(c,fill)
-            r=c.paragraphs[0].add_run(_xml_safe(val)); r.font.size=Pt(10); r.bold=(j==0)
+            r=c.paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
     fr=st2.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("FINAL SCORE")
@@ -2562,12 +2310,12 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         row=st3.add_row()
         fill="EAF5EA" if sector in primary else ("EAF1FB" if idx%2==0 else "FFFFFF")
         for c in row.cells: set_bg(c,fill)
-        r0=row.cells[0].paragraphs[0].add_run(_xml_safe(sector))
+        r0=row.cells[0].paragraphs[0].add_run(sector)
         r0.font.size=Pt(10); r0.bold=(sector in primary)
         r1=row.cells[1].paragraphs[0].add_run(f"{data.get('score',0)}/10")
         r1.font.size=Pt(10); r1.bold=True
         r1.font.color.rgb=BLUE if sector in primary else BLACK
-        r2=row.cells[2].paragraphs[0].add_run(_xml_safe(data.get("rationale","")))
+        r2=row.cells[2].paragraphs[0].add_run(data.get("rationale",""))
         r2.font.size=Pt(9.5)
 
     # ── Competitive landscape ─────────────────────────────────
@@ -2585,7 +2333,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
             row=ct.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ci.get("name",""),ci.get("type",""),ci.get("relevance","")+" "+ci.get("source","")]):
-                r=row.cells[j].paragraphs[0].add_run(_xml_safe(val))
+                r=row.cells[j].paragraphs[0].add_run(val)
                 r.font.size=Pt(9.5); r.bold=(j==0)
 
     # ── Strategic fit ─────────────────────────────────────────
@@ -2618,6 +2366,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     fr=fp.add_run(f"Schaeffler AI Innovation Research Assistant  ·  Stage 02: Market Intelligence  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität")
     fr.font.size=Pt(8); fr.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
 
+    _sanitize_doc(doc)
     buf=io.BytesIO(); doc.save(buf); buf.seek(0)
     return buf
 
@@ -2631,15 +2380,15 @@ def run_stage2(idea, quadrant, s1c):
     web_ctx = ""
     system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
 RULES:
-- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, IRENA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global, OREC, Ocean Energy Europe.
+- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global.
 - For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array.
-- For URLs: Include the best URL you know for each source from your training data — the app will verify it with a live HEAD check and automatically fall back to a targeted Google search if the URL is unreachable. Omit the url field only if you genuinely have no URL knowledge for this specific report.
-- market_score: integer 1-10. Guide: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny/declining.
-Return ONLY valid JSON with NO extra text:
+- For URLs: provide the EXACT deep-link URL. If you do not know it, omit the url field entirely.
+- market_score: integer 1-10. Guide: 9-10=large fast-growing; 7-8=strong; 5-6=moderate; 3-4=niche; 1-2=tiny/declining.
+Return ONLY valid JSON with NO extra text, NO inline comments:
 {"market_name":"string",
-"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
-"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
-"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
+"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
+"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
+"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
 "growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":7,"market_score_rationale":"2 sentences"}"""
     raw = call_claude(system_market, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1400)
@@ -2667,144 +2416,72 @@ Return ONLY valid JSON:
 "primary_sectors":["top 2-3 sector names"],"sector_fit_score":0-10,"sector_fit_rationale":"2 sentences"}"""
     raw = call_claude(system_sectors, f"Idea: {idea}\nQuadrant: {quadrant}", max_tokens=1000)
     try:
-        rc = raw.strip().replace("```json","").replace("```","").strip()
-        fb = rc.find("{"); lb = rc.rfind("}") + 1
-        if fb >= 0: rc = rc[fb:lb]
-        sectors = json.loads(rc)
+        sectors = _parse_json(raw)
     except:
         sectors = {"sector_scores":{},"primary_sectors":[],"sector_fit_score":5,"sector_fit_rationale":""}
 
     ms = float(market.get("market_score",5))
     ss = float(sectors.get("sector_fit_score",5))
     cs = float(comp.get("competition_score",5))
-    final = round((ms + ss + cs) / 3, 1)
+    final = round(ms*0.40 + ss*0.35 + cs*0.25, 1)
 
     st.session_state.s2_data = {
         "market": market, "comp": comp, "sectors": sectors,
-        "weights": {"Market Attractiveness":(ms,1/3),"Sector Fit":(ss,1/3),"Competition Opportunity":(cs,1/3)},
+        "weights": {"Market Attractiveness":(ms,0.40),"Sector Fit":(ss,0.35),"Competition Opportunity":(cs,0.25)},
         "final_score": final, "web_results": []
     }
     st.session_state.s2_step = "done"
 
 
-def _parse_json_robust(raw):
-    """Robustly parse JSON from Claude output.
-    Delegates to _parse_json which uses the full character-by-character sanitiser
-    capable of handling multi-line rationale strings, lone backslashes, bare quotes,
-    and all other common Claude response issues. Returns None on any failure.
-    """
-    if not raw:
-        return None
-    try:
-        return _parse_json(raw)
-    except Exception:
-        return None
-
-
 def run_stage3(idea, quadrant, s1c):
     """Run Stage 03 Patent Intelligence and store results in session state."""
-    # ── EPO OPS live patent fetch (if credentials configured) ─────────────────
-    epo_data = fetch_epo_patent_data(
-        keywords=s1c.get("trend_alignment", []) + [s1c.get("innovation_cluster", "")],
-        idea=idea
-    )
-    epo_ctx = _build_epo_context(epo_data)
-
-    system_landscape = """You are a patent intelligence analyst specialising in industrial technology.
-Analyse the external patent landscape for this innovation idea.
-
-RULES:
-- Focus on COMPANIES filing patents, not individual patents
-- Classify each company as: Competitor / Customer / Research Institution / Patent Troll / Adjacent Player
-- Every claim must have [Source: org, year] where possible
-- Be specific about technology sub-areas
-
+    system_landscape = """You are a patent intelligence analyst. Analyse the external patent landscape.
 Return ONLY valid JSON:
-{
-  "technology_keywords": ["3-5 key patent search terms for this idea"],
-  "landscape_summary": "2-3 sentences on overall patent activity in this space",
-  "activity_level": "Low / Moderate / High / Very High",
-  "filing_trend": "Increasing / Stable / Decreasing",
-  "filing_trend_rationale": "one sentence",
-  "patent_landscape_score": 7,
-  "key_filers": [
-    {
-      "company": "company name",
-      "type": "Competitor / Customer / Research Institution / Adjacent Player",
-      "focus": "one sentence on what they are patenting",
-      "threat_level": "Low / Medium / High",
-      "schaeffler_relationship": "Direct competitor / Potential customer / Partner / Unknown",
-      "source": "Source: X, Year"
-    }
-  ],
-  "white_spaces": ["white space opportunity 1", "white space opportunity 2", "white space opportunity 3"]
-}"""
-
-    raw = call_claude(system_landscape,
-        f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}{epo_ctx}", max_tokens=3000)
-    landscape = _parse_json_robust(raw)
-    if not landscape or not isinstance(landscape, dict):
-        landscape = {"technology_keywords":[],"landscape_summary":"Analysis unavailable — JSON parse failed.","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","key_filers":[],"white_spaces":[],"patent_landscape_score":5}
+{"technology_keywords":["3-5 terms"],"landscape_summary":"2-3 sentences","activity_level":"Low/Moderate/High/Very High","filing_trend":"Increasing/Stable/Decreasing","filing_trend_rationale":"one sentence","patent_landscape_score":1-10,
+"key_filers":[{"company":"name","type":"Competitor/Customer/Research Institution/Adjacent Player","focus":"one sentence","threat_level":"Low/Medium/High","schaeffler_relationship":"string","source":"Source: X, Year"}],
+"white_spaces":["white space 1","white space 2","white space 3"]}"""
+    raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1500)
+    try:
+        landscape = _parse_json(raw)
+    except:
+        landscape = {"technology_keywords":[],"landscape_summary":"N/A","activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"","patent_landscape_score":5,"key_filers":[],"white_spaces":[]}
 
     key_filers_run3 = landscape.get("key_filers", [])
     filers_full_run3 = json.dumps([
         {"company": f.get("company",""), "type": f.get("type",""), "focus": f.get("focus",""), "threat_level": f.get("threat_level","")}
         for f in key_filers_run3
     ])
-    system_ansoff = """You are a Schaeffler Group patent strategist.
-Map patent filing companies onto Schaeffler's modified Ansoff matrix based on where their patents sit.
-
-The matrix axes (MUST match Schaeffler's Stage 1 Innovation Framework):
-- X axis: Technology Dimension (0=Existing/Established Technology, 10=New to the World)
-- Y axis: Market Dimension (0=Existing/Established Market, 10=New to the World)
-
-Quadrant positions:
-- EXPLOIT  (bottom-left):  existing tech + existing market  — x_score 0-5,  y_score 0-5
-- EXTEND   (top-left):     existing tech + new market       — x_score 0-5,  y_score 5-10
-- RADICAL  (top-right):    new tech      + new market       — x_score 5-10, y_score 5-10
-- DISRUPT  (bottom-right): new tech      + existing market  — x_score 5-10, y_score 0-5
-
+    system_ansoff = """You are a Schaeffler patent strategist. Map ALL listed filers onto Schaeffler's Ansoff matrix.
 IMPORTANT: Every filer in the input list MUST appear in filer_positions — do not skip any.
-Use decimal values (e.g. 6.3, 7.8) for x_score and y_score — not integers — for accurate placement.
+
+Matrix axes (X=Technology Dimension, Y=Market Dimension — same as Schaeffler's Stage 1):
+- x_score: 0-10 (0=existing technology, 10=new to the world technology)
+- y_score: 0-10 (0=existing market, 10=new to the world market)
+Quadrants: EXPLOIT(x 0-5,y 0-5)=bottom-left, EXTEND(x 0-5,y 5-10)=top-left,
+           RADICAL(x 5-10,y 5-10)=top-right, DISRUPT(x 5-10,y 0-5)=bottom-right
 
 Return ONLY valid JSON:
-{
-  "filer_positions": [
-    {
-      "company": "company name",
-      "matrix_position": "EXPLOIT/EXTEND/RADICAL/DISRUPT",
-      "x_score": 7.2,
-      "y_score": 6.8,
-      "rationale": "one sentence"
-    }
-  ],
-  "schaeffler_position": {
-    "matrix_position": "EXPLOIT",
-    "x_score": 3.1,
-    "y_score": 2.9,
-    "existing_ip": "one sentence on what Schaeffler already has in this space",
-    "gap": "one sentence on the IP gap this idea addresses"
-  },
-  "idea_position": {"x_score": 7.4, "y_score": 7.1}
-}"""
-
+{"filer_positions":[{"company":"name","matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"rationale":"one sentence"}],
+"schaeffler_position":{"matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"existing_ip":"one sentence","gap":"one sentence"},
+"idea_position":{"x_score":0-10,"y_score":0-10},"novelty_signal":"Strong/Moderate/Weak","novelty_rationale":"one sentence","ip_risk":"Low/Medium/High","ip_risk_rationale":"one sentence"}"""
     raw2 = call_claude(system_ansoff,
-        f"Idea: {idea}\nQuadrant: {quadrant}\n"
-        f"IMPORTANT: You MUST map ALL {len(key_filers_run3)} filers listed below. Do not skip any.\n"
-        f"Key filers (map every single one): {filers_full_run3}",
-        max_tokens=max(3000, len(key_filers_run3) * 300 + 1500))
-    ansoff_data = _parse_json_robust(raw2)
-    if not ansoff_data or not isinstance(ansoff_data, dict):
-        ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2.0,"y_score":2.0,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7.0,"y_score":7.0}}
+        f"Idea: {idea}\nQuadrant: {quadrant}\nMap ALL {len(key_filers_run3)} filers: {filers_full_run3}",
+        max_tokens=max(1800, len(key_filers_run3) * 200 + 800))
+    try:
+        ansoff_data = _parse_json(raw2)
+    except:
+        ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
 
     # Guarantee every key_filer has a position
+    # X=Technology, Y=Market — EXPLOIT(low x,low y), EXTEND(low x,high y),
+    # RADICAL(high x,high y), DISRUPT(high x,low y)
     positioned_run3 = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
     type_defaults_run3 = {
-        "Competitor":          ("EXPLOIT", 3.0, 3.0),
-        "Customer":            ("EXTEND",  2.5, 6.5),
-        "Research Institution":("RADICAL", 7.0, 7.5),
-        "Adjacent Player":     ("DISRUPT", 6.5, 3.5),
-        "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
+        "Competitor":          ("EXPLOIT", 3.0, 3.0),   # established tech + established market
+        "Customer":            ("EXTEND",  2.5, 6.5),   # established tech + new market
+        "Research Institution":("RADICAL", 7.0, 7.5),  # new tech + new market
+        "Adjacent Player":     ("DISRUPT", 6.5, 3.5),  # new tech + established market
+        "Patent Troll":        ("EXPLOIT", 2.0, 2.0),  # established tech + established market
     }
     for i, f in enumerate(key_filers_run3):
         name = f.get("company","")
@@ -2820,221 +2497,154 @@ Return ONLY valid JSON:
                 "rationale": f.get("focus","Auto-placed based on filer type")
             })
 
-    # ── Landscape score: EPO-derived if available, else LLM ───────────────────
-    if epo_data and epo_data.get("total_results", 0) > 0:
-        landscape_score = _compute_landscape_score_from_epo(epo_data["total_results"])
-    else:
-        landscape_score = float(landscape.get("patent_landscape_score", 5))
-
-    # ── Novelty score: separate academic domain expert Claude call ─────────────
-    filer_summary = ", ".join(
-        f"{f.get('company','')} ({f.get('type','')})"
-        for f in key_filers_run3[:8]
-    )
-    system_novelty = """You are a domain expert academic assessing patent novelty for an innovation idea.
-Evaluate the novelty signal based on the patent landscape and filer data provided.
-
-Novelty Signal definitions (these are precise — apply them strictly):
-- High:   Blue ocean. Very few patent filers in this specific technology/market combination.
-          The idea occupies largely uncontested IP territory.
-- Medium: Oligopoly. A handful of established players dominate filings, but the specific
-          combination or application has meaningful differentiation potential.
-- Low:    Red ocean. Many patent filers are active. Technology is well-covered by existing patents.
-
-Return ONLY valid JSON:
-{
-  "novelty_signal": "High / Medium / Low",
-  "novelty_rationale": "2-3 sentences from a domain expert perspective explaining the assessment",
-  "novelty_score": <integer 1-10>
-}
-Scoring guide for novelty_score:
-9-10 = High — genuinely uncontested territory
-7-8  = High-leaning — few filers, clear differentiation opportunity
-5-6  = Medium — some prior art but meaningful gaps remain
-3-4  = Medium-low — significant prior art, differentiation is challenging
-1-2  = Low — red ocean, technology space is saturated"""
-
-    novelty_ctx = (
-        f"Idea: {idea}\nQuadrant: {quadrant}\n"
-        f"Landscape summary: {landscape.get('landscape_summary','')}\n"
-        f"Activity level: {landscape.get('activity_level','')}\n"
-        f"Filing trend: {landscape.get('filing_trend','')}\n"
-        f"Key filers identified: {filer_summary}\n"
-        f"Total EPO patent results: {epo_data.get('total_results','Unknown') if epo_data else 'Unknown'}"
-    )
-    raw_nov = call_claude(system_novelty, novelty_ctx, max_tokens=500)
-    novelty_data = _parse_json_robust(raw_nov)
-    if not novelty_data or not isinstance(novelty_data, dict):
-        novelty_data = {"novelty_signal":"Medium","novelty_rationale":"Assessment unavailable.","novelty_score":6}
-    novelty_score = float(novelty_data.get("novelty_score", 6))
-
-    # ── IP Risk scores: deterministic from Ansoff matrix proximity ─────────────
-    filer_positions  = ansoff_data.get("filer_positions", [])
-    idea_x  = float(ansoff_data.get("idea_position", {}).get("x_score", 7.0))
-    idea_y  = float(ansoff_data.get("idea_position", {}).get("y_score", 7.0))
-    sch_x   = float(ansoff_data.get("schaeffler_position", {}).get("x_score", 3.0))
-    sch_y   = float(ansoff_data.get("schaeffler_position", {}).get("y_score", 3.0))
-
-    ip_idea_label, ip_idea_score, ip_idea_nearby       = _compute_ip_proximity_risk(filer_positions, idea_x, idea_y)
-    ip_schaeffler_label, ip_schaeffler_score, ip_sch_nearby = _compute_ip_proximity_risk(filer_positions, sch_x, sch_y)
-
-    # ── Final Patent Intelligence Score (equal 25% weight across 4 dimensions) ─
-    final_patent = round((landscape_score + novelty_score + ip_idea_score + ip_schaeffler_score) / 4, 1)
+    landscape_score = float(landscape.get("patent_landscape_score",5))
+    novelty_score = {"Strong":9,"Moderate":6,"Weak":3}.get(ansoff_data.get("novelty_signal","Moderate"),6)
+    ip_score      = {"Low":8,"Medium":5,"High":2}.get(ansoff_data.get("ip_risk","Medium"),5)
+    final_patent  = round((landscape_score + novelty_score + ip_score) / 3, 1)
 
     st.session_state.s3_data = {
-        "landscape":           landscape,
-        "ansoff_data":         ansoff_data,
-        "novelty_data":        novelty_data,
-        "landscape_score":     landscape_score,
-        "novelty_score":       novelty_score,
-        "ip_idea_label":       ip_idea_label,
-        "ip_idea_score":       ip_idea_score,
-        "ip_idea_nearby":      ip_idea_nearby,
-        "ip_schaeffler_label": ip_schaeffler_label,
-        "ip_schaeffler_score": ip_schaeffler_score,
-        "ip_sch_nearby":       ip_sch_nearby,
-        "epo_data":            epo_data,
-        "final_score":         final_patent,
+        "landscape": landscape, "ansoff_data": ansoff_data,
+        "novelty_score": novelty_score, "ip_score": ip_score,
+        "landscape_score": landscape_score, "final_score": final_patent
     }
     st.session_state.s3_step = "done"
 
 
 def run_stage4(idea, quadrant, s1c):
     """Run Stage 04 Technical Feasibility and store results in session state."""
-    system_existence = """You are a technology analyst assessing whether an innovation technology exists and at what maturity.
-Return ONLY valid JSON with this exact structure:
-{
-  "technology_core": "one sentence describing the core technology",
-  "existence_verdict": "Demonstrated",
-  "existence_summary": "2-3 sentences on current state of the technology",
-  "evidence": [
-    {
-      "type": "Academic Paper",
-      "title": "string",
-      "description": "one sentence",
-      "relevance": "Direct",
-      "confidence": "High",
-      "source": "org or URL"
-    }
-  ],
-  "technology_gaps": ["gap 1", "gap 2", "gap 3"],
-  "time_to_readiness": "3-5 years",
-  "keywords": ["keyword1", "keyword2", "keyword3"]
-}
-existence_verdict must be one of: Demonstrated / Partially Demonstrated / Research Stage / Theoretical"""
+    system_existence = """You are a technology analyst. Assess whether this technology exists.
+Return ONLY valid JSON:
+{"technology_core":"one sentence","existence_verdict":"Demonstrated/Partially Demonstrated/Research Stage/Theoretical",
+"existence_summary":"2-3 sentences","evidence":[{"type":"Academic Paper/Startup/Pilot/Industry Report/Patent","title":"string","description":"one sentence","relevance":"Direct/Adjacent/Analogous","confidence":"High/Medium/Low","source":"org or URL"}],
+"technology_gaps":["gap 1","gap 2","gap 3"],"time_to_readiness":"e.g. 3-5 years","keywords":["6-10 key technical terms from this domain"]}"""
     raw = call_claude(system_existence, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
-    existence = _parse_json_robust(raw)
-    if not existence or not isinstance(existence, dict):
+    try:
+        existence = _parse_json(raw)
+    except:
         existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"N/A","evidence":[],"technology_gaps":[],"time_to_readiness":"Not yet estimated","keywords":[]}
 
-    system_trl = """You are a Schaeffler TRL expert. Rate using Schaeffler-adapted TRL scale 1-9.
-TRL 1-2=Theoretical/Basic principles, TRL 3-5=Innovation territory (proof of concept to validation), TRL 6-7=Borderline, TRL 8-9=Product Development ready.
-Return ONLY valid JSON with this exact structure:
-{
-  "trl_level": 4,
-  "trl_label": "TRL 4 — Technology validated in lab",
-  "trl_rationale": "2-3 sentences explaining the TRL rating",
-  "schaeffler_entry_readiness": "Ready for Innovation",
-  "key_technical_risks": [
-    {"risk": "risk description", "severity": "High", "mitigation": "one sentence mitigation"}
-  ],
-  "analogous_schaeffler_technologies": "one sentence on which Schaeffler Motion Product Family this is closest to",
-  "trl_score": 5
-}
-schaeffler_entry_readiness must be: Too Early / Ready for Innovation / Ready for Product Development"""
-    raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence verdict: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nTechnology gaps: {existence.get('technology_gaps','')}", max_tokens=1500)
-    trl = _parse_json_robust(raw2)
-    if not trl or not isinstance(trl, dict):
+    system_trl = """You are a Schaeffler TRL expert. Rate using Schaeffler-adapted TRL 1-9.
+TRL 1-2=Theoretical, TRL 3-5=Innovation territory, TRL 6-7=Borderline, TRL 8-9=Product Development.
+Return ONLY valid JSON:
+{"trl_level":1-9,"trl_label":"TRL X — label","trl_rationale":"2-3 sentences","schaeffler_entry_readiness":"Too Early/Ready for Innovation/Ready for Product Development",
+"key_technical_risks":[{"risk":"string","severity":"High/Medium/Low","mitigation":"one sentence"}],
+"analogous_schaeffler_technologies":"one sentence on which Schaeffler Motion Product Family this is closest to",
+"trl_score":1-10}"""
+    raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps','')}", max_tokens=1200)
+    try:
+        trl = _parse_json(raw2)
+    except:
         trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":3}
 
-    # ── TRL score: fully deterministic lookup ─────────────────────────────────
-    _TRL_SCORE_MAP = {1:1.0, 2:2.0, 3:3.5, 4:5.0, 5:6.0, 6:7.0, 7:8.0, 8:9.0, 9:10.0}
-    trl_level_val = int(trl.get("trl_level", 0))
-    trl_score = _TRL_SCORE_MAP.get(trl_level_val, 0.0)
-
+    trl_score  = float(trl.get("trl_score", round((trl.get("trl_level",3) / 9) * 10, 1)))
     ev_map = {"Demonstrated":9,"Partially Demonstrated":6,"Research Stage":3,"Theoretical":1}
-    existence_score = ev_map.get(existence.get("existence_verdict","Research Stage"), 0.0)
-
-    # ── Risk Score: safety direction (High=2, Medium=5, Low=8), ALL risks used ─
-    # Higher score = lower risk = better for feasibility
-    _sev_safety = {"High":2, "Medium":5, "Low":8}
-    risks = trl.get("key_technical_risks", [])
-    risk_score = round(
-        sum(_sev_safety.get(r.get("severity","Medium"), 5) for r in risks) / max(len(risks), 1), 1
-    ) if risks else 0.0
-
-    final_feasibility = round((trl_score + existence_score + risk_score) / 3, 1)
+    existence_score = ev_map.get(existence.get("existence_verdict","Research Stage"),3)
+    risks = trl.get("key_technical_risks",[])
+    sev_map = {"High":8,"Medium":5,"Low":2}
+    risk_score = round(10 - (sum(sev_map.get(r.get("severity","Medium"),5) for r in risks[:3]) / max(len(risks[:3]),1)), 1) if risks else 7.0
+    final_feasibility = round(trl_score*0.50 + existence_score*0.30 + risk_score*0.20, 1)
 
     st.session_state.s4_data = {
-        "existence":       existence,
-        "trl":             trl,
-        "trl_score":       trl_score,
-        "existence_score": existence_score,
-        "risk_score":      risk_score,
-        "final_score":     final_feasibility
+        "existence": existence, "trl": trl,
+        "trl_score": trl_score, "existence_score": existence_score, "risk_score": risk_score,
+        "final_score": final_feasibility
     }
     st.session_state.s4_step = "done"
 
 
 def run_stage5(idea, quadrant, s1c):
     """Run Stage 05 P³ Perspective and store results in session state."""
-    trl_level = st.session_state.get("s4_data",{}).get("trl",{}).get("trl_level", 3)
-    innovation_model = s1c.get("innovation_model", "Integrated") or "Integrated"
+    # ── Safe variable preparation — guard against None from Claude-stored nulls ──
+    s3_landscape = st.session_state.get("s3_data") or {}
+    s3_landscape = s3_landscape.get("landscape") or {}
+    s4_data      = st.session_state.get("s4_data") or {}
+    s4_existence = s4_data.get("existence") or {}
+    s4_trl       = s4_data.get("trl") or {}
+
+    raw_filers  = s3_landscape.get("key_filers") or []
+    raw_sources = s4_existence.get("evidence") or []
+    prior_filers          = [str(f.get("company","")) for f in raw_filers if isinstance(f, dict)]
+    prior_evidence_sources= [str(e.get("source","")) for e in raw_sources if isinstance(e, dict)]
+
+    trl_level          = int(s4_trl.get("trl_level") or 3)
+    innovation_cluster = str(s1c.get("innovation_cluster") or "")
+    product_family     = str(s1c.get("product_family") or "")
+    raw_trends         = s1c.get("trend_alignment")
+    trend_alignment    = list(raw_trends) if isinstance(raw_trends, (list, tuple)) else []
+    innovation_model   = str(s1c.get("innovation_model") or "Integrated")
+
+    filers_str  = ", ".join(prior_filers[:6])   or "none identified"
+    sources_str = ", ".join(prior_evidence_sources[:5]) or "none identified"
+    trends_str  = ", ".join(str(t) for t in trend_alignment) or "none"
 
     system_readiness = (
-        "You are a Schaeffler innovation strategist. Assess P³ Perspective (Portfolio × People × Process) "
-        "for this innovation idea. Innovation model: " + innovation_model + ". "
-        "Schaeffler competencies: precision bearings, mechatronics, power electronics (Vitesco), "
-        "EV drivetrains, embedded sensors, OEM Tier 1.\n\n"
-        "SCORING RUBRICS (apply strictly to all three dimensions):\n"
-        "Portfolio score (strategic fit):\n"
-        "  9-10 = Direct alignment with a Schaeffler innovation cluster, addresses a defined strategic trend, clear product family fit\n"
-        "  7-8  = Good alignment with one cluster, moderate trend relevance, identifiable product family\n"
-        "  5-6  = Partial fit, indirect relevance to cluster or trend\n"
-        "  3-4  = Weak strategic fit, marginal cluster relevance\n"
-        "  1-2  = No clear fit with any innovation cluster or strategic direction\n"
-        "People score (competency readiness):\n"
-        "  9-10 = Core competencies fully matched within Schaeffler, no critical gaps, can execute immediately\n"
-        "  7-8  = Most competencies matched, one manageable gap with a clear closure route (hire/upskill)\n"
-        "  5-6  = Partial match, 1-2 significant gaps requiring external sourcing or partnership\n"
-        "  3-4  = Major competency gaps, requires significant hiring, acquisition, or JDA\n"
-        "  1-2  = Fundamental capability mismatch, no relevant expertise at Schaeffler\n"
-        "Process score (infrastructure & asset readiness):\n"
-        "  9-10 = Existing Schaeffler processes and assets directly applicable, minimal new investment needed\n"
-        "  7-8  = Most processes applicable, some adaptation or moderate investment required\n"
-        "  5-6  = Moderate process fit, meaningful investment and new tooling required\n"
-        "  3-4  = Few applicable processes, significant new infrastructure needed\n"
-        "  1-2  = No applicable processes, requires building capability from scratch\n\n"
-        "Return ONLY valid JSON with this exact structure:\n"
-        '{"p3_portfolio":{"score":7,"rationale":"two sentences","cluster_fit":"one sentence","strengths":["s1","s2"],"gaps":["g1"]},'
-        '"p3_people":{"score":7,"rationale":"two sentences","matched_competencies":["c1","c2","c3"],"competency_gap":"string","sourcing_route":"string"},'
-        '"p3_process":{"score":7,"rationale":"two sentences","applicable_assets":["a1","a2"],"investment_required":"string","time_to_close":"string"},'
-        '"partnership_candidates":[{"name":"string","type":"Startup","rationale":"string","route":"Co-develop"}],'
-        '"org_gaps":[{"gap":"string","severity":"High","closure_route":"string","timeline":"12 months"}],'
-        '"build_or_partner":{"recommendation":"Co-develop","rationale":"two sentences","time_to_trl6_internal":"24 months","time_to_trl6_partner":"18 months"},'
-        '"p3_perspective_score":7}'
+        "You are a senior Schaeffler innovation strategist assessing internal P³ Perspective.\n"
+        "Schaeffler P³ formula: Performance = Portfolio x People x Process.\n"
+        f"Innovation cluster: {innovation_cluster} | Product family: {product_family} | "
+        f"Strategic trends: {trends_str} | Current TRL: {trl_level}\n"
+        f"Patent filers from Stage 03: {filers_str}\n"
+        f"Evidence sources from Stage 04: {sources_str}\n"
+        "Schaeffler competencies: precision bearings, mechatronics, power electronics (Vitesco merger), "
+        "tribology, EV drivetrains, embedded sensors, ASPICE/ISO 26262, OEM Tier 1 supply chain.\n\n"
+        f"Innovation model: {innovation_model}\n"
+        "- RADICAL (Integrated model): assess P3 readiness for Schaeffler FIP-VEP-PEP process, "
+        "leveraging OEM relationships, manufacturing scale, internal R&D.\n"
+        "- DISRUPTIVE (Accelerator model): assess P3 readiness for the Accelerator/VC track — "
+        "external co-development, startup partnerships, VC co-investment. Internal P3 gaps are expected.\n\n"
+        "Return ONLY valid JSON with exactly these keys. Use real integer scores 1-10, real strings, real arrays:\n"
+        '{"p3_portfolio":{"score":7,"rationale":"two sentences","cluster_fit":"one sentence",'
+        '"strengths":["strength 1","strength 2"],"gaps":["gap 1"]},'
+        '"p3_people":{"score":6,"rationale":"two sentences","matched_competencies":["comp 1","comp 2","comp 3"],'
+        '"competency_gap":"the single critical missing competency","sourcing_route":"how to close the gap"},'
+        '"p3_process":{"score":6,"rationale":"two sentences","applicable_assets":["asset 1","asset 2"],'
+        '"investment_required":"what needs to be built or acquired","time_to_close":"estimated months"},'
+        '"partnership_candidates":[{"name":"org name","type":"Startup","rationale":"why them","route":"Co-develop"}],'
+        '"org_gaps":[{"gap":"gap name","severity":"High","closure_route":"how to close","timeline":"6 months"}],'
+        '"build_or_partner":{"recommendation":"Co-develop","rationale":"two to three sentences",'
+        '"time_to_trl6_internal":"30 months","time_to_trl6_partner":"18 months"},'
+        '"p3_perspective_score":6}'
     )
-    user_msg = f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}\nInnovation cluster: {s1c.get('innovation_cluster','')}"
 
-    _s5_fallback = {"p3_portfolio":{"score":0,"rationale":"N/A","cluster_fit":"N/A","strengths":[],"gaps":[]},"p3_people":{"score":0,"rationale":"N/A","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},"p3_process":{"score":0,"rationale":"N/A","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},"partnership_candidates":[],"org_gaps":[],"build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},"p3_perspective_score":0}
+    _p3_fallback = {
+        "p3_portfolio":{"score":5,"rationale":"Analysis unavailable — re-run Stage 05.","cluster_fit":"N/A","strengths":[],"gaps":[]},
+        "p3_people":{"score":5,"rationale":"Analysis unavailable — re-run Stage 05.","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},
+        "p3_process":{"score":5,"rationale":"Analysis unavailable — re-run Stage 05.","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},
+        "partnership_candidates":[],"org_gaps":[],
+        "build_or_partner":{"recommendation":"Co-develop","rationale":"Analysis unavailable.","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},
+        "p3_perspective_score":5
+    }
+
     try:
-        raw = call_claude(system_readiness, user_msg, max_tokens=3000)
-        org_data = _parse_json_robust(raw)
-        if not org_data or not isinstance(org_data, dict):
-            # retry once with explicit instruction to stay concise
+        raw = call_claude(system_readiness,
+                          f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL level: {trl_level}",
+                          max_tokens=2500)
+        org_data = _parse_json(raw)
+        # Light sanity check — if top-level keys missing, retry once
+        if "p3_portfolio" not in org_data or "p3_people" not in org_data:
+            raise ValueError("Missing required P3 keys")
+    except Exception as _e5:
+        try:
             raw2 = call_claude(
-                system_readiness + "\nIMPORTANT: Keep all text fields to ONE sentence. Return compact JSON only.",
-                user_msg, max_tokens=3000)
-            org_data = _parse_json_robust(raw2)
-        if not org_data or not isinstance(org_data, dict):
-            org_data = _s5_fallback
-    except Exception:
-        org_data = _s5_fallback
+                "Return ONLY valid JSON. No markdown, no commentary. "
+                "Required top-level keys: p3_portfolio, p3_people, p3_process, "
+                "partnership_candidates, org_gaps, build_or_partner, p3_perspective_score. "
+                "Each score field must be an integer 1-10. Each rationale must be a real string.",
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}\n"
+                f"Cluster: {innovation_cluster}\nModel: {innovation_model}\n"
+                "Assess Schaeffler's internal P3 readiness (Portfolio, People, Process) for this idea.",
+                max_tokens=2500
+            )
+            org_data = _parse_json(raw2)
+        except Exception as _e5_retry:
+            import traceback
+            st.error(f"⚠️ Stage 5 API Error (retry failed): {str(_e5_retry)}")
+            st.info("Falling back to default assessment. Check API key and Claude connectivity.")
+            st.caption(f"Debug: {traceback.format_exc()[:200]}")
+            org_data = _p3_fallback
 
-    p_portfolio = float(org_data.get("p3_portfolio",{}).get("score", 0))
-    p_people    = float(org_data.get("p3_people",{}).get("score", 0))
-    p_process   = float(org_data.get("p3_process",{}).get("score", 0))
-    # P³ final score: equal weight (33.3% each — per Lau et al., no differential weighting specified)
+    p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
+    p_people    = float(org_data.get("p3_people",{}).get("score",5))
+    p_process   = float(org_data.get("p3_process",{}).get("score",5))
     final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
 
     st.session_state.s5_data = {
@@ -3055,9 +2665,7 @@ def run_stage6_synthesis(idea, quadrant, s1c):
     org_score         = st.session_state.s5_data.get("final_score", 5.0)
 
     weights = {"market":25,"patent":25,"feasibility":25,"org":25}
-    wm = weights["market"]/100; wp = weights["patent"]/100
-    wf = weights["feasibility"]/100; wo = weights["org"]/100
-    ipi = round(market_score*wm + patent_score*wp + feasibility_score*wf + org_score*wo, 1)
+    ipi = round((market_score + patent_score + feasibility_score + org_score) / 4, 1)
 
     s2d = st.session_state.s2_data
     s3d = st.session_state.s3_data
@@ -3637,16 +3245,16 @@ elif st.session_state.active_stage == 2:
         progress.progress(35)
         system_market = """You are a senior market analyst. Analyse the market for this innovation idea.
 RULES:
-- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, IRENA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global, OREC, Ocean Energy Europe.
+- Use only the most credible sources: McKinsey Global Institute, Gartner, Frost & Sullivan, BloombergNEF, IEA, Roland Berger, Statista, MarketsandMarkets, Grand View Research, Allied Market Research, Mordor Intelligence, Fortune Business Insights, IDC, Wood Mackenzie, S&P Global.
 - For each market figure, provide structured source objects. Each source MUST have its own entry in the sources array — never combine two sources into one object.
-- Include the best URL you know for each source from your training data — the app verifies it with a live HEAD check and falls back to a targeted search automatically. Omit the url field only if you genuinely have no URL for this specific report.
+- For URLs: provide the EXACT deep-link URL to the specific report page. If you do not know the exact URL, omit the url field entirely.
 - market_size_current = most recent available year (2024 or 2025). market_size_forecast = 5-7 year projection. cagr = compound annual growth rate for that period.
 - market_score: integer 1-10. Rubric: 9-10=large fast-growing (>$10bn, >15% CAGR); 7-8=strong ($2-10bn, 8-15%); 5-6=moderate; 3-4=niche; 1-2=tiny or declining.
 Return ONLY valid JSON with NO extra text, NO comments inside the JSON:
 {"market_name":"string",
-"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
-"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
-"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Exact Report Title","year":"2024","url":"https://exact-url-if-known"}]},
+"market_size_current":{"value":"$X.XB","year":"2024","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
+"market_size_forecast":{"value":"$X.XB","year":"2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
+"cagr":{"value":"X%","period":"2024-2030","sources":[{"org":"OrgName","title":"Report Title Year","year":"2024","url":"https://url-or-omit-field"}]},
 "growth_drivers":["driver 1","driver 2","driver 3"],"market_maturity":"Emerging/Growing/Mature/Declining",
 "geographic_focus":"string","market_score":7,"market_score_rationale":"2 sentences"}"""
         try:
@@ -3688,11 +3296,11 @@ Return ONLY valid JSON with NO inline comments:
         ms  = float(market.get("market_score",5))
         ss  = float(sectors.get("sector_fit_score",5))
         cs  = float(comp.get("competition_score",5))
-        final = round((ms + ss + cs) / 3, 1)
+        final = round(ms*0.40 + ss*0.35 + cs*0.25, 1)
 
         st.session_state.s2_data = {
             "market": market, "comp": comp, "sectors": sectors,
-            "weights": {"Market Attractiveness":(ms,1/3),"Sector Fit":(ss,1/3),"Competition Opportunity":(cs,1/3)},
+            "weights": {"Market Attractiveness":(ms,0.40),"Sector Fit":(ss,0.35),"Competition Opportunity":(cs,0.25)},
             "final_score": final, "web_results": search_results
         }
         progress.progress(100)
@@ -3723,85 +3331,73 @@ Return ONLY valid JSON with NO inline comments:
 
         import re as _re, urllib.parse as _up
 
-        # Known org → their domain for site: searches
-        _ORG_DOMAINS = {
-            "mckinsey":             "mckinsey.com",
-            "mckinsey global":      "mckinsey.com",
-            "gartner":              "gartner.com",
-            "bloomberg":            "bloomberg.com",
-            "bloombergnef":         "bnef.com",
-            "bnef":                 "bnef.com",
-            "iea":                  "iea.org",
-            "statista":             "statista.com",
-            "roland berger":        "rolandberger.com",
-            "frost & sullivan":     "frost.com",
-            "frost":                "frost.com",
-            "deloitte":             "deloitte.com",
-            "pwc":                  "pwc.com",
-            "ihs markit":           "ihsmarkit.com",
-            "s&p global":           "spglobal.com",
-            "wood mackenzie":       "woodmac.com",
-            "mordor":               "mordorintelligence.com",
-            "mordor intelligence":  "mordorintelligence.com",
-            "grand view":           "grandviewresearch.com",
-            "grand view research":  "grandviewresearch.com",
-            "allied market":        "alliedmarketresearch.com",
-            "allied market research": "alliedmarketresearch.com",
-            "marketsandmarkets":    "marketsandmarkets.com",
-            "fortune business":     "fortunebusinessinsights.com",
-            "fortune business insights": "fortunebusinessinsights.com",
-            "idc":                  "idc.com",
-            "precedence":           "precedenceresearch.com",
-            "technavio":            "technavio.com",
-            "ibisworld":            "ibisworld.com",
-            "euromonitor":          "euromonitor.com",
-            "irena":                "irena.org",
-            "ocean energy":         "oceanenergy-europe.eu",
-            "orec":                 "ore-catapult.org.uk",
+        # Known org → stable publications page (fallback when no deep URL provided)
+        _ORG_PAGES = {
+            "mckinsey":             "https://www.mckinsey.com/mgi/research",
+            "mckinsey global":      "https://www.mckinsey.com/mgi/research",
+            "gartner":              "https://www.gartner.com/en/research/publications",
+            "bloomberg":            "https://www.bloomberg.com/professional/insights/",
+            "bloombergnef":         "https://about.bnef.com/insights/",
+            "bnef":                 "https://about.bnef.com/insights/",
+            "iea":                  "https://www.iea.org/reports",
+            "statista":             "https://www.statista.com/markets/",
+            "roland berger":        "https://www.rolandberger.com/en/Insights/Publications/",
+            "frost & sullivan":     "https://store.frost.com/reports.html",
+            "frost":                "https://store.frost.com/reports.html",
+            "deloitte":             "https://www2.deloitte.com/global/en/insights.html",
+            "pwc":                  "https://www.pwc.com/gx/en/industries/",
+            "ihs markit":           "https://ihsmarkit.com/research-analysis/",
+            "s&p global":           "https://www.spglobal.com/marketintelligence/en/news-insights/research",
+            "wood mackenzie":       "https://www.woodmac.com/reports/",
+            "mordor":               "https://www.mordorintelligence.com/industry-reports",
+            "mordor intelligence":  "https://www.mordorintelligence.com/industry-reports",
+            "grand view":           "https://www.grandviewresearch.com/industry-analysis",
+            "grand view research":  "https://www.grandviewresearch.com/industry-analysis",
+            "allied market":        "https://www.alliedmarketresearch.com/market-research-report",
+            "allied market research": "https://www.alliedmarketresearch.com/market-research-report",
+            "marketsandmarkets":    "https://www.marketsandmarkets.com/Market-Reports/",
+            "fortune business":     "https://www.fortunebusinessinsights.com/reports",
+            "fortune business insights": "https://www.fortunebusinessinsights.com/reports",
+            "idc":                  "https://www.idc.com/research/viewtoc",
+            "precedence":           "https://www.precedenceresearch.com/",
+            "technavio":            "https://www.technavio.com/report-store",
+            "ibisworld":            "https://www.ibisworld.com/global/",
+            "euromonitor":          "https://www.euromonitor.com/reports",
         }
 
         def _resolve_url(src_obj):
             """
-            1. If Claude gave a URL: HEAD-check it. Return it if alive.
-            2. If no URL or URL dead: build a site:-targeted Google search with quoted title.
-            3. Returns (url, is_direct).
+            Test Claude's URL with a HEAD request.
+            Returns (url, is_direct) where is_direct=True means the link lands on the actual page.
+            Falls back to a targeted Google Search if the URL fails or is missing.
             """
             import urllib.parse as _up2
-            raw_url  = src_obj.get("url", "").strip()
-            org      = src_obj.get("org", "")
-            title    = src_obj.get("title", "")
-            year     = src_obj.get("year", "")
-            org_lower = org.lower()
+            raw_url = src_obj.get("url", "").strip()
 
-            domain = None
-            for key, dom in _ORG_DOMAINS.items():
-                if key in org_lower:
-                    domain = dom
-                    break
-
-            title_words = title.replace(year, "").strip()
-            if domain:
-                q = f'"{title_words}" site:{domain}'
-                if year:
-                    q += f" {year}"
-            else:
-                q = f'"{title_words}" {org}'
-                if year:
-                    q += f" {year}"
-            fallback_url = f"https://www.google.com/search?q={_up2.quote(q.strip())}"
+            # Build the Google Search fallback first — always works
+            q_parts = [src_obj.get("org",""), src_obj.get("title",""), src_obj.get("year","")]
+            q = " ".join(p for p in q_parts if p).strip()
+            google_url = f"https://www.google.com/search?q={_up2.quote(q)}"
 
             if not raw_url or not raw_url.startswith("http"):
-                return fallback_url, False
+                # No URL provided — try org page first, then Google
+                org_lower = src_obj.get("org", "").lower()
+                for org_key, org_page in _ORG_PAGES.items():
+                    if org_key in org_lower:
+                        return org_page, False
+                return google_url, False
 
+            # Check the URL has a real path (not just homepage)
             try:
                 from urllib.parse import urlparse as _ulp
                 _parsed = _ulp(raw_url)
                 path = _parsed.path.strip("/")
                 if not path or len(path) <= 3:
-                    return fallback_url, False
+                    return google_url, False
             except Exception:
-                return fallback_url, False
+                return google_url, False
 
+            # Live HEAD check — 4 second timeout
             try:
                 resp = requests.head(raw_url, timeout=4, allow_redirects=True,
                                      headers={"User-Agent": "Mozilla/5.0"})
@@ -3810,7 +3406,7 @@ Return ONLY valid JSON with NO inline comments:
             except Exception:
                 pass
 
-            return fallback_url, False
+            return google_url, False
 
         def _pill_label(src_obj):
             """Short display label for a source pill."""
@@ -3827,13 +3423,13 @@ Return ONLY valid JSON with NO inline comments:
 
         def render_pills_structured(sources_list):
             """Return HTML for individual pill <a> tags from a list of source dicts.
-            🔗 = direct link verified live. 🔍 = site-specific search on publisher's domain."""
+            🔗 = direct link verified live. 🔍 = Google Search (guaranteed to open)."""
             if not sources_list:
                 return '<span style="color:#4a6fa5;font-size:10px;">no source available</span>'
             html = ""
             for src in sources_list:
                 url, is_direct = _resolve_url(src)
-                lbl  = _pill_label(src)
+                lbl = _pill_label(src)
                 icon = "🔗" if is_direct else "🔍"
                 html += (
                     f'<a href="{url}" target="_blank" '
@@ -3875,7 +3471,7 @@ Return ONLY valid JSON with NO inline comments:
 </div>""", unsafe_allow_html=True)
 
         st.markdown("<div style='margin-top:4px'></div>", unsafe_allow_html=True)
-        st.caption("🔗 = direct link  ·  🔍 = search on publisher site")
+        st.caption("🔗 = direct link verified · 🔍 = Google Search to find the report (both always open)")
 
         col_l, col_r = st.columns(2)
         col_l.markdown(f"**Maturity** · {market.get('market_maturity','')}")
@@ -4035,23 +3631,6 @@ elif st.session_state.active_stage == 3:
         status.markdown("🔍 Analysing external patent landscape...")
         progress.progress(20)
 
-        # ── EPO OPS live patent fetch (if credentials configured) ──────────────
-        status.markdown("🌐 Fetching live patent data from EPO OPS...")
-        epo_data = fetch_epo_patent_data(
-            keywords=s1c.get("trend_alignment", []) + [s1c.get("innovation_cluster", "")],
-            idea=idea
-        )
-        epo_ctx = _build_epo_context(epo_data)
-        if epo_data:
-            progress.progress(35)
-            status.markdown(
-                f"✓ EPO data: {epo_data['total_results']} patents found · "
-                f"Top filer: {epo_data['top_assignees'][0]['name'] if epo_data['top_assignees'] else 'N/A'}"
-            )
-        else:
-            progress.progress(35)
-            status.markdown("ℹ️ EPO credentials not configured — using LLM knowledge for patent landscape.")
-
         system_landscape = """You are a patent intelligence analyst specialising in industrial technology.
 Analyse the external patent landscape for this innovation idea.
 
@@ -4084,11 +3663,8 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_landscape,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}{epo_ctx}", max_tokens=3000)
-            raw_clean = raw.strip().replace("```json","").replace("```","").strip()
-            fb = raw_clean.find("{"); lb = raw_clean.rfind("}") + 1
-            if fb >= 0: raw_clean = raw_clean[fb:lb]
-            landscape = json.loads(raw_clean)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2000)
+            landscape = _parse_json(raw)
         except Exception as e:
             landscape = {"technology_keywords":[],"landscape_summary":"Analysis unavailable.",
                         "activity_level":"N/A","filing_trend":"N/A","filing_trend_rationale":"",
@@ -4110,7 +3686,11 @@ Quadrant positions (identical to Schaeffler's quadrant classifier):
 - RADICAL  (top-right):    new tech       + new market       — x_score 5–10, y_score 5–10
 - DISRUPT  (bottom-right): new tech       + existing market  — x_score 5–10, y_score 0–5
 
-Use decimal values (e.g. 6.3, 7.8) for x_score and y_score — not integers — for accurate placement.
+For each company, assign:
+- matrix_position: which quadrant their patent activity sits in
+- x_score: 0-10 (0=existing technology, 10=new to the world technology)
+- y_score: 0-10 (0=existing market, 10=new to the world market)
+
 Also map where SCHAEFFLER's own known IP sits relative to this idea.
 
 Return ONLY valid JSON:
@@ -4119,25 +3699,29 @@ Return ONLY valid JSON:
     {
       "company": "company name",
       "matrix_position": "EXPLOIT/EXTEND/RADICAL/DISRUPT",
-      "x_score": 7.2,
-      "y_score": 6.8,
+      "x_score": 0-10,
+      "y_score": 0-10,
       "rationale": "one sentence"
     }
   ],
   "schaeffler_position": {
     "matrix_position": "EXPLOIT/EXTEND/RADICAL/DISRUPT",
-    "x_score": 3.1,
-    "y_score": 2.9,
+    "x_score": 0-10,
+    "y_score": 0-10,
     "existing_ip": "one sentence on what Schaeffler already has in this space",
     "gap": "one sentence on the IP gap this idea addresses"
   },
   "idea_position": {
-    "x_score": 7.4,
-    "y_score": 7.1
-  }
+    "x_score": 0-10,
+    "y_score": 0-10
+  },
+  "novelty_signal": "Strong / Moderate / Weak",
+  "novelty_rationale": "one sentence",
+  "ip_risk": "Low / Medium / High",
+  "ip_risk_rationale": "one sentence"
 }"""
 
-        # Pass FULL filer objects so Claude can map every one
+        # Pass FULL filer objects (not just names) so Claude can map every one
         key_filers = landscape.get("key_filers", [])
         filers_full_context = json.dumps([
             {"company": f.get("company",""), "type": f.get("type",""), "focus": f.get("focus",""), "threat_level": f.get("threat_level","")}
@@ -4148,28 +3732,32 @@ Return ONLY valid JSON:
                 f"Idea: {idea}\nQuadrant: {quadrant}\nTech keywords: {landscape.get('technology_keywords','')}\n"
                 f"IMPORTANT: You MUST map ALL {len(key_filers)} filers listed below. Do not skip any.\n"
                 f"Key filers (map every single one): {filers_full_context}",
-                max_tokens=max(3000, len(key_filers) * 300 + 1500))
-            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
-            fb2 = raw2_clean.find("{"); lb2 = raw2_clean.rfind("}") + 1
-            if fb2 >= 0: raw2_clean = raw2_clean[fb2:lb2]
-            ansoff_data = json.loads(raw2_clean)
+                max_tokens=max(1800, len(key_filers) * 200 + 800))
+            ansoff_data = _parse_json(raw2)
         except Exception as e:
-            ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2.0,"y_score":2.0,"existing_ip":"N/A","gap":"N/A"},
-                          "idea_position":{"x_score":7.0,"y_score":7.0}}
+            ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},
+                          "idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
 
-        # Guarantee every key_filer appears in filer_positions
+        # ── Guarantee every key_filer appears in filer_positions ──────────
+        # Build a lookup of which companies already have positions
         positioned_companies = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
+        # Quadrant → default score ranges for auto-placement fallback
+        # Quadrant → default score ranges (X=Technology, Y=Market — matches Stage 1 convention)
+        # EXPLOIT=bottom-left(low x,low y), EXTEND=top-left(low x,high y),
+        # RADICAL=top-right(high x,high y), DISRUPT=bottom-right(high x,low y)
         type_defaults = {
-            "Competitor":          ("EXPLOIT", 3.0, 3.0),
-            "Customer":            ("EXTEND",  2.5, 6.5),
-            "Research Institution":("RADICAL", 7.0, 7.5),
-            "Adjacent Player":     ("DISRUPT", 6.5, 3.5),
-            "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
+            "Competitor":          ("EXPLOIT", 3.0, 3.0),   # established tech + established market
+            "Customer":            ("EXTEND",  2.5, 6.5),   # established tech + new market
+            "Research Institution":("RADICAL", 7.0, 7.5),  # new tech + new market
+            "Adjacent Player":     ("DISRUPT", 6.5, 3.5),  # new tech + established market
+            "Patent Troll":        ("EXPLOIT", 2.0, 2.0),  # established tech + established market
         }
+        import random
         for i, f in enumerate(key_filers):
             name = f.get("company","")
             if name.lower() not in positioned_companies and name:
                 quad, bx, by = type_defaults.get(f.get("type","Adjacent Player"), ("EXPLOIT", 4.0, 4.0))
+                # Small deterministic nudge so overlapping filers spread out
                 nudge_x = ((i * 0.7) % 2.0) - 1.0
                 nudge_y = ((i * 1.1) % 2.0) - 1.0
                 ansoff_data.setdefault("filer_positions", []).append({
@@ -4181,90 +3769,24 @@ Return ONLY valid JSON:
                     "rationale": f.get("focus","Auto-placed based on filer type")
                 })
 
-        progress.progress(70)
-        status.markdown("🔬 Assessing novelty signal...")
-
-        # ── Novelty: separate academic domain expert Claude call ───────────────
-        filer_summary = ", ".join(
-            f"{f.get('company','')} ({f.get('type','')})"
-            for f in key_filers[:8]
-        )
-        system_novelty = """You are a domain expert academic assessing patent novelty for an innovation idea.
-Evaluate the novelty signal based on the patent landscape and filer data provided.
-
-Novelty Signal definitions (apply these strictly):
-- High:   Blue ocean. Very few patent filers in this specific technology/market combination.
-          The idea occupies largely uncontested IP territory.
-- Medium: Oligopoly. A handful of established players dominate filings but the specific
-          combination or application has meaningful differentiation potential.
-- Low:    Red ocean. Many patent filers are active. Technology is well-covered by existing patents.
-
-Return ONLY valid JSON:
-{
-  "novelty_signal": "High / Medium / Low",
-  "novelty_rationale": "2-3 sentences from a domain expert perspective",
-  "novelty_score": <integer 1-10>
-}
-Scoring guide:
-9-10 = High — genuinely uncontested territory
-7-8  = High-leaning — few filers, clear differentiation opportunity
-5-6  = Medium — some prior art but meaningful gaps remain
-3-4  = Medium-low — significant prior art, differentiation is challenging
-1-2  = Low — red ocean, technology space is saturated"""
-
-        novelty_ctx = (
-            f"Idea: {idea}\nQuadrant: {quadrant}\n"
-            f"Landscape summary: {landscape.get('landscape_summary','')}\n"
-            f"Activity level: {landscape.get('activity_level','')}\n"
-            f"Filing trend: {landscape.get('filing_trend','')}\n"
-            f"Key filers identified: {filer_summary}\n"
-            f"Total EPO patent results: {epo_data.get('total_results','Unknown') if epo_data else 'Unknown'}"
-        )
-        try:
-            raw_nov = call_claude(system_novelty, novelty_ctx, max_tokens=500)
-            novelty_data = _parse_json_robust(raw_nov)
-            if not novelty_data or not isinstance(novelty_data, dict):
-                novelty_data = {"novelty_signal":"Medium","novelty_rationale":"Assessment unavailable.","novelty_score":6}
-        except Exception:
-            novelty_data = {"novelty_signal":"Medium","novelty_rationale":"Assessment unavailable.","novelty_score":6}
-        novelty_score = float(novelty_data.get("novelty_score", 6))
-
-        progress.progress(85)
+        progress.progress(80)
         status.markdown("📊 Calculating patent intelligence score...")
 
-        # ── Landscape score: EPO-derived if available, else LLM ───────────────
-        if epo_data and epo_data.get("total_results", 0) > 0:
-            landscape_score = _compute_landscape_score_from_epo(epo_data["total_results"])
-        else:
-            landscape_score = float(landscape.get("patent_landscape_score", 5))
-
-        # ── IP Risk scores: deterministic from Ansoff matrix proximity ─────────
-        filer_positions  = ansoff_data.get("filer_positions", [])
-        idea_x  = float(ansoff_data.get("idea_position", {}).get("x_score", 7.0))
-        idea_y  = float(ansoff_data.get("idea_position", {}).get("y_score", 7.0))
-        sch_x   = float(ansoff_data.get("schaeffler_position", {}).get("x_score", 3.0))
-        sch_y   = float(ansoff_data.get("schaeffler_position", {}).get("y_score", 3.0))
-
-        ip_idea_label, ip_idea_score, ip_idea_nearby           = _compute_ip_proximity_risk(filer_positions, idea_x, idea_y)
-        ip_schaeffler_label, ip_schaeffler_score, ip_sch_nearby = _compute_ip_proximity_risk(filer_positions, sch_x, sch_y)
-
-        # ── Final score: equal 25% weight across 4 dimensions ─────────────────
-        final_patent = round((landscape_score + novelty_score + ip_idea_score + ip_schaeffler_score) / 4, 1)
+        # Patent score: landscape openness + novelty signal + ip risk
+        landscape_score = float(landscape.get("patent_landscape_score", 5))
+        novelty_map = {"Strong":9,"Moderate":6,"Weak":3}
+        ip_risk_map  = {"Low":8,"Medium":5,"High":2}
+        novelty_score = novelty_map.get(ansoff_data.get("novelty_signal","Moderate"), 6)
+        ip_score      = ip_risk_map.get(ansoff_data.get("ip_risk","Medium"), 5)
+        final_patent  = round((landscape_score + novelty_score + ip_score) / 3, 1)
 
         st.session_state.s3_data = {
-            "landscape":           landscape,
-            "ansoff_data":         ansoff_data,
-            "novelty_data":        novelty_data,
-            "landscape_score":     landscape_score,
-            "novelty_score":       novelty_score,
-            "ip_idea_label":       ip_idea_label,
-            "ip_idea_score":       ip_idea_score,
-            "ip_idea_nearby":      ip_idea_nearby,
-            "ip_schaeffler_label": ip_schaeffler_label,
-            "ip_schaeffler_score": ip_schaeffler_score,
-            "ip_sch_nearby":       ip_sch_nearby,
-            "epo_data":            epo_data,
-            "final_score":         final_patent,
+            "landscape": landscape,
+            "ansoff_data": ansoff_data,
+            "novelty_score": novelty_score,
+            "ip_score": ip_score,
+            "landscape_score": landscape_score,
+            "final_score": final_patent
         }
 
         progress.progress(100)
@@ -4290,14 +3812,11 @@ Scoring guide:
 </div>
 """, unsafe_allow_html=True)
 
-        # Score breakdown — 4 components at 25% each
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Landscape Openness",  f"{d['landscape_score']:.1f} / 10", "25% weight")
-        col2.metric("Novelty Signal",       f"{d['novelty_score']:.1f} / 10",  "25% weight")
-        col3.metric("IP Risk — Idea",       f"{d['ip_idea_score']:.1f} / 10",
-                    f"25% · {d.get('ip_idea_label','?')} ({d.get('ip_idea_nearby',0)} nearby filers)")
-        col4.metric("IP Risk — Schaeffler", f"{d['ip_schaeffler_score']:.1f} / 10",
-                    f"25% · {d.get('ip_schaeffler_label','?')} ({d.get('ip_sch_nearby',0)} nearby filers)")
+        # Score breakdown
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Landscape Openness", f"{d['landscape_score']:.1f} / 10", "33% weight")
+        col2.metric("Novelty Signal",      f"{d['novelty_score']:.1f} / 10",  "33% weight")
+        col3.metric("IP Risk",             f"{d['ip_score']:.1f} / 10",       "34% weight")
         st.markdown("---")
 
         # ── Patent activity overview ──────────────────────────
@@ -4396,7 +3915,7 @@ Scoring guide:
 </div>
 """, unsafe_allow_html=True)
 
-        st.caption("Each point = a company's patent filing position. Your idea shown in orange. Schaeffler's existing IP shown in green.")
+        st.caption("Each point = a company's patent filing position. Your idea shown in green. Schaeffler's existing IP shown in orange.")
 
         fig = go.Figure()
 
@@ -4449,11 +3968,11 @@ Scoring guide:
             fig.add_trace(go.Scatter(
                 x=[schaeffler_pos.get("x_score",2)], y=[schaeffler_pos.get("y_score",2)],
                 mode="markers+text",
-                marker=dict(size=18, color="#22c55e", symbol="star",
+                marker=dict(size=16, color="#f97316", symbol="diamond",
                            line=dict(color="white",width=2)),
                 text=["  Schaeffler IP"],
                 textposition="middle right",
-                textfont=dict(size=11,color="#22c55e",family="Arial Bold"),
+                textfont=dict(size=11,color="#f97316",family="Arial Bold"),
                 showlegend=False,
                 hovertemplate=f"<b>Schaeffler existing IP</b><br>{schaeffler_pos.get('existing_ip','')}<extra></extra>"
             ))
@@ -4462,11 +3981,11 @@ Scoring guide:
         fig.add_trace(go.Scatter(
             x=[idea_pos.get("x_score",7)], y=[idea_pos.get("y_score",7)],
             mode="markers+text",
-            marker=dict(size=16, color="#f97316", symbol="diamond",
+            marker=dict(size=18, color="#22c55e", symbol="star",
                        line=dict(color="white",width=2)),
             text=["  Your idea"],
             textposition="middle right",
-            textfont=dict(size=12,color="#f97316",family="Arial Bold"),
+            textfont=dict(size=12,color="#22c55e",family="Arial Bold"),
             showlegend=False,
             hovertemplate="<b>Your innovation idea</b><extra></extra>"
         ))
@@ -4492,7 +4011,7 @@ Scoring guide:
         st.plotly_chart(fig, use_container_width=True)
 
         # Legend
-        legend_items = [("🔴","Competitor"),("🔵","Customer"),("🟣","Research Institution"),("🟡","Adjacent Player"),("🟢","Schaeffler existing IP"),("🟠","Your idea")]
+        legend_items = [("🔴","Competitor"),("🔵","Customer"),("🟣","Research Institution"),("🟡","Adjacent Player"),("🟠","Schaeffler existing IP"),("🟢","Your idea")]
         st.markdown("  ".join([f"{e} {l}" for e,l in legend_items]))
         st.markdown("---")
 
@@ -4520,16 +4039,9 @@ Scoring guide:
         # ── Schaeffler IP position ────────────────────────────
         st.markdown("#### 🏭 Schaeffler IP Position")
         sc1, sc2, sc3 = st.columns(3)
-        sc1.metric("Novelty Signal",
-                   d.get("novelty_data",{}).get("novelty_signal","—"),
-                   f"Score: {d.get('novelty_score',0):.1f}/10")
-        sc2.metric("IP Risk — Idea",
-                   d.get("ip_idea_label","—"),
-                   f"{d.get('ip_idea_nearby',0)} filers within 2 units")
-        sc3.metric("IP Risk — Schaeffler",
-                   d.get("ip_schaeffler_label","—"),
-                   f"{d.get('ip_sch_nearby',0)} filers within 2 units")
-        st.caption(f"Novelty rationale: {d.get('novelty_data',{}).get('novelty_rationale','')}")
+        sc1.metric("Novelty Signal", ansoff_data.get("novelty_signal",""))
+        sc2.metric("IP Risk",        ansoff_data.get("ip_risk",""))
+        sc3.metric("IP Score",       f"{d['ip_score']:.1f} / 10")
         st.caption(f"Existing Schaeffler IP: {schaeffler_pos.get('existing_ip','')}")
         st.caption(f"IP gap this idea addresses: {schaeffler_pos.get('gap','')}")
 
@@ -4664,9 +4176,14 @@ Return ONLY valid JSON:
         try:
             raw = call_claude(system_existence,
                 f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
-            existence = _parse_json_robust(raw)
-            if not existence or not isinstance(existence, dict):
-                raise ValueError("Parse failed")
+            # Strip everything before first { and after last }
+            raw_clean = raw.strip()
+            raw_clean = raw_clean.replace("```json","").replace("```","").strip()
+            first_brace = raw_clean.find("{")
+            last_brace  = raw_clean.rfind("}") + 1
+            if first_brace >= 0:
+                raw_clean = raw_clean[first_brace:last_brace]
+            existence = json.loads(raw_clean)
         except Exception as e:
             st.warning(f"Evidence parsing issue: {e} — using fallback")
             existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"",
@@ -4706,51 +4223,45 @@ Return ONLY valid JSON:
     {"risk": "technical risk description", "severity": "High/Medium/Low", "mitigation": "one sentence"},
     {"risk": "technical risk description", "severity": "High/Medium/Low", "mitigation": "one sentence"}
   ],
-  "analogous_schaeffler_technologies": "one sentence on which of Schaeffler's 8 Motion Product Families this technology is closest to"
+  "analogous_schaeffler_technologies": "one sentence on which of Schaeffler's 8 Motion Product Families (Guide Motion/Transmit Motion/Control Motion/Generate Motion/Power Motion/Drive Motion/Energize Motion/Sustain Motion) this technology is closest to",
+  "trl_score": integer 1-10 mapped directly from TRL level. TRL1=1, TRL2=2, TRL3=3.5, TRL4=5, TRL5=6, TRL6=7, TRL7=8, TRL8=9, TRL9=10
 }"""
 
         try:
             raw2 = call_claude(system_trl,
                 f"Idea: {idea}\nExistence verdict: {existence.get('existence_verdict','')}\nEvidence: {json.dumps(existence.get('evidence',[])[:3])}\nGaps: {existence.get('technology_gaps',[])}",
                 max_tokens=1500)
-            trl = _parse_json_robust(raw2)
-            if not trl or not isinstance(trl, dict):
-                raise ValueError("Parse failed")
+            raw2_clean = raw2.strip().replace("```json","").replace("```","").strip()
+            first_brace = raw2_clean.find("{")
+            last_brace  = raw2_clean.rfind("}") + 1
+            if first_brace >= 0:
+                raw2_clean = raw2_clean[first_brace:last_brace]
+            trl = json.loads(raw2_clean)
         except Exception as e:
             st.warning(f"TRL parsing issue: {e} — using fallback")
-            trl = {"trl_level":0,"trl_label":"TRL — parse failed, re-run",
-                  "trl_rationale":"","schaeffler_entry_readiness":"Too Early",
-                  "entry_rationale":"","key_technical_risks":[],"analogous_schaeffler_technologies":""}
+            trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept",
+                  "trl_rationale":"","schaeffler_entry_readiness":"Ready for Innovation",
+                  "entry_rationale":"","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":5}
 
         progress.progress(85)
         status.markdown("📐 Calculating feasibility score...")
 
-        # ── TRL score: fully deterministic lookup (no LLM variance) ──────────
-        _TRL_SCORE_MAP = {1:1.0, 2:2.0, 3:3.5, 4:5.0, 5:6.0, 6:7.0, 7:8.0, 8:9.0, 9:10.0}
-        trl_level_val = int(trl.get("trl_level", 0))
-        trl_score = _TRL_SCORE_MAP.get(trl_level_val, 0.0)
-
-        # ── Existence score: deterministic map ────────────────────────────────
+        # Feasibility score: TRL score (50%) + existence quality (30%) + risk profile (20%)
+        trl_score = float(trl.get("trl_score", 5))
         existence_map = {"Demonstrated":9,"Partially Demonstrated":6,"Research Stage":3,"Theoretical":1}
-        existence_score = existence_map.get(existence.get("existence_verdict","Research Stage"), 0.0)
-
-        # ── Risk Score: safety direction (High=2, Medium=5, Low=8), ALL risks ──
-        # Higher score = lower risk = better for feasibility
-        _sev_safety = {"High":2, "Medium":5, "Low":8}
-        all_risks = trl.get("key_technical_risks", [])
-        risk_score = round(
-            sum(_sev_safety.get(r.get("severity","Medium"), 5) for r in all_risks) / max(len(all_risks), 1), 1
-        ) if all_risks else 0.0
-
-        final_feasibility = round((trl_score + existence_score + risk_score) / 3, 1)
+        existence_score = existence_map.get(existence.get("existence_verdict","Research Stage"), 5)
+        risk_scores = [{"High":2,"Medium":5,"Low":8}.get(r.get("severity","Medium"),5)
+                      for r in trl.get("key_technical_risks",[])]
+        risk_score = sum(risk_scores)/len(risk_scores) if risk_scores else 5.0
+        final_feasibility = round(trl_score*0.50 + existence_score*0.30 + risk_score*0.20, 1)
 
         st.session_state.s4_data = {
-            "existence":       existence,
-            "trl":             trl,
-            "trl_score":       trl_score,
+            "existence": existence,
+            "trl": trl,
+            "trl_score": trl_score,
             "existence_score": existence_score,
-            "risk_score":      risk_score,
-            "final_score":     final_feasibility
+            "risk_score": round(risk_score,1),
+            "final_score": final_feasibility
         }
 
         progress.progress(100)
@@ -4789,9 +4300,9 @@ Return ONLY valid JSON:
 
         # Score breakdown
         col1, col2, col3 = st.columns(3)
-        col1.metric("TRL Score",         f"{d['trl_score']:.1f} / 10",      "33% weight")
-        col2.metric("Existence Quality",  f"{d['existence_score']:.1f} / 10","33% weight")
-        col3.metric("Risk Profile", f"{d['risk_score']:.1f} / 10", "33% weight")
+        col1.metric("TRL Score",        f"{d['trl_score']:.1f} / 10", "50% weight")
+        col2.metric("Existence Quality", f"{d['existence_score']:.1f} / 10", "30% weight")
+        col3.metric("Risk Profile",      f"{d['risk_score']:.1f} / 10", "20% weight")
         st.markdown("---")
 
         # ── TRL gauge ─────────────────────────────────────────
@@ -4875,6 +4386,7 @@ Return ONLY valid JSON:
             }
             rel_cols = {"Direct":"#22c55e","Adjacent":"#60a5fa","Analogous":"#f59e0b"}
             conf_cols = {"High":"#22c55e","Medium":"#f59e0b","Low":"#ef4444"}
+            # Sort: Direct > Adjacent > Analogous, then High > Medium > Low confidence
             rel_order  = {"Direct":0,"Adjacent":1,"Analogous":2}
             conf_order = {"High":0,"Medium":1,"Low":2}
             sorted_ev = sorted(evidence_items,
@@ -4898,28 +4410,6 @@ Return ONLY valid JSON:
   <div style="color:#cbd5e1;font-size:12px;">{ev.get("description","")} <span style="color:#4a6fa5;">{ev.get("source","")}</span></div>
 </div>
 """, unsafe_allow_html=True)
-
-            # ── Research paper search links dropdown ──────────────
-            import urllib.parse as _up4
-            with st.expander(f"🔗 Search links for {len(top_ev)} evidence items"):
-                st.caption("Links open targeted searches — paper titles from LLM training memory, verify before citing.")
-                for ev in top_ev:
-                    title  = ev.get("title","")
-                    source = ev.get("source","")
-                    etype  = ev.get("type","")
-                    if not title:
-                        continue
-                    # Build targeted search URLs
-                    q_gs    = _up4.quote(f'"{title}" {source}')
-                    q_ss    = _up4.quote(f'{title} {source}')
-                    url_gs  = f"https://scholar.google.com/scholar?q={q_gs}"
-                    url_ss  = f"https://www.semanticscholar.org/search?q={q_ss}&sort=Relevance"
-                    url_pub = f"https://pubmed.ncbi.nlm.nih.gov/?term={_up4.quote(title)}" if etype=="Academic Paper" else ""
-                    links = f'[Google Scholar]({url_gs})  ·  [Semantic Scholar]({url_ss})'
-                    if url_pub:
-                        links += f'  ·  [PubMed]({url_pub})'
-                    st.markdown(f"**{title}**  \n{source}  \n{links}")
-                    st.markdown("---")
         st.markdown("---")
 
         # ── Keyword map ───────────────────────────────────────
@@ -5056,71 +4546,105 @@ elif st.session_state.active_stage == 5:
         progress = st.progress(0)
         status   = st.empty()
 
-        status.markdown("🏭 Assessing Schaeffler P³ Perspective...")
+        # ── Safe variable preparation — guard against None stored by Claude ──
+        s3_data_i    = st.session_state.get("s3_data") or {}
+        s4_data_i    = st.session_state.get("s4_data") or {}
+        s3_land_i    = s3_data_i.get("landscape") or {}
+        s4_exist_i   = s4_data_i.get("existence") or {}
+        s4_trl_i     = s4_data_i.get("trl") or {}
+
+        raw_filers_i  = s3_land_i.get("key_filers") or []
+        raw_sources_i = s4_exist_i.get("evidence") or []
+        prior_filers_i          = [str(f.get("company","")) for f in raw_filers_i  if isinstance(f, dict)]
+        prior_evidence_sources_i= [str(e.get("source","")) for e in raw_sources_i if isinstance(e, dict)]
+
+        trl_level_i          = int(s4_trl_i.get("trl_level") or 3)
+        innovation_cluster_i = str(s1c.get("innovation_cluster") or "")
+        product_family_i     = str(s1c.get("product_family") or "")
+        raw_trends_i         = s1c.get("trend_alignment")
+        trend_alignment_i    = list(raw_trends_i) if isinstance(raw_trends_i, (list, tuple)) else []
+        innovation_model_i   = str(s1c.get("innovation_model") or "Integrated")
+        pipeline_route_i     = str(s1c.get("pipeline_route") or innovation_model_i)
+
+        filers_str_i  = ", ".join(prior_filers_i[:6])            or "none identified"
+        sources_str_i = ", ".join(prior_evidence_sources_i[:5])  or "none identified"
+        trends_str_i  = ", ".join(str(t) for t in trend_alignment_i) or "none"
+
+        status.markdown("🏭 Assessing Schaeffler P³ readiness...")
         progress.progress(25)
 
-        trl_level = st.session_state.get("s4_data",{}).get("trl",{}).get("trl_level", 3)
-        innovation_model = s1c.get("innovation_model", "Integrated") or "Integrated"
-
-        system_readiness = (
-            "You are a Schaeffler innovation strategist. Assess P³ Perspective (Portfolio × People × Process) "
-            "for this innovation idea. Innovation model: " + innovation_model + ". "
+        system_readiness_i = (
+            "You are a senior Schaeffler Group innovation strategist assessing internal P³ Perspective.\n"
+            "Schaeffler P³ formula: Performance = Portfolio x People x Process.\n"
+            "- Portfolio: Does this idea fit Schaeffler strategic portfolio and innovation clusters?\n"
+            "- People: Does Schaeffler have the skills and teams to develop this?\n"
+            "- Process: Does Schaeffler have the processes, infrastructure, and assets to execute?\n\n"
+            f"Innovation cluster: {innovation_cluster_i} | Product family: {product_family_i} | "
+            f"Trends: {trends_str_i} | Current TRL: {trl_level_i}\n"
+            f"Patent filers (Stage 03): {filers_str_i}\n"
+            f"Evidence sources (Stage 04): {sources_str_i}\n"
+            f"Innovation model: {innovation_model_i} | Pipeline route: {pipeline_route_i}\n"
             "Schaeffler competencies: precision bearings, mechatronics, power electronics (Vitesco), "
-            "EV drivetrains, embedded sensors, OEM Tier 1.\n\n"
-            "SCORING RUBRICS (apply strictly to all three dimensions):\n"
-            "Portfolio score (strategic fit):\n"
-            "  9-10 = Direct alignment with a Schaeffler innovation cluster, addresses a defined strategic trend, clear product family fit\n"
-            "  7-8  = Good alignment with one cluster, moderate trend relevance, identifiable product family\n"
-            "  5-6  = Partial fit, indirect relevance to cluster or trend\n"
-            "  3-4  = Weak strategic fit, marginal cluster relevance\n"
-            "  1-2  = No clear fit with any innovation cluster or strategic direction\n"
-            "People score (competency readiness):\n"
-            "  9-10 = Core competencies fully matched within Schaeffler, no critical gaps, can execute immediately\n"
-            "  7-8  = Most competencies matched, one manageable gap with a clear closure route (hire/upskill)\n"
-            "  5-6  = Partial match, 1-2 significant gaps requiring external sourcing or partnership\n"
-            "  3-4  = Major competency gaps, requires significant hiring, acquisition, or JDA\n"
-            "  1-2  = Fundamental capability mismatch, no relevant expertise at Schaeffler\n"
-            "Process score (infrastructure & asset readiness):\n"
-            "  9-10 = Existing Schaeffler processes and assets directly applicable, minimal new investment needed\n"
-            "  7-8  = Most processes applicable, some adaptation or moderate investment required\n"
-            "  5-6  = Moderate process fit, meaningful investment and new tooling required\n"
-            "  3-4  = Few applicable processes, significant new infrastructure needed\n"
-            "  1-2  = No applicable processes, requires building capability from scratch\n\n"
-            "Return ONLY valid JSON with this exact structure:\n"
-            '{"p3_portfolio":{"score":7,"rationale":"two sentences","cluster_fit":"one sentence","strengths":["s1","s2"],"gaps":["g1"]},'
-            '"p3_people":{"score":7,"rationale":"two sentences","matched_competencies":["c1","c2","c3"],"competency_gap":"string","sourcing_route":"string"},'
-            '"p3_process":{"score":7,"rationale":"two sentences","applicable_assets":["a1","a2"],"investment_required":"string","time_to_close":"string"},'
-            '"partnership_candidates":[{"name":"string","type":"Startup","rationale":"string","route":"Co-develop"}],'
-            '"org_gaps":[{"gap":"string","severity":"High","closure_route":"string","timeline":"12 months"}],'
-            '"build_or_partner":{"recommendation":"Co-develop","rationale":"two sentences","time_to_trl6_internal":"24 months","time_to_trl6_partner":"18 months"},'
-            '"p3_perspective_score":7}'
+            "tribology, EV drivetrains, industrial automation, embedded sensors, ASPICE/ISO 26262, "
+            "OEM Tier 1 supply chain, 41 R&D centres globally.\n\n"
+            "- RADICAL/Integrated: assess readiness for FIP-VEP-PEP process, OEM partnerships, internal R&D.\n"
+            "- DISRUPTIVE/Accelerator: assess readiness for VC/startup track; internal gaps are expected.\n\n"
+            "Return ONLY valid JSON. Use real integer scores 1-10 and real descriptive strings:\n"
+            '{"p3_portfolio":{"score":7,"rationale":"two sentences on portfolio fit","cluster_fit":"one sentence",'
+            '"strengths":["strength 1","strength 2"],"gaps":["gap 1"]},'
+            '"p3_people":{"score":6,"rationale":"two sentences on competency readiness",'
+            '"matched_competencies":["comp 1","comp 2","comp 3"],'
+            '"competency_gap":"the single critical missing competency","sourcing_route":"how to close the gap"},'
+            '"p3_process":{"score":6,"rationale":"two sentences on process readiness",'
+            '"applicable_assets":["asset 1","asset 2"],"investment_required":"what needs building","time_to_close":"12 months"},'
+            '"partnership_candidates":[{"name":"org name","type":"Startup","rationale":"why them","route":"Co-develop"}],'
+            '"org_gaps":[{"gap":"gap name","severity":"High","closure_route":"how to close","timeline":"6 months"}],'
+            '"build_or_partner":{"recommendation":"Co-develop","rationale":"two to three sentences",'
+            '"time_to_trl6_internal":"30 months","time_to_trl6_partner":"18 months"},'
+            '"p3_perspective_score":6}'
         )
-        user_msg = f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level}\nInnovation cluster: {s1c.get('innovation_cluster','')}"
+
+        _p3_fallback_i = {
+            "p3_portfolio":{"score":5,"rationale":"Analysis unavailable — re-run Stage 05.","cluster_fit":"N/A","strengths":[],"gaps":[]},
+            "p3_people":{"score":5,"rationale":"Analysis unavailable — re-run Stage 05.","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},
+            "p3_process":{"score":5,"rationale":"Analysis unavailable — re-run Stage 05.","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},
+            "partnership_candidates":[],"org_gaps":[],
+            "build_or_partner":{"recommendation":"Co-develop","rationale":"Analysis unavailable.","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},
+            "p3_perspective_score":5
+        }
 
         try:
-            raw = call_claude(system_readiness, user_msg, max_tokens=3000)
-            org_data = _parse_json_robust(raw)
-            if not org_data or not isinstance(org_data, dict):
-                raw = call_claude(
-                    system_readiness + "\nIMPORTANT: Keep all text fields to ONE sentence. Return compact JSON only.",
-                    user_msg, max_tokens=3000)
-                org_data = _parse_json_robust(raw)
-            if not org_data or not isinstance(org_data, dict):
-                raise ValueError("parse failed")
-        except Exception:
-            org_data = {
-                "p3_portfolio":{"score":0,"rationale":"Assessment unavailable.","cluster_fit":"N/A","strengths":[],"gaps":[]},
-                "p3_people":{"score":0,"rationale":"Assessment unavailable.","matched_competencies":[],"competency_gap":"N/A","sourcing_route":"N/A"},
-                "p3_process":{"score":0,"rationale":"Assessment unavailable.","applicable_assets":[],"investment_required":"N/A","time_to_close":"N/A"},
-                "partnership_candidates":[],"org_gaps":[],
-                "build_or_partner":{"recommendation":"Co-develop","rationale":"N/A","time_to_trl6_internal":"N/A","time_to_trl6_partner":"N/A"},
-                "p3_perspective_score":0
-            }
+            raw = call_claude(system_readiness_i,
+                f"Innovation idea: {idea}\nQuadrant: {quadrant}\nTRL level: {trl_level_i}",
+                max_tokens=2500)
+            org_data = _parse_json(raw)
+            if "p3_portfolio" not in org_data or "p3_people" not in org_data:
+                raise ValueError("Missing required P3 keys")
+        except Exception as e:
+            status.markdown("⚠️ Retrying P³ analysis...")
+            try:
+                raw_retry = call_claude(
+                    "Return ONLY valid JSON. No markdown, no commentary. "
+                    "Required keys: p3_portfolio, p3_people, p3_process, "
+                    "partnership_candidates, org_gaps, build_or_partner, p3_perspective_score. "
+                    "Each score must be an integer 1-10.",
+                    f"Idea: {idea}\nQuadrant: {quadrant}\nTRL: {trl_level_i}\n"
+                    f"Cluster: {innovation_cluster_i}\nModel: {innovation_model_i}\n"
+                    "Assess Schaeffler internal P3 readiness (Portfolio, People, Process).",
+                    max_tokens=2500
+                )
+                org_data = _parse_json(raw_retry)
+            except Exception as e2:
+                st.error(f"P³ analysis failed ({e2}). Use the individual Stage 05 button to re-run.")
+                org_data = _p3_fallback_i
 
-        # P³ final score: equal weight (33.3% each — per Lau et al. P³ formula, no differential weighting specified)
-        p_portfolio = float(org_data.get("p3_portfolio",{}).get("score", 0))
-        p_people    = float(org_data.get("p3_people",{}).get("score", 0))
-        p_process   = float(org_data.get("p3_process",{}).get("score", 0))
+        progress.progress(75)
+        status.markdown("🔍 Identifying partnership candidates...")
+
+        # Equal weight: Portfolio 33%, People 33%, Process 34%
+        p_portfolio = float(org_data.get("p3_portfolio",{}).get("score",5))
+        p_people    = float(org_data.get("p3_people",{}).get("score",5))
+        p_process   = float(org_data.get("p3_process",{}).get("score",5))
         final_org   = round((p_portfolio + p_people + p_process) / 3, 1)
 
         st.session_state.s5_data = {
@@ -5159,7 +4683,7 @@ elif st.session_state.active_stage == 5:
         col1, col2, col3 = st.columns(3)
         col1.metric("Portfolio fit",  f"{d['p_portfolio']:.1f}/10", "33% weight")
         col2.metric("People (competency)", f"{d['p_people']:.1f}/10",  "33% weight")
-        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "33% weight")
+        col3.metric("Process (assets)",   f"{d['p_process']:.1f}/10", "34% weight")
         st.markdown("---")
 
         # ── Portfolio dimension ───────────────────────────────
@@ -5210,7 +4734,7 @@ elif st.session_state.active_stage == 5:
                 st.markdown(f"""
 <div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
-    <div style="color:{WHITE};font-weight:600;font-size:13px;">{p.get('name','')}</div>
+    <div style="color:#e2e8f0;font-weight:600;font-size:13px;">{p.get('name','')}</div>
     <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{p.get('type','')} · {p.get('rationale','')}</div>
   </div>
   <div style="background:{rc}22;color:{rc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{p.get('route','')}</div>
@@ -5227,7 +4751,7 @@ elif st.session_state.active_stage == 5:
                 st.markdown(f"""
 <div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;display:flex;align-items:flex-start;gap:12px;">
   <div style="flex:1;">
-    <div style="color:{WHITE};font-weight:600;font-size:13px;">{g.get('gap','')}</div>
+    <div style="color:#e2e8f0;font-weight:600;font-size:13px;">{g.get('gap','')}</div>
     <div style="color:#94a3b8;font-size:12px;margin-top:3px;">{g.get('closure_route','')} · Est. {g.get('timeline','')}</div>
   </div>
   <div style="background:{sc}22;color:{sc};font-size:11px;padding:3px 10px;border-radius:10px;white-space:nowrap;">{g.get('severity','')} severity</div>
@@ -5348,7 +4872,7 @@ elif st.session_state.active_stage == 6:
 
         st.markdown("---")
         st.markdown("#### Innovation Potential Index — Scoring Weights")
-        st.caption("Default weights set for first iteration. Adjust and refine with Johannes Enders.")
+        st.caption("Default weights are equal (25% each). Adjust to reflect your strategic priorities.")
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -5737,33 +5261,30 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
 
         # ── Visual Innovation Brief ───────────────────────────
         st.markdown("---")
-        st.markdown("#### 📊 Visual Innovation Brief")
-        st.caption("Data-driven visuals synthesised from the full pipeline — ready for executive presentation.")
+        st.markdown("#### 📊 Development Roadmap")
+        st.caption("Indicative development timeline based on current TRL and P³ build/partner recommendation.")
 
         import re as _re_bp
-        _s2v = st.session_state.get("s2_data", {})
-        _s3v = st.session_state.get("s3_data", {})
         _s4v = st.session_state.get("s4_data", {})
         _s5v = st.session_state.get("s5_data", {})
 
-        # ── Chart 4: Development Roadmap ──────────────────────
-        _trl_val = _s4v.get("trl", {}).get("trl_level", 3)
-        try: _trl_val = int(_trl_val)
-        except: _trl_val = 3
-
+        # ── Gantt: Development Roadmap ────────────────────────
         def _parse_months(s, default):
             nums = _re_bp.findall(r'\d+', str(s))
             return int(nums[0]) if nums else default
 
+        _trl_val = _s4v.get("trl", {}).get("trl_level", 3)
+        try: _trl_val = int(_trl_val)
+        except: _trl_val = 3
+
         _t_partner  = _parse_months(_s5v.get("org_data",{}).get("build_or_partner",{}).get("time_to_trl6_partner","18"), 18)
-        _t_internal = _parse_months(_s5v.get("org_data",{}).get("build_or_partner",{}).get("time_to_trl6_internal","30"), 30)
 
         _roadmap = [
-            ("Sensing & Validation",        0,           3,            "#818cf8"),
-            ("Proof of Concept (TRL 4)",    3,           6,            "#60a5fa"),
-            ("Prototype (TRL 5–6)",         6,           _t_partner,   "#34d399"),
-            ("Pilot / Field Trial (TRL 7–8)",_t_partner, _t_partner+10,"#f59e0b"),
-            ("Commercialisation (TRL 9)",   _t_partner+10,_t_partner+16,"#22c55e"),
+            ("Sensing & Validation",          0,             3,             "#818cf8"),
+            ("Proof of Concept (TRL 4)",       3,             6,             "#60a5fa"),
+            ("Prototype (TRL 5–6)",            6,             _t_partner,    "#34d399"),
+            ("Pilot / Field Trial (TRL 7–8)",  _t_partner,    _t_partner+10, "#f59e0b"),
+            ("Commercialisation (TRL 9)",      _t_partner+10, _t_partner+16, "#22c55e"),
         ]
         fig_road = go.Figure()
         for task, start, end, colour in _roadmap:
@@ -5780,7 +5301,7 @@ Return ONLY valid JSON with exactly these fields — no markdown, no extra text,
                            annotation_font_color="#ef4444", annotation_position="top right")
         fig_road.update_layout(
             title=dict(text="Indicative Development Roadmap (months from today)", font=dict(size=13,color=WHITE), x=0.5),
-            barmode="overlay", plot_bgcolor=BG, paper_bgcolor=BG, height=280,
+            barmode="overlay", plot_bgcolor=BG, paper_bgcolor=BG, height=300,
             xaxis=dict(title="Months", tickfont=dict(color=WHITE), gridcolor="#2a4a70",
                        title_font=dict(color=DIM), range=[0, _t_partner+18]),
             yaxis=dict(tickfont=dict(color=WHITE, size=11)),
