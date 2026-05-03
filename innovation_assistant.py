@@ -2158,6 +2158,11 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     BLACK = RGBColor(0x00,0x00,0x00)
     LBLUE = RGBColor(0x60,0xA5,0xFA)
 
+    # Sanitize every string before it touches the XML tree
+    def xs(s):
+        if s is None: return ""
+        return _XML_CTRL_RE.sub('', str(s))
+
     def set_bg(cell, hex_col):
         tc = cell._tc
         tcPr = tc.get_or_add_tcPr()
@@ -2177,14 +2182,14 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8")
         bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
         pBdr.append(bot); pPr.append(pBdr)
-        r = p.add_run(text)
+        r = p.add_run(xs(text))
         r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
 
     def h2(doc, text):
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(8)
         p.paragraph_format.space_after  = Pt(2)
-        r = p.add_run(text)
+        r = p.add_run(xs(text))
         r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
 
     def body(doc, text):
@@ -2192,28 +2197,28 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         p.paragraph_format.space_before = Pt(3)
         p.paragraph_format.space_after  = Pt(3)
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        r = p.add_run(text)
+        r = p.add_run(xs(text))
         r.font.size=Pt(10.5)
 
     def kv(doc, label, value):
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(2)
         p.paragraph_format.space_after  = Pt(2)
-        r1 = p.add_run(f"{label}: ")
+        r1 = p.add_run(xs(f"{label}: "))
         r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2 = p.add_run(value)
+        r2 = p.add_run(xs(value))
         r2.font.size=Pt(10.5)
 
     def bul(doc, text):
         p = doc.add_paragraph(style="List Bullet")
         p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r = p.add_run(text); r.font.size=Pt(10.5)
+        r = p.add_run(xs(text)); r.font.size=Pt(10.5)
 
     def hdr_row(tbl, headers):
         row = tbl.rows[0]
         for i, h in enumerate(headers):
             c = row.cells[i]; set_bg(c,"1F3864")
-            r = c.paragraphs[0].add_run(h)
+            r = c.paragraphs[0].add_run(xs(h))
             r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
 
     doc = DocxDocument()
@@ -2237,10 +2242,10 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     # ── Title ─────────────────────────────────────────────────
     p = doc.add_paragraph()
     p.paragraph_format.space_after=Pt(2)
-    r = p.add_run(market.get("market_name", idea[:80]))
+    r = p.add_run(xs(market.get("market_name", idea[:80])))
     r.bold=True; r.font.size=Pt(18); r.font.color.rgb=NAVY
     p2 = doc.add_paragraph()
-    r2 = p2.add_run(f"Score: {final_score}/10  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}")
+    r2 = p2.add_run(xs(f"Score: {final_score}/10  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}"))
     r2.font.size=Pt(10); r2.italic=True; r2.font.color.rgb=GREY
 
     # ── Idea box ──────────────────────────────────────────────
@@ -2256,7 +2261,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     rb=rp.runs[0]; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
     rp2=c2.add_paragraph()
     rp2.paragraph_format.space_before=Pt(0); rp2.paragraph_format.space_after=Pt(8)
-    ri=rp2.add_run(idea); ri.font.size=Pt(10); ri.italic=True
+    ri=rp2.add_run(xs(idea)); ri.font.size=Pt(10); ri.italic=True
     doc.add_paragraph()
 
     # ── Score summary ─────────────────────────────────────────
@@ -2272,12 +2277,12 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for j,val in enumerate([dim,score,weight,weighted]):
             c=row.cells[j]; set_bg(c,fill)
-            r=c.paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
+            r=c.paragraphs[0].add_run(xs(val)); r.font.size=Pt(10); r.bold=(j==0)
     fr=st2.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("FINAL SCORE")
     r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
-    r2=fr.cells[3].paragraphs[0].add_run(f"{final_score}/10")
+    r2=fr.cells[3].paragraphs[0].add_run(xs(f"{final_score}/10"))
     r2.bold=True; r2.font.size=Pt(11); r2.font.color.rgb=LBLUE
     doc.add_paragraph()
 
@@ -2310,12 +2315,12 @@ Write substantive, specific content using the data provided. Return ONLY valid J
         row=st3.add_row()
         fill="EAF5EA" if sector in primary else ("EAF1FB" if idx%2==0 else "FFFFFF")
         for c in row.cells: set_bg(c,fill)
-        r0=row.cells[0].paragraphs[0].add_run(sector)
+        r0=row.cells[0].paragraphs[0].add_run(xs(sector))
         r0.font.size=Pt(10); r0.bold=(sector in primary)
-        r1=row.cells[1].paragraphs[0].add_run(f"{data.get('score',0)}/10")
+        r1=row.cells[1].paragraphs[0].add_run(xs(f"{data.get('score',0)}/10"))
         r1.font.size=Pt(10); r1.bold=True
         r1.font.color.rgb=BLUE if sector in primary else BLACK
-        r2=row.cells[2].paragraphs[0].add_run(data.get("rationale",""))
+        r2=row.cells[2].paragraphs[0].add_run(xs(data.get("rationale","")))
         r2.font.size=Pt(9.5)
 
     # ── Competitive landscape ─────────────────────────────────
@@ -2333,7 +2338,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
             row=ct.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ci.get("name",""),ci.get("type",""),ci.get("relevance","")+" "+ci.get("source","")]):
-                r=row.cells[j].paragraphs[0].add_run(val)
+                r=row.cells[j].paragraphs[0].add_run(xs(val))
                 r.font.size=Pt(9.5); r.bold=(j==0)
 
     # ── Strategic fit ─────────────────────────────────────────
@@ -2363,7 +2368,7 @@ Write substantive, specific content using the data provided. Return ONLY valid J
     fc=ft.cell(0,0); set_bg(fc,"1F3864")
     fp=fc.paragraphs[0]
     fp.paragraph_format.space_before=Pt(6); fp.paragraph_format.space_after=Pt(6)
-    fr=fp.add_run(f"Schaeffler AI Innovation Research Assistant  ·  Stage 02: Market Intelligence  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität")
+    fr=fp.add_run(xs(f"Schaeffler AI Innovation Research Assistant  ·  Stage 02: Market Intelligence  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität"))
     fr.font.size=Pt(8); fr.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
 
     _sanitize_doc(doc)
