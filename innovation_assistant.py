@@ -835,6 +835,13 @@ def tavily_search(query):
 
 
 import re as _re_global
+import re as _re_xml_san
+_XML_CTRL_RE = _re_xml_san.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
+def _xs(s):
+    """Strip XML-illegal control chars from any value before add_run()."""
+    if s is None: return ''
+    return _XML_CTRL_RE.sub('', str(s))
+
 
 def _parse_json(raw: str) -> dict:
     """Robustly parse JSON from a Claude response.
@@ -1178,21 +1185,21 @@ Return ONLY valid JSON, no markdown backticks:
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(14); p.paragraph_format.space_after=Pt(4)
         pPr=p._p.get_or_add_pPr(); pBdr=OxmlElement("w:pBdr"); bot=OxmlElement("w:bottom")
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8"); bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
-        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(text)
+        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(_xs(text))
         r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
     def h2(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(8); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(text); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
+        r=p.add_run(_xs(text)); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
     def body(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
-        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(text); r.font.size=Pt(10.5)
+        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(_xs(text)); r.font.size=Pt(10.5)
     def kv(doc, label, value):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r1=p.add_run(f"{label}: "); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2=p.add_run(str(value)); r2.font.size=Pt(10.5)
+        r1=p.add_run(_xs(f"{label}: ")); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
+        r2=p.add_run(_xs(value)); r2.font.size=Pt(10.5)
     def bul(doc, text):
         p=doc.add_paragraph(style="List Bullet"); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(str(text)); r.font.size=Pt(10.5)
+        r=p.add_run(_xs(text)); r.font.size=Pt(10.5)
 
     doc=DocxDocument()
     for sec in doc.sections:
@@ -1206,7 +1213,7 @@ Return ONLY valid JSON, no markdown backticks:
     doc.add_paragraph()
     p=doc.add_paragraph(); r=p.add_run("P³ Perspective Assessment")
     r.bold=True; r.font.size=Pt(18); r.font.color.rgb=NAVY
-    p2=doc.add_paragraph(); r2=p2.add_run(f"Score: {s5d.get('final_score',5)}/10  ·  Strategy: {bop.get('recommendation','')}  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}"); r2.font.size=Pt(10); r2.italic=True; r2.font.color.rgb=GREY
+    p2=doc.add_paragraph(); r2=p2.add_run(_xs(f"Score: {s5d.get('final_score',5)}/10  ·  Strategy: {bop.get('recommendation','')}  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}")); r2.font.size=Pt(10); r2.italic=True; r2.font.color.rgb=GREY
     doc.add_paragraph()
 
     h1(doc,"P³ Score Summary")
@@ -1222,11 +1229,11 @@ Return ONLY valid JSON, no markdown backticks:
         row=p3_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
         for j,val in enumerate([dim,score,wt,desc[:80] if desc else ""]):
-            r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+            r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==0)
     fr=p3_tbl.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("OVERALL READINESS"); r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
-    r2=fr.cells[1].paragraphs[0].add_run(f"{s5d.get('final_score',5)}/10"); r2.bold=True; r2.font.size=Pt(11); r2.font.color.rgb=LBLUE
+    r2=fr.cells[1].paragraphs[0].add_run(_xs(f"{s5d.get('final_score',5)}/10")); r2.bold=True; r2.font.size=Pt(11); r2.font.color.rgb=LBLUE
     doc.add_paragraph()
 
     h1(doc,"Executive Summary"); body(doc, ext.get("executive_summary",""))
@@ -1261,7 +1268,7 @@ Return ONLY valid JSON, no markdown backticks:
             sev_fill={"High":"FFE4E4","Medium":"FFF8E4","Low":"E4FFE9"}.get(g.get("severity",""),"FFFFFF")
             for c in row.cells: set_bg(c,sev_fill if idx==0 else fill)
             for j,val in enumerate([g.get("gap",""),g.get("severity",""),g.get("closure_route",""),g.get("timeline","")]):
-                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==0)
 
     if partners:
         h1(doc,"Partnership Candidates"); body(doc, ext.get("partnership_strategy",""))
@@ -1273,7 +1280,7 @@ Return ONLY valid JSON, no markdown backticks:
             row=pt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([p.get("name",""),p.get("type",""),p.get("rationale",""),p.get("route","")]):
-                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==0)
 
     h1(doc,"Build-or-Partner Recommendation")
     kv(doc,"Recommendation", bop.get("recommendation",""))
@@ -1288,8 +1295,9 @@ Return ONLY valid JSON, no markdown backticks:
     doc.add_paragraph()
     ft=doc.add_table(rows=1,cols=1); ft.style="Table Grid"; fc=ft.cell(0,0); set_bg(fc,"1F3864")
     fp=fc.paragraphs[0]; fp.paragraph_format.space_before=Pt(6); fp.paragraph_format.space_after=Pt(6)
-    fr=fp.add_run(f"Schaeffler AI Innovation Research Assistant  ·  Stage 05: P³ Perspective  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität")
+    fr=fp.add_run(_xs(f"Schaeffler AI Innovation Research Assistant  ·  Stage 05: P³ Perspective  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität"))
     fr.font.size=Pt(8); fr.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
+    _sanitize_doc(doc)
     buf=io.BytesIO(); doc.save(buf); buf.seek(0)
     return buf
 
@@ -1380,24 +1388,24 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(14); p.paragraph_format.space_after=Pt(4)
         pPr=p._p.get_or_add_pPr(); pBdr=OxmlElement("w:pBdr"); bot=OxmlElement("w:bottom")
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8"); bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
-        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(text)
+        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(_xs(text))
         r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
     def h2(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(8); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(text); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
+        r=p.add_run(_xs(text)); r.bold=True; r.font.size=Pt(11); r.font.color.rgb=NAVY
     def body(doc, text):
         if not text: return
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
-        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(str(text)); r.font.size=Pt(10.5)
+        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(_xs(text)); r.font.size=Pt(10.5)
     def kv(doc, label, value):
         if not value: return
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r1=p.add_run(f"{label}: "); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2=p.add_run(str(value)); r2.font.size=Pt(10.5)
+        r1=p.add_run(_xs(f"{label}: ")); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
+        r2=p.add_run(_xs(value)); r2.font.size=Pt(10.5)
     def bul(doc, text):
         if not text: return
         p=doc.add_paragraph(style="List Bullet"); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(str(text)); r.font.size=Pt(10.5)
+        r=p.add_run(_xs(text)); r.font.size=Pt(10.5)
 
     doc=DocxDocument()
     for sec in doc.sections:
@@ -1413,11 +1421,11 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     doc.add_paragraph()
 
     # ── Title ──────────────────────────────────────────────────────
-    p=doc.add_paragraph(); r=p.add_run(market.get("market_name", idea[:80]) or idea[:80])
+    p=doc.add_paragraph(); r=p.add_run(_xs(market.get("market_name", idea[:80]) or idea[:80]))
     r.bold=True; r.font.size=Pt(22); r.font.color.rgb=NAVY
     p2=doc.add_paragraph()
     rec_text = synthesis.get("recommendation","")
-    r2=p2.add_run(f"IPI: {ipi}/10  ·  {rec_text}  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}")
+    r2=p2.add_run(_xs(f"IPI: {ipi}/10  ·  {rec_text}  ·  Quadrant: {quadrant}  ·  {datetime.now().strftime('%d %B %Y')}"))
     r2.font.size=Pt(10); r2.italic=True; r2.font.color.rgb=GREY
 
     # ── Idea box ──────────────────────────────────────────────────
@@ -1428,7 +1436,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     rp=c2.paragraphs[0]; rp.paragraph_format.space_before=Pt(8); rp.paragraph_format.space_after=Pt(2)
     rb=rp.add_run("Innovation Idea"); rb.bold=True; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
     rp2=c2.add_paragraph(); rp2.paragraph_format.space_before=Pt(0); rp2.paragraph_format.space_after=Pt(8)
-    ri=rp2.add_run(idea); ri.font.size=Pt(10); ri.italic=True
+    ri=rp2.add_run(_xs(idea)); ri.font.size=Pt(10); ri.italic=True
     doc.add_paragraph()
 
     # ── IPI Score table ───────────────────────────────────────────
@@ -1446,11 +1454,11 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         row=ipi_tbl.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
         for j,val in enumerate([stage,score,wt,contrib]):
-            r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
+            r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(10); r.bold=(j==0)
     fr=ipi_tbl.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("INNOVATION POTENTIAL INDEX"); r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
-    r2=fr.cells[3].paragraphs[0].add_run(f"{ipi:.1f}/10"); r2.bold=True; r2.font.size=Pt(13); r2.font.color.rgb=LBLUE
+    r2=fr.cells[3].paragraphs[0].add_run(_xs(f"{ipi:.1f}/10")); r2.bold=True; r2.font.size=Pt(13); r2.font.color.rgb=LBLUE
     doc.add_paragraph()
 
     # ── Recommendation panel ──────────────────────────────────────
@@ -1460,9 +1468,9 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     rec_tbl=doc.add_table(rows=1,cols=1); rec_tbl.style="Table Grid"
     rc=rec_tbl.cell(0,0); set_bg(rc, rec_fill)
     p=rc.paragraphs[0]; p.paragraph_format.space_before=Pt(8); p.paragraph_format.space_after=Pt(4)
-    r=p.add_run(rec_text); r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
+    r=p.add_run(_xs(rec_text)); r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
     p2=rc.add_paragraph(); p2.paragraph_format.space_before=Pt(0); p2.paragraph_format.space_after=Pt(8)
-    r2=p2.add_run(synthesis.get("recommendation_rationale","")); r2.font.size=Pt(10)
+    r2=p2.add_run(_xs(synthesis.get("recommendation_rationale",""))); r2.font.size=Pt(10)
     doc.add_paragraph()
 
     if synthesis.get("strongest_signals"):
@@ -1512,7 +1520,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=ct.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ci.get("name",""),ci.get("type",""),ci.get("relevance","")+" "+ci.get("source","")]):
-                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==0)
     if sectors.get("sector_scores"):
         h2(doc,"Schaeffler Sector Cluster Scores")
         primary=sectors.get("primary_sectors",[])
@@ -1523,9 +1531,9 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
         for idx,(sec,data) in enumerate(sectors["sector_scores"].items()):
             row=st2.add_row(); fill="EAF5EA" if sec in primary else ("EAF1FB" if idx%2==0 else "FFFFFF")
             for c in row.cells: set_bg(c,fill)
-            r0=row.cells[0].paragraphs[0].add_run(sec); r0.font.size=Pt(10); r0.bold=(sec in primary)
-            r1=row.cells[1].paragraphs[0].add_run(f"{data.get('score',0)}/10"); r1.font.size=Pt(10); r1.bold=True
-            r2=row.cells[2].paragraphs[0].add_run(data.get("rationale","")); r2.font.size=Pt(9.5)
+            r0=row.cells[0].paragraphs[0].add_run(_xs(sec)); r0.font.size=Pt(10); r0.bold=(sec in primary)
+            r1=row.cells[1].paragraphs[0].add_run(_xs(f"{data.get('score',0)}/10")); r1.font.size=Pt(10); r1.bold=True
+            r2=row.cells[2].paragraphs[0].add_run(_xs(data.get("rationale",""))); r2.font.size=Pt(9.5)
 
     # ── Stage 03 — Patent Intelligence ───────────────────────────
     h1(doc,"Stage 03 · Patent Intelligence  ·  Score: " + str(scores.get("patent",5)) + "/10")
@@ -1584,7 +1592,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=ev_tbl.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ev.get("type",""), ev.get("title","")+" — "+ev.get("description",""), ev.get("relevance","")+" / "+ev.get("confidence",""), ev.get("source","")]):
-                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==1)
+                r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==1)
     if existence.get("technology_gaps"):
         h2(doc,"Technology Gaps to Bridge")
         for gap in existence["technology_gaps"]: bul(doc, gap)
@@ -1601,7 +1609,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=rt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([risk.get("risk",""),risk.get("severity",""),risk.get("mitigation","")]):
-                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==0)
 
     # ── Stage 05 — P³ Perspective ──────────────────────
     h1(doc,"Stage 05 · P³ Perspective  ·  Score: " + str(scores.get("p3",5)) + "/10")
@@ -1634,7 +1642,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=gt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([g.get("gap",""),g.get("severity",""),g.get("closure_route",""),g.get("timeline","")]):
-                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==0)
     if org_data.get("partnership_candidates"):
         h2(doc,"Partnership Candidates")
         pt=doc.add_table(rows=1,cols=4); pt.style="Table Grid"
@@ -1645,7 +1653,7 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=pt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([p.get("name",""),p.get("type",""),p.get("rationale",""),p.get("route","")]):
-                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==0)
 
     # ── Integrated Risk Register ──────────────────────────────────
     h1(doc,"Integrated Risk Register")
@@ -1658,15 +1666,15 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
             row=rt2.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             parts=str(risk).split(" — ",1) if " — " in str(risk) else [str(risk),"See full analysis"]
-            r0=row.cells[0].paragraphs[0].add_run(parts[0]); r0.font.size=Pt(9.5); r0.bold=True
-            r1=row.cells[1].paragraphs[0].add_run(parts[1] if len(parts)>1 else ""); r1.font.size=Pt(9.5)
+            r0=row.cells[0].paragraphs[0].add_run(_xs(parts[0])); r0.font.size=Pt(9.5); r0.bold=True
+            r1=row.cells[1].paragraphs[0].add_run(_xs(parts[1] if len(parts)>1 else "")); r1.font.size=Pt(9.5)
 
     # ── Action Plan ───────────────────────────────────────────────
     h1(doc,"Recommended Action Plan")
     if enr.get("action_plan"):
         for i, step in enumerate(enr["action_plan"], 1):
             p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
-            r=p.add_run(f"{i}.  {step}"); r.font.size=Pt(10.5)
+            r=p.add_run(_xs(f"{i}.  {step}")); r.font.size=Pt(10.5)
     if synthesis.get("next_steps"):
         h2(doc,"Additional Next Steps")
         for step in synthesis["next_steps"]: bul(doc, step)
@@ -1690,9 +1698,9 @@ Write rich, specific, analytical content. Return ONLY valid JSON, no markdown ba
     doc.add_paragraph()
     ft=doc.add_table(rows=1,cols=1); ft.style="Table Grid"; fc=ft.cell(0,0); set_bg(fc,"1F3864")
     fp=fc.paragraphs[0]; fp.paragraph_format.space_before=Pt(6); fp.paragraph_format.space_after=Pt(6)
-    fr=fp.add_run(f"Schaeffler AI Innovation Research Assistant  ·  Full Innovation Assessment  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität")
+    fr=fp.add_run(_xs(f"Schaeffler AI Innovation Research Assistant  ·  Full Innovation Assessment  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität"))
     fr.font.size=Pt(8); fr.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
-
+    _sanitize_doc(doc)
     buf=io.BytesIO(); doc.save(buf); buf.seek(0)
     return buf
 def generate_feasibility_report(idea, quadrant, s1c, existence, trl, scores):
@@ -1753,21 +1761,21 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(14); p.paragraph_format.space_after=Pt(4)
         pPr=p._p.get_or_add_pPr(); pBdr=OxmlElement("w:pBdr"); bot=OxmlElement("w:bottom")
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8"); bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
-        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(text)
+        pBdr.append(bot); pPr.append(pBdr); r=p.add_run(_xs(text))
         r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
 
     def body(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
-        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(text); r.font.size=Pt(10.5)
+        p.alignment=WD_ALIGN_PARAGRAPH.JUSTIFY; r=p.add_run(_xs(text)); r.font.size=Pt(10.5)
 
     def kv(doc, label, value):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r1=p.add_run(f"{label}: "); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2=p.add_run(value); r2.font.size=Pt(10.5)
+        r1=p.add_run(_xs(f"{label}: ")); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
+        r2=p.add_run(_xs(value)); r2.font.size=Pt(10.5)
 
     def bul(doc, text):
         p=doc.add_paragraph(style="List Bullet"); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(text); r.font.size=Pt(10.5)
+        r=p.add_run(_xs(text)); r.font.size=Pt(10.5)
 
     doc=DocxDocument()
     for sec in doc.sections:
@@ -1785,7 +1793,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
     p=doc.add_paragraph(); p.paragraph_format.space_after=Pt(2)
     r=p.add_run("Technical Feasibility Assessment"); r.bold=True; r.font.size=Pt(18); r.font.color.rgb=NAVY
     p2=doc.add_paragraph()
-    r2=p2.add_run(f"Score: {scores['final_score']}/10  ·  TRL {trl.get('trl_level','')}  ·  {datetime.now().strftime('%d %B %Y')}")
+    r2=p2.add_run(_xs(f"Score: {scores['final_score']}/10  ·  TRL {trl.get('trl_level','')}  ·  {datetime.now().strftime('%d %B %Y')}"))
     r2.font.size=Pt(10); r2.italic=True; r2.font.color.rgb=GREY
 
     # Idea box
@@ -1796,7 +1804,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
     rp=c2.paragraphs[0]; rp.paragraph_format.space_before=Pt(8); rp.paragraph_format.space_after=Pt(2)
     rb=rp.add_run("Innovation Idea"); rb.bold=True; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
     rp2=c2.add_paragraph(); rp2.paragraph_format.space_before=Pt(0); rp2.paragraph_format.space_after=Pt(8)
-    ri=rp2.add_run(idea); ri.font.size=Pt(10); ri.italic=True
+    ri=rp2.add_run(_xs(idea)); ri.font.size=Pt(10); ri.italic=True
     doc.add_paragraph()
 
     # Score summary
@@ -1813,11 +1821,11 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
         for j,val in enumerate([dim,score,wt]):
-            r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
+            r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(10); r.bold=(j==0)
     fr=st2.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("FINAL SCORE"); r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
-    r2=fr.cells[2].paragraphs[0].add_run(f"{scores['final_score']}/10"); r2.bold=True; r2.font.size=Pt(11); r2.font.color.rgb=LBLUE
+    r2=fr.cells[2].paragraphs[0].add_run(_xs(f"{scores['final_score']}/10")); r2.bold=True; r2.font.size=Pt(11); r2.font.color.rgb=LBLUE
     doc.add_paragraph()
 
     # Executive summary
@@ -1874,13 +1882,13 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
             row=ev_tbl.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([ev.get("type",""),ev.get("title",""),ev.get("relevance",""),ev.get("source","")]):
-                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==1)
+                r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==1)
         # Description column
         doc.add_paragraph()
         for ev in evidence:
             p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-            r1=p.add_run(f"{ev.get('title','')}: "); r1.bold=True; r1.font.size=Pt(10)
-            r2=p.add_run(ev.get("description","")); r2.font.size=Pt(10)
+            r1=p.add_run(_xs(f"{ev.get('title','')}: ")); r1.bold=True; r1.font.size=Pt(10)
+            r2=p.add_run(_xs(ev.get("description",""))); r2.font.size=Pt(10)
 
     # Technology gaps
     if existence.get("technology_gaps"):
@@ -1899,7 +1907,7 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
             row=rt.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([risk.get("risk",""),risk.get("severity",""),risk.get("mitigation","")]):
-                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==0)
 
     # Schaeffler readiness & development pathway
     h1(doc,"Schaeffler Readiness"); body(doc,ext.get("schaeffler_readiness",""))
@@ -1911,9 +1919,9 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
     doc.add_paragraph()
     ft=doc.add_table(rows=1,cols=1); ft.style="Table Grid"; fc=ft.cell(0,0); set_bg(fc,"1F3864")
     fp=fc.paragraphs[0]; fp.paragraph_format.space_before=Pt(6); fp.paragraph_format.space_after=Pt(6)
-    fr=fp.add_run(f"Schaeffler AI Innovation Research Assistant  ·  Stage 04: Technical Feasibility  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität")
+    fr=fp.add_run(_xs(f"Schaeffler AI Innovation Research Assistant  ·  Stage 04: Technical Feasibility  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität"))
     fr.font.size=Pt(8); fr.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
-
+    _sanitize_doc(doc)
     buf=io.BytesIO(); doc.save(buf); buf.seek(0)
     return buf
 
@@ -1975,7 +1983,7 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         pPr=p._p.get_or_add_pPr(); pBdr=OxmlElement("w:pBdr"); bot=OxmlElement("w:bottom")
         bot.set(qn("w:val"),"single"); bot.set(qn("w:sz"),"8"); bot.set(qn("w:space"),"3"); bot.set(qn("w:color"),"2E75B6")
         pBdr.append(bot); pPr.append(pBdr)
-        r=p.add_run(text); r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
+        r=p.add_run(_xs(text)); r.bold=True; r.font.size=Pt(14); r.font.color.rgb=NAVY
 
     def body(doc, text):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(3); p.paragraph_format.space_after=Pt(3)
@@ -1984,12 +1992,12 @@ Write specific, actionable content based on the data provided. Return ONLY valid
 
     def kv(doc, label, value):
         p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r1=p.add_run(f"{label}: "); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
-        r2=p.add_run(value); r2.font.size=Pt(10.5)
+        r1=p.add_run(_xs(f"{label}: ")); r1.bold=True; r1.font.size=Pt(10.5); r1.font.color.rgb=NAVY
+        r2=p.add_run(_xs(value)); r2.font.size=Pt(10.5)
 
     def bul(doc, text):
         p=doc.add_paragraph(style="List Bullet"); p.paragraph_format.space_before=Pt(2); p.paragraph_format.space_after=Pt(2)
-        r=p.add_run(text); r.font.size=Pt(10.5)
+        r=p.add_run(_xs(text)); r.font.size=Pt(10.5)
 
     doc = DocxDocument()
     for sec in doc.sections:
@@ -2018,7 +2026,7 @@ Write specific, actionable content based on the data provided. Return ONLY valid
     rp=c2.paragraphs[0]; rp.paragraph_format.space_before=Pt(8); rp.paragraph_format.space_after=Pt(2)
     rb=rp.add_run("Innovation Idea"); rb.bold=True; rb.font.size=Pt(9); rb.font.color.rgb=NAVY
     rp2=c2.add_paragraph(); rp2.paragraph_format.space_before=Pt(0); rp2.paragraph_format.space_after=Pt(8)
-    ri=rp2.add_run(idea); ri.font.size=Pt(10); ri.italic=True
+    ri=rp2.add_run(_xs(idea)); ri.font.size=Pt(10); ri.italic=True
     doc.add_paragraph()
 
     # Score summary
@@ -2035,11 +2043,11 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for j,c in enumerate(row.cells): set_bg(c,fill)
         for j,val in enumerate([dim,score,wt]):
-            r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(10); r.bold=(j==0)
+            r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(10); r.bold=(j==0)
     fr=st2.add_row()
     for c in fr.cells: set_bg(c,"1F3864")
     r=fr.cells[0].paragraphs[0].add_run("FINAL PATENT INTELLIGENCE SCORE"); r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
-    r2=fr.cells[2].paragraphs[0].add_run(f"{scores['final_score']}/10"); r2.bold=True; r2.font.size=Pt(11); r2.font.color.rgb=LBLUE
+    r2=fr.cells[2].paragraphs[0].add_run(_xs(f"{scores['final_score']}/10")); r2.bold=True; r2.font.size=Pt(11); r2.font.color.rgb=LBLUE
     doc.add_paragraph()
 
     # Executive summary
@@ -2067,7 +2075,7 @@ Write specific, actionable content based on the data provided. Return ONLY valid
             row=ft.add_row(); fill="EAF1FB" if idx%2==0 else "FFFFFF"
             for c in row.cells: set_bg(c,fill)
             for j,val in enumerate([fi.get("company",""),fi.get("type",""),fi.get("threat_level",""),fi.get("focus","")+" "+fi.get("source","")]):
-                r=row.cells[j].paragraphs[0].add_run(val); r.font.size=Pt(9.5); r.bold=(j==0)
+                r=row.cells[j].paragraphs[0].add_run(_xs(val)); r.font.size=Pt(9.5); r.bold=(j==0)
 
     # Schaeffler IP position
     h1(doc,"Schaeffler IP Position")
@@ -2090,15 +2098,13 @@ Write specific, actionable content based on the data provided. Return ONLY valid
     doc.add_paragraph()
     ft2=doc.add_table(rows=1,cols=1); ft2.style="Table Grid"; fc=ft2.cell(0,0); set_bg(fc,"1F3864")
     fp=fc.paragraphs[0]; fp.paragraph_format.space_before=Pt(6); fp.paragraph_format.space_after=Pt(6)
-    fr=fp.add_run(f"Schaeffler AI Innovation Research Assistant  ·  Stage 03: Patent Intelligence  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität")
+    fr=fp.add_run(_xs(f"Schaeffler AI Innovation Research Assistant  ·  Stage 03: Patent Intelligence  ·  {datetime.now().strftime('%d %B %Y')}  ·  Capstone Project — Arpan Chowdhury, EBS Universität"))
     fr.font.size=Pt(8); fr.font.color.rgb=RGBColor(0x93,0xC5,0xFD)
 
+    _sanitize_doc(doc)
     buf=io.BytesIO(); doc.save(buf); buf.seek(0)
     return buf
 
-
-import re as _re_xml_san
-_XML_CTRL_RE = _re_xml_san.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
 
 def _sanitize_doc(doc):
     """Walk every XML text node and strip XML-illegal control characters."""
@@ -2446,12 +2452,36 @@ Return ONLY valid JSON:
 
 def run_stage3(idea, quadrant, s1c):
     """Run Stage 03 Patent Intelligence and store results in session state."""
-    system_landscape = """You are a patent intelligence analyst. Analyse the external patent landscape.
+    system_landscape = """You are a patent intelligence analyst specialising in industrial technology.
+Analyse the external patent landscape for this innovation idea.
+
+RULES:
+- Focus on COMPANIES filing patents, not individual patents
+- Classify each company as: Competitor / Customer / Research Institution / Patent Troll / Adjacent Player
+- Every claim must have [Source: org, year] where possible
+- Be specific about technology sub-areas
+
 Return ONLY valid JSON:
-{"technology_keywords":["3-5 terms"],"landscape_summary":"2-3 sentences","activity_level":"Low/Moderate/High/Very High","filing_trend":"Increasing/Stable/Decreasing","filing_trend_rationale":"one sentence","patent_landscape_score":1-10,
-"key_filers":[{"company":"name","type":"Competitor/Customer/Research Institution/Adjacent Player","focus":"one sentence","threat_level":"Low/Medium/High","schaeffler_relationship":"string","source":"Source: X, Year"}],
-"white_spaces":["white space 1","white space 2","white space 3"]}"""
-    raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=1500)
+{
+  "technology_keywords": ["3-5 key patent search terms for this idea"],
+  "landscape_summary": "2-3 sentences on overall patent activity in this space",
+  "activity_level": "Low / Moderate / High / Very High",
+  "filing_trend": "Increasing / Stable / Decreasing",
+  "filing_trend_rationale": "one sentence",
+  "patent_landscape_score": integer 1-10 for landscape openness. Use: 9-10=very few filings, open territory; 7-8=some activity but clear gaps; 5-6=moderate filing density; 3-4=dense filing landscape; 1-2=saturated with patents by large incumbents,
+  "key_filers": [
+    {
+      "company": "company name",
+      "type": "Competitor / Customer / Research Institution / Adjacent Player",
+      "focus": "one sentence on what they are patenting",
+      "threat_level": "Low / Medium / High",
+      "schaeffler_relationship": "Direct competitor / Potential customer / Partner / Unknown",
+      "source": "Source: X, Year"
+    }
+  ],
+  "white_spaces": ["white space opportunity 1", "white space opportunity 2", "white space opportunity 3"]
+}"""
+    raw = call_claude(system_landscape, f"Idea: {idea}\nQuadrant: {quadrant}\nTech novelty: {s1c.get('technology_novelty','')}", max_tokens=2000)
     try:
         landscape = _parse_json(raw)
     except:
@@ -2462,37 +2492,71 @@ Return ONLY valid JSON:
         {"company": f.get("company",""), "type": f.get("type",""), "focus": f.get("focus",""), "threat_level": f.get("threat_level","")}
         for f in key_filers_run3
     ])
-    system_ansoff = """You are a Schaeffler patent strategist. Map ALL listed filers onto Schaeffler's Ansoff matrix.
-IMPORTANT: Every filer in the input list MUST appear in filer_positions — do not skip any.
+    system_ansoff = """You are a Schaeffler Group patent strategist.
+Map patent filing companies onto Schaeffler's modified Ansoff matrix based on where their patents sit.
 
-Matrix axes (X=Technology Dimension, Y=Market Dimension — same as Schaeffler's Stage 1):
+The matrix axes (MUST match Schaeffler's Stage 1 Innovation Framework):
+- X axis: Technology Dimension (0=Existing/Established Technology → 10=New to the World)
+- Y axis: Market Dimension (0=Existing/Established Market → 10=New to the World)
+
+Quadrant positions (identical to Schaeffler's quadrant classifier):
+- EXPLOIT  (bottom-left):  existing tech  + existing market  — x_score 0–5,  y_score 0–5
+- EXTEND   (top-left):     existing tech  + new market       — x_score 0–5,  y_score 5–10
+- RADICAL  (top-right):    new tech       + new market       — x_score 5–10, y_score 5–10
+- DISRUPT  (bottom-right): new tech       + existing market  — x_score 5–10, y_score 0–5
+
+For each company, assign:
+- matrix_position: which quadrant their patent activity sits in
 - x_score: 0-10 (0=existing technology, 10=new to the world technology)
 - y_score: 0-10 (0=existing market, 10=new to the world market)
-Quadrants: EXPLOIT(x 0-5,y 0-5)=bottom-left, EXTEND(x 0-5,y 5-10)=top-left,
-           RADICAL(x 5-10,y 5-10)=top-right, DISRUPT(x 5-10,y 0-5)=bottom-right
+
+Also map where SCHAEFFLER's own known IP sits relative to this idea.
 
 Return ONLY valid JSON:
-{"filer_positions":[{"company":"name","matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"rationale":"one sentence"}],
-"schaeffler_position":{"matrix_position":"EXPLOIT/EXTEND/RADICAL/DISRUPT","x_score":0-10,"y_score":0-10,"existing_ip":"one sentence","gap":"one sentence"},
-"idea_position":{"x_score":0-10,"y_score":0-10},"novelty_signal":"Strong/Moderate/Weak","novelty_rationale":"one sentence","ip_risk":"Low/Medium/High","ip_risk_rationale":"one sentence"}"""
+{
+  "filer_positions": [
+    {
+      "company": "company name",
+      "matrix_position": "EXPLOIT/EXTEND/RADICAL/DISRUPT",
+      "x_score": 0-10,
+      "y_score": 0-10,
+      "rationale": "one sentence"
+    }
+  ],
+  "schaeffler_position": {
+    "matrix_position": "EXPLOIT/EXTEND/RADICAL/DISRUPT",
+    "x_score": 0-10,
+    "y_score": 0-10,
+    "existing_ip": "one sentence on what Schaeffler already has in this space",
+    "gap": "one sentence on the IP gap this idea addresses"
+  },
+  "idea_position": {
+    "x_score": 0-10,
+    "y_score": 0-10
+  },
+  "novelty_signal": "Strong / Moderate / Weak",
+  "novelty_rationale": "one sentence",
+  "ip_risk": "Low / Medium / High",
+  "ip_risk_rationale": "one sentence"
+}"""
     raw2 = call_claude(system_ansoff,
-        f"Idea: {idea}\nQuadrant: {quadrant}\nMap ALL {len(key_filers_run3)} filers: {filers_full_run3}",
-        max_tokens=max(1800, len(key_filers_run3) * 200 + 800))
+        f"Idea: {idea}\nQuadrant: {quadrant}\nTech keywords: {landscape.get('technology_keywords','')}\n"
+        f"IMPORTANT: You MUST map ALL {len(key_filers_run3)} filers listed below. Do not skip any.\n"
+        f"Key filers (map every single one): {filers_full_run3}",
+        max_tokens=max(2500, len(key_filers_run3) * 250 + 1200))
     try:
         ansoff_data = _parse_json(raw2)
     except:
         ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},"idea_position":{"x_score":7,"y_score":7},"novelty_signal":"Moderate","novelty_rationale":"","ip_risk":"Medium","ip_risk_rationale":""}
 
     # Guarantee every key_filer has a position
-    # X=Technology, Y=Market — EXPLOIT(low x,low y), EXTEND(low x,high y),
-    # RADICAL(high x,high y), DISRUPT(high x,low y)
     positioned_run3 = {fp.get("company","").lower() for fp in ansoff_data.get("filer_positions", [])}
     type_defaults_run3 = {
-        "Competitor":          ("EXPLOIT", 3.0, 3.0),   # established tech + established market
-        "Customer":            ("EXTEND",  2.5, 6.5),   # established tech + new market
-        "Research Institution":("RADICAL", 7.0, 7.5),  # new tech + new market
-        "Adjacent Player":     ("DISRUPT", 6.5, 3.5),  # new tech + established market
-        "Patent Troll":        ("EXPLOIT", 2.0, 2.0),  # established tech + established market
+        "Competitor":          ("EXPLOIT", 3.0, 3.0),
+        "Customer":            ("EXTEND",  2.5, 6.5),
+        "Research Institution":("RADICAL", 7.0, 7.5),
+        "Adjacent Player":     ("DISRUPT", 6.5, 3.5),
+        "Patent Troll":        ("EXPLOIT", 2.0, 2.0),
     }
     for i, f in enumerate(key_filers_run3):
         name = f.get("company","")
@@ -3743,7 +3807,7 @@ Return ONLY valid JSON:
                 f"Idea: {idea}\nQuadrant: {quadrant}\nTech keywords: {landscape.get('technology_keywords','')}\n"
                 f"IMPORTANT: You MUST map ALL {len(key_filers)} filers listed below. Do not skip any.\n"
                 f"Key filers (map every single one): {filers_full_context}",
-                max_tokens=max(1800, len(key_filers) * 200 + 800))
+                max_tokens=max(2500, len(key_filers) * 250 + 1200))
             ansoff_data = _parse_json(raw2)
         except Exception as e:
             ansoff_data = {"filer_positions":[],"schaeffler_position":{"matrix_position":"EXPLOIT","x_score":2,"y_score":2,"existing_ip":"N/A","gap":"N/A"},
@@ -3926,7 +3990,7 @@ Return ONLY valid JSON:
 </div>
 """, unsafe_allow_html=True)
 
-        st.caption("Each point = a company's patent filing position. Your idea shown in green. Schaeffler's existing IP shown in orange.")
+        st.caption("Each point = a company's patent filing position. Schaeffler's existing IP shown in green. Your idea shown in orange.")
 
         fig = go.Figure()
 
@@ -3974,29 +4038,29 @@ Return ONLY valid JSON:
                 showlegend=False
             ))
 
-        # Schaeffler existing IP
+        # Schaeffler existing IP — GREEN diamond
         if schaeffler_pos:
             fig.add_trace(go.Scatter(
                 x=[schaeffler_pos.get("x_score",2)], y=[schaeffler_pos.get("y_score",2)],
                 mode="markers+text",
-                marker=dict(size=16, color="#f97316", symbol="diamond",
+                marker=dict(size=16, color="#22c55e", symbol="diamond",
                            line=dict(color="white",width=2)),
                 text=["  Schaeffler IP"],
                 textposition="middle right",
-                textfont=dict(size=11,color="#f97316",family="Arial Bold"),
+                textfont=dict(size=11,color="#22c55e",family="Arial Bold"),
                 showlegend=False,
                 hovertemplate=f"<b>Schaeffler existing IP</b><br>{schaeffler_pos.get('existing_ip','')}<extra></extra>"
             ))
 
-        # This idea
+        # This idea — ORANGE star
         fig.add_trace(go.Scatter(
             x=[idea_pos.get("x_score",7)], y=[idea_pos.get("y_score",7)],
             mode="markers+text",
-            marker=dict(size=18, color="#22c55e", symbol="star",
+            marker=dict(size=18, color="#f97316", symbol="star",
                        line=dict(color="white",width=2)),
             text=["  Your idea"],
             textposition="middle right",
-            textfont=dict(size=12,color="#22c55e",family="Arial Bold"),
+            textfont=dict(size=12,color="#f97316",family="Arial Bold"),
             showlegend=False,
             hovertemplate="<b>Your innovation idea</b><extra></extra>"
         ))
@@ -4022,7 +4086,7 @@ Return ONLY valid JSON:
         st.plotly_chart(fig, use_container_width=True)
 
         # Legend
-        legend_items = [("🔴","Competitor"),("🔵","Customer"),("🟣","Research Institution"),("🟡","Adjacent Player"),("🟠","Schaeffler existing IP"),("🟢","Your idea")]
+        legend_items = [("🔴","Competitor"),("🔵","Customer"),("🟣","Research Institution"),("🟡","Adjacent Player"),("🟢","Schaeffler existing IP"),("🟠","Your idea")]
         st.markdown("  ".join([f"{e} {l}" for e,l in legend_items]))
         st.markdown("---")
 
