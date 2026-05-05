@@ -4740,15 +4740,17 @@ Return ONLY valid JSON:
                     etype  = ev.get("type", "")
                     if not title:
                         continue
-                    q_gs   = _up4.quote(f'"{title}" {source}')
-                    q_ss   = _up4.quote(f'{title} {source}')
+                    import re as _re4
+                    source_clean = _re4.sub(r',?\s*\(?\d{4}(?:[–\-]\d{4})?\)?', '', source).strip().rstrip(',').strip()
+                    q_gs   = _up4.quote(f'{title} {source_clean}')
+                    q_ss   = _up4.quote(f'{title} {source_clean}')
                     url_gs = f"https://scholar.google.com/scholar?q={q_gs}"
                     url_ss = f"https://www.semanticscholar.org/search?q={q_ss}&sort=Relevance"
                     url_pub = f"https://pubmed.ncbi.nlm.nih.gov/?term={_up4.quote(title)}" if etype == "Academic Paper" else ""
                     links = f'[Google Scholar]({url_gs})  ·  [Semantic Scholar]({url_ss})'
                     if url_pub:
                         links += f'  ·  [PubMed]({url_pub})'
-                    st.markdown(f"**{title}**  \n{source}  \n{links}")
+                    st.markdown(f"**{title}**  \nSource: {source_clean}  \n{links}")
                     st.markdown("---")
 
         st.markdown("---")
