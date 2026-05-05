@@ -4011,24 +4011,85 @@ Return ONLY valid JSON:
                     "rationale": f.get("focus","Auto-placed based on filer type")
                 })
 
-        progress.progress(80)
+        progress.progress(70)
+        status.markdown("🔬 Assessing novelty signal...")
+
+        # ── Novelty: separate domain expert Claude call ─────────────────────────
+        filer_summary = ", ".join(
+            f"{f.get('company','')} ({f.get('type','')})"
+            for f in key_filers[:8]
+        )
+        system_novelty = """You are a domain expert academic assessing patent novelty for an innovation idea.
+Evaluate the novelty signal based on the patent landscape and filer data provided.
+
+Novelty Signal definitions (apply these strictly):
+- High:   Blue ocean. Very few patent filers in this specific technology/market combination.
+          The idea occupies largely uncontested IP territory.
+- Medium: Oligopoly. A handful of established players dominate filings but the specific
+          combination or application has meaningful differentiation potential.
+- Low:    Red ocean. Many patent filers are active. Technology is well-covered by existing patents.
+
+Return ONLY valid JSON:
+{
+  "novelty_signal": "High / Medium / Low",
+  "novelty_rationale": "2-3 sentences from a domain expert perspective",
+  "novelty_score": <integer 1-10>
+}
+Scoring guide:
+9-10 = High — genuinely uncontested territory
+7-8  = High-leaning — few filers, clear differentiation opportunity
+5-6  = Medium — some prior art but meaningful gaps remain
+3-4  = Medium-low — significant prior art, differentiation is challenging
+1-2  = Low — red ocean, technology space is saturated"""
+
+        novelty_ctx = (
+            f"Idea: {idea}\nQuadrant: {quadrant}\n"
+            f"Landscape summary: {landscape.get('landscape_summary','')}\n"
+            f"Activity level: {landscape.get('activity_level','')}\n"
+            f"Filing trend: {landscape.get('filing_trend','')}\n"
+            f"Key filers: {filer_summary}"
+        )
+        try:
+            raw_nov = call_claude(system_novelty, novelty_ctx, max_tokens=500)
+            novelty_data = _parse_json_robust(raw_nov)
+            if not novelty_data or not isinstance(novelty_data, dict):
+                novelty_data = {"novelty_signal": "Medium", "novelty_rationale": "Assessment unavailable.", "novelty_score": 6}
+        except Exception:
+            novelty_data = {"novelty_signal": "Medium", "novelty_rationale": "Assessment unavailable.", "novelty_score": 6}
+        novelty_score = float(novelty_data.get("novelty_score", 6))
+
+        progress.progress(85)
         status.markdown("📊 Calculating patent intelligence score...")
 
-        # Patent score: landscape openness + novelty signal + ip risk
+        # ── Landscape score from LLM ────────────────────────────────────────────
         landscape_score = float(landscape.get("patent_landscape_score", 5))
-        novelty_map = {"Strong":9,"Moderate":6,"Weak":3}
-        ip_risk_map  = {"Low":8,"Medium":5,"High":2}
-        novelty_score = novelty_map.get(ansoff_data.get("novelty_signal","Moderate"), 6)
-        ip_score      = ip_risk_map.get(ansoff_data.get("ip_risk","Medium"), 5)
-        final_patent  = round((landscape_score + novelty_score + ip_score) / 3, 1)
+
+        # ── IP Risk scores: deterministic from Ansoff matrix proximity ────────────
+        filer_positions_r3 = ansoff_data.get("filer_positions", [])
+        idea_x  = float(ansoff_data.get("idea_position", {}).get("x_score", 7.0))
+        idea_y  = float(ansoff_data.get("idea_position", {}).get("y_score", 7.0))
+        sch_x   = float(ansoff_data.get("schaeffler_position", {}).get("x_score", 3.0))
+        sch_y   = float(ansoff_data.get("schaeffler_position", {}).get("y_score", 3.0))
+
+        ip_idea_label, ip_idea_score, ip_idea_nearby           = _compute_ip_proximity_risk(filer_positions_r3, idea_x, idea_y)
+        ip_sch_label,  ip_sch_score,  ip_sch_nearby            = _compute_ip_proximity_risk(filer_positions_r3, sch_x, sch_y)
+
+        # ── Final score: 4 components, 25% each ────────────────────────────────
+        final_patent = round((landscape_score + novelty_score + ip_idea_score + ip_sch_score) / 4, 1)
 
         st.session_state.s3_data = {
-            "landscape": landscape,
-            "ansoff_data": ansoff_data,
-            "novelty_score": novelty_score,
-            "ip_score": ip_score,
-            "landscape_score": landscape_score,
-            "final_score": final_patent
+            "landscape":           landscape,
+            "ansoff_data":         ansoff_data,
+            "novelty_data":        novelty_data,
+            "landscape_score":     landscape_score,
+            "novelty_score":       novelty_score,
+            "ip_idea_label":       ip_idea_label,
+            "ip_idea_score":       ip_idea_score,
+            "ip_idea_nearby":      ip_idea_nearby,
+            "ip_schaeffler_label": ip_sch_label,
+            "ip_schaeffler_score": ip_sch_score,
+            "ip_sch_nearby":       ip_sch_nearby,
+            "final_score":         final_patent,
         }
 
         progress.progress(100)
