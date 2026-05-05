@@ -1814,9 +1814,9 @@ Write specific, evidence-based content. Return ONLY valid JSON, no markdown back
         c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt) in enumerate([
-        ("TRL Score",f"{scores['trl_score']:.1f}/10","50%"),
-        ("Existence Quality",f"{scores['existence_score']:.1f}/10","30%"),
-        ("Risk Profile",f"{scores['risk_score']:.1f}/10","20%"),
+        ("TRL Score",f"{scores['trl_score']:.1f}/10","33%"),
+        ("Existence Quality",f"{scores['existence_score']:.1f}/10","33%"),
+        ("Risk Profile",f"{scores['risk_score']:.1f}/10","33%"),
     ]):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for c in row.cells: set_bg(c,fill)
@@ -2450,6 +2450,36 @@ Return ONLY valid JSON:
     st.session_state.s2_step = "done"
 
 
+def _parse_json_robust(raw):
+    """Robustly parse JSON from Claude output. Returns None on failure."""
+    if not raw:
+        return None
+    try:
+        return _parse_json(raw)
+    except Exception:
+        return None
+
+
+def _compute_ip_proximity_risk(filer_positions, ref_x, ref_y, threshold=2.0):
+    """
+    Deterministically compute IP risk from Ansoff matrix filer proximity.
+    ≥5 nearby → High risk → score 2
+    2–4 nearby → Medium risk → score 5
+    <2 nearby  → Low risk  → score 8
+    """
+    nearby = sum(
+        1 for f in filer_positions
+        if abs(float(f.get("x_score", 5)) - ref_x) <= threshold
+        and abs(float(f.get("y_score", 5)) - ref_y) <= threshold
+    )
+    if nearby >= 5:
+        return "High", 2, nearby
+    elif nearby >= 2:
+        return "Medium", 5, nearby
+    else:
+        return "Low", 8, nearby
+
+
 def run_stage3(idea, quadrant, s1c):
     """Run Stage 03 Patent Intelligence and store results in session state."""
     system_landscape = """You are a patent intelligence analyst specialising in industrial technology.
@@ -2572,57 +2602,175 @@ Return ONLY valid JSON:
                 "rationale": f.get("focus","Auto-placed based on filer type")
             })
 
-    landscape_score = float(landscape.get("patent_landscape_score",5))
-    novelty_score = {"Strong":9,"Moderate":6,"Weak":3}.get(ansoff_data.get("novelty_signal","Moderate"),6)
-    ip_score      = {"Low":8,"Medium":5,"High":2}.get(ansoff_data.get("ip_risk","Medium"),5)
-    final_patent  = round((landscape_score + novelty_score + ip_score) / 3, 1)
+    # ── Landscape score: from LLM patent_landscape_score ─────────────────────
+    landscape_score = float(landscape.get("patent_landscape_score", 5))
+
+    # ── Novelty score: separate domain-expert Claude call (more reliable) ────
+    filer_summary = ", ".join(
+        f"{f.get('company','')} ({f.get('type','')})"
+        for f in key_filers_run3[:8]
+    )
+    system_novelty = """You are a domain expert academic assessing patent novelty.
+Evaluate the novelty signal based on the patent landscape and filer data provided.
+
+Novelty Signal definitions (apply strictly):
+- High:   Blue ocean. Very few patent filers in this specific technology/market combination.
+- Medium: Oligopoly. A handful of established players dominate but meaningful gaps exist.
+- Low:    Red ocean. Many patent filers, technology is well-covered.
+
+Return ONLY valid JSON:
+{
+  "novelty_signal": "High / Medium / Low",
+  "novelty_rationale": "2-3 sentences from a domain expert perspective",
+  "novelty_score": <integer 1-10>
+}
+Scoring: 9-10=High (uncontested); 7-8=High-leaning; 5-6=Medium; 3-4=Medium-low; 1-2=Low (saturated)"""
+
+    novelty_ctx = (
+        f"Idea: {idea}\nQuadrant: {quadrant}\n"
+        f"Landscape summary: {landscape.get('landscape_summary','')}\n"
+        f"Activity level: {landscape.get('activity_level','')}\n"
+        f"Filing trend: {landscape.get('filing_trend','')}\n"
+        f"Key filers: {filer_summary}"
+    )
+    try:
+        raw_nov = call_claude(system_novelty, novelty_ctx, max_tokens=500)
+        novelty_data = _parse_json_robust(raw_nov)
+        if not novelty_data or not isinstance(novelty_data, dict):
+            novelty_data = {"novelty_signal": "Medium", "novelty_rationale": "Assessment unavailable.", "novelty_score": 6}
+    except Exception:
+        novelty_data = {"novelty_signal": "Medium", "novelty_rationale": "Assessment unavailable.", "novelty_score": 6}
+    novelty_score = float(novelty_data.get("novelty_score", 6))
+
+    # ── IP Risk scores: deterministic from Ansoff matrix proximity ────────────
+    filer_positions_r3 = ansoff_data.get("filer_positions", [])
+    idea_x  = float(ansoff_data.get("idea_position", {}).get("x_score", 7.0))
+    idea_y  = float(ansoff_data.get("idea_position", {}).get("y_score", 7.0))
+    sch_x   = float(ansoff_data.get("schaeffler_position", {}).get("x_score", 3.0))
+    sch_y   = float(ansoff_data.get("schaeffler_position", {}).get("y_score", 3.0))
+
+    ip_idea_label, ip_idea_score, ip_idea_nearby           = _compute_ip_proximity_risk(filer_positions_r3, idea_x, idea_y)
+    ip_sch_label,  ip_sch_score,  ip_sch_nearby            = _compute_ip_proximity_risk(filer_positions_r3, sch_x, sch_y)
+
+    # ── Final score: 4 components, 25% each ──────────────────────────────────
+    final_patent = round((landscape_score + novelty_score + ip_idea_score + ip_sch_score) / 4, 1)
 
     st.session_state.s3_data = {
-        "landscape": landscape, "ansoff_data": ansoff_data,
-        "novelty_score": novelty_score, "ip_score": ip_score,
-        "landscape_score": landscape_score, "final_score": final_patent
+        "landscape":           landscape,
+        "ansoff_data":         ansoff_data,
+        "novelty_data":        novelty_data,
+        "landscape_score":     landscape_score,
+        "novelty_score":       novelty_score,
+        "ip_idea_label":       ip_idea_label,
+        "ip_idea_score":       ip_idea_score,
+        "ip_idea_nearby":      ip_idea_nearby,
+        "ip_schaeffler_label": ip_sch_label,
+        "ip_schaeffler_score": ip_sch_score,
+        "ip_sch_nearby":       ip_sch_nearby,
+        "final_score":         final_patent,
     }
     st.session_state.s3_step = "done"
 
 
 def run_stage4(idea, quadrant, s1c):
     """Run Stage 04 Technical Feasibility and store results in session state."""
-    system_existence = """You are a technology analyst. Assess whether this technology exists.
-Return ONLY valid JSON:
-{"technology_core":"one sentence","existence_verdict":"Demonstrated/Partially Demonstrated/Research Stage/Theoretical",
-"existence_summary":"2-3 sentences","evidence":[{"type":"Academic Paper/Startup/Pilot/Industry Report/Patent","title":"string","description":"one sentence","relevance":"Direct/Adjacent/Analogous","confidence":"High/Medium/Low","source":"org or URL"}],
-"technology_gaps":["gap 1","gap 2","gap 3"],"time_to_readiness":"e.g. 3-5 years","keywords":["6-10 key technical terms from this domain"]}"""
-    raw = call_claude(system_existence, f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
-    try:
-        existence = _parse_json(raw)
-    except:
-        existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"N/A","evidence":[],"technology_gaps":[],"time_to_readiness":"Not yet estimated","keywords":[]}
+    system_existence = """You are a technology intelligence analyst specialising in industrial and automotive R&D.
+Check whether the core technology behind this innovation idea has been demonstrated anywhere.
+Look for evidence in: academic research, university labs, startup products, government programmes,
+industry pilots, defence/aerospace, and adjacent industries.
 
-    system_trl = """You are a Schaeffler TRL expert. Rate using Schaeffler-adapted TRL 1-9.
-TRL 1-2=Theoretical, TRL 3-5=Innovation territory, TRL 6-7=Borderline, TRL 8-9=Product Development.
 Return ONLY valid JSON:
-{"trl_level":1-9,"trl_label":"TRL X — label","trl_rationale":"2-3 sentences","schaeffler_entry_readiness":"Too Early/Ready for Innovation/Ready for Product Development",
-"key_technical_risks":[{"risk":"string","severity":"High/Medium/Low","mitigation":"one sentence"}],
-"analogous_schaeffler_technologies":"one sentence on which Schaeffler Motion Product Family this is closest to",
-"trl_score":1-10}"""
-    raw2 = call_claude(system_trl, f"Idea: {idea}\nExistence: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps','')}", max_tokens=1200)
+{
+  "technology_core": "one sentence describing the core technology mechanism",
+  "existence_verdict": "Demonstrated / Partially Demonstrated / Research Stage / Theoretical",
+  "existence_summary": "2-3 sentences on the state of the art",
+  "evidence": [
+    {
+      "type": "Academic Paper / Startup / Pilot / Government Programme / Industry Deployment",
+      "title": "name of the paper, company, or programme",
+      "description": "one sentence on what was demonstrated",
+      "source": "Source: org/journal, year",
+      "confidence": "High / Medium / Low",
+      "relevance": "Direct / Adjacent / Analogous"
+    }
+  ],
+  "technology_gaps": ["gap 1 between current state and full deployment", "gap 2", "gap 3"],
+  "time_to_readiness": "estimated years to production readiness",
+  "keywords": ["6-10 key technical terms from this domain for keyword map"]
+}"""
     try:
-        trl = _parse_json(raw2)
-    except:
-        trl = {"trl_level":3,"trl_label":"TRL 3 — Experimental proof of concept","trl_rationale":"","schaeffler_entry_readiness":"Too Early","key_technical_risks":[],"analogous_schaeffler_technologies":"","trl_score":3}
+        raw = call_claude(system_existence,
+            f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
+        existence = _parse_json_robust(raw)
+        if not existence or not isinstance(existence, dict):
+            raise ValueError("Parse failed")
+    except Exception:
+        existence = {"technology_core": "N/A", "existence_verdict": "Research Stage", "existence_summary": "N/A",
+                     "evidence": [], "technology_gaps": [], "time_to_readiness": "Not yet estimated", "keywords": []}
 
-    trl_score  = float(trl.get("trl_score", round((trl.get("trl_level",3) / 9) * 10, 1)))
-    ev_map = {"Demonstrated":9,"Partially Demonstrated":6,"Research Stage":3,"Theoretical":1}
-    existence_score = ev_map.get(existence.get("existence_verdict","Research Stage"),3)
-    risks = trl.get("key_technical_risks",[])
-    sev_map = {"High":8,"Medium":5,"Low":2}
-    risk_score = round(10 - (sum(sev_map.get(r.get("severity","Medium"),5) for r in risks[:3]) / max(len(risks[:3]),1)), 1) if risks else 7.0
-    final_feasibility = round(trl_score*0.50 + existence_score*0.30 + risk_score*0.20, 1)
+    system_trl = """You are a Schaeffler R&D director assessing technology maturity.
+Use the Schaeffler-adapted TRL framework (modified from NASA TRL for industrial/automotive context):
+
+TRL 1 — Basic principles observed (theoretical concept only)
+TRL 2 — Technology concept formulated (application identified, no testing)
+TRL 3 — Experimental proof of concept (lab demonstration, key functions validated)
+TRL 4 — Technology validated in lab (component tested in controlled environment)
+TRL 5 — Validated in relevant environment (prototype tested in industrial-like conditions)
+TRL 6 — Demonstrated in relevant environment (system prototype demonstrated)
+TRL 7 — System prototype in operational environment (field trial or industrial pilot)
+TRL 8 — System complete and qualified (full production design, limited production run)
+TRL 9 — Proven in operational environment (commercial deployment at scale)
+
+Return ONLY valid JSON:
+{
+  "trl_level": 1-9,
+  "trl_label": "TRL X — label from framework above",
+  "trl_rationale": "2-3 sentences justifying this TRL rating based on evidence",
+  "schaeffler_entry_readiness": "Too Early / Ready for Innovation / Ready for Product Development",
+  "entry_rationale": "one sentence",
+  "key_technical_risks": [
+    {"risk": "technical risk description", "severity": "High/Medium/Low", "mitigation": "one sentence"}
+  ],
+  "analogous_schaeffler_technologies": "one sentence on which of Schaeffler's 8 Motion Product Families (Guide Motion/Transmit Motion/Control Motion/Generate Motion/Power Motion/Drive Motion/Energize Motion/Sustain Motion) this is closest to"
+}"""
+    try:
+        raw2 = call_claude(system_trl,
+            f"Idea: {idea}\nExistence verdict: {existence.get('existence_verdict','')}\nEvidence count: {len(existence.get('evidence',[]))}\nGaps: {existence.get('technology_gaps',[])}",
+            max_tokens=1500)
+        trl = _parse_json_robust(raw2)
+        if not trl or not isinstance(trl, dict):
+            raise ValueError("Parse failed")
+    except Exception:
+        trl = {"trl_level": 0, "trl_label": "TRL — parse failed, re-run",
+               "trl_rationale": "", "schaeffler_entry_readiness": "Too Early",
+               "entry_rationale": "", "key_technical_risks": [], "analogous_schaeffler_technologies": ""}
+
+    # ── TRL score: fully deterministic lookup — no LLM variance ──────────────
+    _TRL_SCORE_MAP = {1: 1.0, 2: 2.0, 3: 3.5, 4: 5.0, 5: 6.0, 6: 7.0, 7: 8.0, 8: 9.0, 9: 10.0}
+    trl_level_val = int(trl.get("trl_level", 0))
+    trl_score = _TRL_SCORE_MAP.get(trl_level_val, 0.0)
+
+    # ── Existence score: deterministic map ────────────────────────────────────
+    ev_map = {"Demonstrated": 9, "Partially Demonstrated": 6, "Research Stage": 3, "Theoretical": 1}
+    existence_score = float(ev_map.get(existence.get("existence_verdict", "Research Stage"), 0.0))
+
+    # ── Risk score: High=2, Medium=5, Low=8 (inverted — lower risk = higher score) ──
+    _sev_safety = {"High": 2, "Medium": 5, "Low": 8}
+    all_risks = trl.get("key_technical_risks", [])
+    risk_score = round(
+        sum(_sev_safety.get(r.get("severity", "Medium"), 5) for r in all_risks) / max(len(all_risks), 1), 1
+    ) if all_risks else 0.0
+
+    # ── Final: equal 33.3% weights ───────────────────────────────────────────
+    final_feasibility = round((trl_score + existence_score + risk_score) / 3, 1)
 
     st.session_state.s4_data = {
-        "existence": existence, "trl": trl,
-        "trl_score": trl_score, "existence_score": existence_score, "risk_score": risk_score,
-        "final_score": final_feasibility
+        "existence":       existence,
+        "trl":             trl,
+        "trl_score":       trl_score,
+        "existence_score": existence_score,
+        "risk_score":      risk_score,
+        "final_score":     final_feasibility
     }
     st.session_state.s4_step = "done"
 
@@ -2666,6 +2814,25 @@ def run_stage5(idea, quadrant, s1c):
         "leveraging OEM relationships, manufacturing scale, internal R&D.\n"
         "- DISRUPTIVE (Accelerator model): assess P3 readiness for the Accelerator/VC track — "
         "external co-development, startup partnerships, VC co-investment. Internal P3 gaps are expected.\n\n"
+        "SCORING RUBRICS (apply strictly):\n"
+        "Portfolio score (strategic fit):\n"
+        "  9-10 = Direct alignment with a Schaeffler innovation cluster, addresses a defined strategic trend, clear product family fit\n"
+        "  7-8  = Good alignment with one cluster, moderate trend relevance, identifiable product family\n"
+        "  5-6  = Partial fit, indirect relevance to cluster or trend\n"
+        "  3-4  = Weak strategic fit, marginal cluster relevance\n"
+        "  1-2  = No clear fit with any innovation cluster or strategic direction\n"
+        "People score (competency readiness):\n"
+        "  9-10 = Core competencies fully matched within Schaeffler, no critical gaps, can execute immediately\n"
+        "  7-8  = Most competencies matched, one manageable gap with a clear closure route (hire/upskill)\n"
+        "  5-6  = Partial match, 1-2 significant gaps requiring external sourcing or partnership\n"
+        "  3-4  = Major competency gaps, requires significant hiring, acquisition, or JDA\n"
+        "  1-2  = Fundamental capability mismatch, no relevant expertise at Schaeffler\n"
+        "Process score (infrastructure & asset readiness):\n"
+        "  9-10 = Existing Schaeffler processes and assets directly applicable, minimal new investment needed\n"
+        "  7-8  = Most processes applicable, some adaptation or moderate investment required\n"
+        "  5-6  = Moderate process fit, meaningful investment and new tooling required\n"
+        "  3-4  = Few applicable processes, significant new infrastructure needed\n"
+        "  1-2  = No applicable processes, requires building capability from scratch\n\n"
         "Return ONLY valid JSON with exactly these keys. Use real integer scores 1-10, real strings, real arrays:\n"
         '{"p3_portfolio":{"score":7,"rationale":"two sentences","cluster_fit":"one sentence",'
         '"strengths":["strength 1","strength 2"],"gaps":["gap 1"]},'
@@ -3887,11 +4054,14 @@ Return ONLY valid JSON:
 </div>
 """, unsafe_allow_html=True)
 
-        # Score breakdown
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Landscape Openness", f"{d['landscape_score']:.1f} / 10", "33% weight")
-        col2.metric("Novelty Signal",      f"{d['novelty_score']:.1f} / 10",  "33% weight")
-        col3.metric("IP Risk",             f"{d['ip_score']:.1f} / 10",       "34% weight")
+        # Score breakdown — 4 components 25% each
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Landscape Openness",  f"{d['landscape_score']:.1f} / 10", "25% weight")
+        col2.metric("Novelty Signal",       f"{d['novelty_score']:.1f} / 10",  "25% weight")
+        col3.metric("IP Risk — Idea",       f"{d['ip_idea_score']:.1f} / 10",
+                    f"25% · {d.get('ip_idea_label','?')} ({d.get('ip_idea_nearby',0)} nearby filers)")
+        col4.metric("IP Risk — Schaeffler", f"{d['ip_schaeffler_score']:.1f} / 10",
+                    f"25% · {d.get('ip_schaeffler_label','?')} ({d.get('ip_sch_nearby',0)} nearby filers)")
         st.markdown("---")
 
         # ── Patent activity overview ──────────────────────────
@@ -4114,11 +4284,18 @@ Return ONLY valid JSON:
         # ── Schaeffler IP position ────────────────────────────
         st.markdown("#### 🏭 Schaeffler IP Position")
         sc1, sc2, sc3 = st.columns(3)
-        sc1.metric("Novelty Signal", ansoff_data.get("novelty_signal",""))
-        sc2.metric("IP Risk",        ansoff_data.get("ip_risk",""))
-        sc3.metric("IP Score",       f"{d['ip_score']:.1f} / 10")
-        st.caption(f"Existing Schaeffler IP: {schaeffler_pos.get('existing_ip','')}")
-        st.caption(f"IP gap this idea addresses: {schaeffler_pos.get('gap','')}")
+        sc1.metric("Novelty Signal",
+                   d.get("novelty_data", {}).get("novelty_signal", "—"),
+                   f"Score: {d.get('novelty_score', 0):.1f}/10")
+        sc2.metric("IP Risk — Idea",
+                   d.get("ip_idea_label", "—"),
+                   f"{d.get('ip_idea_nearby', 0)} filers within 2 units")
+        sc3.metric("IP Risk — Schaeffler",
+                   d.get("ip_schaeffler_label", "—"),
+                   f"{d.get('ip_sch_nearby', 0)} filers within 2 units")
+        st.caption(f"Novelty rationale: {d.get('novelty_data', {}).get('novelty_rationale', '')}")
+        st.caption(f"Existing Schaeffler IP: {schaeffler_pos.get('existing_ip', '')}")
+        st.caption(f"IP gap this idea addresses: {schaeffler_pos.get('gap', '')}")
 
         # White spaces
         white_spaces = landscape.get("white_spaces",[])
@@ -4375,9 +4552,9 @@ Return ONLY valid JSON:
 
         # Score breakdown
         col1, col2, col3 = st.columns(3)
-        col1.metric("TRL Score",        f"{d['trl_score']:.1f} / 10", "50% weight")
-        col2.metric("Existence Quality", f"{d['existence_score']:.1f} / 10", "30% weight")
-        col3.metric("Risk Profile",      f"{d['risk_score']:.1f} / 10", "20% weight")
+        col1.metric("TRL Score",        f"{d['trl_score']:.1f} / 10", "33% weight")
+        col2.metric("Existence Quality", f"{d['existence_score']:.1f} / 10", "33% weight")
+        col3.metric("Risk Profile",      f"{d['risk_score']:.1f} / 10", "33% weight")
         st.markdown("---")
 
         # ── TRL gauge ─────────────────────────────────────────
@@ -4485,6 +4662,28 @@ Return ONLY valid JSON:
   <div style="color:#cbd5e1;font-size:12px;">{ev.get("description","")} <span style="color:#4a6fa5;">{ev.get("source","")}</span></div>
 </div>
 """, unsafe_allow_html=True)
+
+            # ── Research paper search links ────────────────────────────────────
+            import urllib.parse as _up4
+            with st.expander(f"🔗 Search links for {len(top_ev)} evidence items"):
+                st.caption("Links open targeted searches — paper titles from LLM training memory, verify before citing.")
+                for ev in top_ev:
+                    title  = ev.get("title", "")
+                    source = ev.get("source", "")
+                    etype  = ev.get("type", "")
+                    if not title:
+                        continue
+                    q_gs   = _up4.quote(f'"{title}" {source}')
+                    q_ss   = _up4.quote(f'{title} {source}')
+                    url_gs = f"https://scholar.google.com/scholar?q={q_gs}"
+                    url_ss = f"https://www.semanticscholar.org/search?q={q_ss}&sort=Relevance"
+                    url_pub = f"https://pubmed.ncbi.nlm.nih.gov/?term={_up4.quote(title)}" if etype == "Academic Paper" else ""
+                    links = f'[Google Scholar]({url_gs})  ·  [Semantic Scholar]({url_ss})'
+                    if url_pub:
+                        links += f'  ·  [PubMed]({url_pub})'
+                    st.markdown(f"**{title}**  \n{source}  \n{links}")
+                    st.markdown("---")
+
         st.markdown("---")
 
         # ── Keyword map ───────────────────────────────────────
