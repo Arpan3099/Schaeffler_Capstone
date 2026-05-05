@@ -2702,7 +2702,7 @@ Return ONLY valid JSON:
 }"""
     try:
         raw = call_claude(system_existence,
-            f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
+            f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=3000)
         existence = _parse_json_robust(raw)
         if not existence or not isinstance(existence, dict):
             raise ValueError("Parse failed")
@@ -4496,15 +4496,10 @@ Return ONLY valid JSON:
 
         try:
             raw = call_claude(system_existence,
-                f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=2000)
-            # Strip everything before first { and after last }
-            raw_clean = raw.strip()
-            raw_clean = raw_clean.replace("```json","").replace("```","").strip()
-            first_brace = raw_clean.find("{")
-            last_brace  = raw_clean.rfind("}") + 1
-            if first_brace >= 0:
-                raw_clean = raw_clean[first_brace:last_brace]
-            existence = json.loads(raw_clean)
+                f"Idea: {idea}\nQuadrant: {quadrant}\nTech: {s1c.get('technology_novelty','')}", max_tokens=3000)
+            existence = _parse_json_robust(raw)
+            if not existence or not isinstance(existence, dict):
+                raise ValueError("Parse failed")
         except Exception as e:
             st.warning(f"Evidence parsing issue: {e} — using fallback")
             existence = {"technology_core":"N/A","existence_verdict":"Research Stage","existence_summary":"",
