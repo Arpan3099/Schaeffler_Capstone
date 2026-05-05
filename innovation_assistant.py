@@ -2036,9 +2036,10 @@ Write specific, actionable content based on the data provided. Return ONLY valid
         c=st2.cell(0,i); set_bg(c,"1F3864"); r=c.paragraphs[0].add_run(h)
         r.bold=True; r.font.size=Pt(10); r.font.color.rgb=WHITE
     for i,(dim,score,wt) in enumerate([
-        ("Landscape Openness",f"{scores['landscape_score']:.1f}/10","40%"),
-        ("Novelty Signal",f"{scores['novelty_score']:.1f}/10","35%"),
-        ("IP Risk (inverted)",f"{scores['ip_score']:.1f}/10","25%"),
+        ("Landscape Openness",      f"{scores['landscape_score']:.1f}/10",           "25%"),
+        ("Novelty Signal",          f"{scores['novelty_score']:.1f}/10",             "25%"),
+        ("IP Risk — Idea",          f"{scores.get('ip_idea_score', scores.get('ip_score', 5)):.1f}/10",       "25%"),
+        ("IP Risk — Schaeffler",    f"{scores.get('ip_schaeffler_score', scores.get('ip_score', 5)):.1f}/10", "25%"),
     ]):
         row=st2.add_row(); fill="EAF1FB" if i%2==0 else "FFFFFF"
         for j,c in enumerate(row.cells): set_bg(c,fill)
@@ -4101,6 +4102,11 @@ Scoring guide:
     # ── Results ───────────────────────────────────────────────
     elif st.session_state.s3_step == "done":
         d            = st.session_state.s3_data
+        # Guard: if cached data is old 3-component format, reset and re-run
+        if "ip_idea_score" not in d:
+            st.session_state.s3_step = "intro"
+            st.session_state.s3_data = {}
+            st.rerun()
         landscape    = d["landscape"]
         ansoff_data  = d["ansoff_data"]
         final        = d["final_score"]
