@@ -2689,7 +2689,6 @@ Return ONLY valid JSON:
     {
       "type": "Academic Paper / Startup / Pilot / Government Programme / Industry Deployment",
       "title": "name of the paper, company, or programme",
-      "authors": "Lead author surname et al. (for Academic Paper) or organisation name (for others)",
       "description": "one sentence on what was demonstrated",
       "source": "Source: org/journal, year",
       "confidence": "High / Medium / Low",
@@ -4482,7 +4481,6 @@ Return ONLY valid JSON:
     {
       "type": "Academic Paper / Startup / Pilot / Government Programme / Industry Deployment",
       "title": "name of the paper, company, or programme",
-      "authors": "Lead author surname et al. (for Academic Paper) or organisation name (for others)",
       "description": "one sentence on what was demonstrated",
       "source": "Source: org/journal, year",
       "confidence": "High / Medium / Low",
@@ -4715,7 +4713,6 @@ Return ONLY valid JSON:
                 icon = type_icons.get(ev.get("type",""), "📌")
                 rel_col  = rel_cols.get(ev.get("relevance","Adjacent"), "#60a5fa")
                 conf_col = conf_cols.get(ev.get("confidence","Medium"), "#f59e0b")
-                authors_line = f'<div style="color:#94a3b8;font-size:11px;margin-bottom:2px;">✍️ {ev.get("authors","")}</div>' if ev.get("authors") else ""
                 st.markdown(f"""
 <div style="background:#1a2d45;border-radius:6px;padding:10px 14px;margin:5px 0;">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
@@ -4724,7 +4721,6 @@ Return ONLY valid JSON:
     <span style="background:{rel_col}22;color:{rel_col};font-size:10px;padding:2px 7px;border-radius:8px;">{ev.get("relevance","")}</span>
     <span style="background:{conf_col}22;color:{conf_col};font-size:10px;padding:2px 7px;border-radius:8px;">{ev.get("confidence","")} confidence</span>
   </div>
-  {authors_line}
   <div style="color:#cbd5e1;font-size:12px;">{ev.get("description","")} <span style="color:#4a6fa5;">{ev.get("source","")}</span></div>
 </div>
 """, unsafe_allow_html=True)
@@ -4734,26 +4730,22 @@ Return ONLY valid JSON:
             with st.expander(f"🔗 Search links for {len(top_ev)} evidence items"):
                 st.caption("Links open targeted searches — paper titles from LLM training memory, verify before citing.")
                 for ev in top_ev:
-                    title   = ev.get("title", "")
-                    source  = ev.get("source", "")
-                    authors = ev.get("authors", "")
-                    etype   = ev.get("type", "")
+                    title  = ev.get("title", "")
+                    source = ev.get("source", "")
+                    etype  = ev.get("type", "")
                     if not title:
                         continue
                     import re as _re4
                     source_clean = _re4.sub(r',?\s*\(?\d{4}(?:[–\-]\d{4})?\)?', '', source).strip().rstrip(',').strip()
-                    # Build author token for search (first surname only)
-                    author_token = authors.split(" et al")[0].split(",")[0].strip() if authors else ""
-                    q_gs   = _up4.quote(f'{title} {author_token} {source_clean}'.strip())
-                    q_ss   = _up4.quote(f'{title} {author_token} {source_clean}'.strip())
+                    q_gs   = _up4.quote(f'{title} {source_clean}')
+                    q_ss   = _up4.quote(f'{title} {source_clean}')
                     url_gs = f"https://scholar.google.com/scholar?q={q_gs}"
                     url_ss = f"https://www.semanticscholar.org/search?q={q_ss}&sort=Relevance"
-                    url_pub = f"https://pubmed.ncbi.nlm.nih.gov/?term={_up4.quote(f'{title} {author_token}'.strip())}" if etype == "Academic Paper" else ""
+                    url_pub = f"https://pubmed.ncbi.nlm.nih.gov/?term={_up4.quote(title)}" if etype == "Academic Paper" else ""
                     links = f'[Google Scholar]({url_gs})  ·  [Semantic Scholar]({url_ss})'
                     if url_pub:
                         links += f'  ·  [PubMed]({url_pub})'
-                    authors_display = f"  \n✍️ {authors}" if authors else ""
-                    st.markdown(f"**{title}**{authors_display}  \nSource: {source_clean}  \n{links}")
+                    st.markdown(f"**{title}**  \nSource: {source_clean}  \n{links}")
                     st.markdown("---")
 
         st.markdown("---")
